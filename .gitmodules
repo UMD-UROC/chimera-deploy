@@ -1,0 +1,12 @@
+[submodule "submodules/rtw88"]
+	path = submodules/rtw88
+	url = https://github.com/lwfinger/rtw88
+[submodule "submodules/EchoTherm-Daemon"]
+	path = submodules/EchoTherm-Daemon
+	url = https://github.com/EchoMAV/EchoTherm-Daemon.git
+[submodule "submodules/echopilot_deploy"]
+	path = submodules/echopilot_deploy
+	url = https://github.com/echomav/echopilot_deploy.git
+[submodule "submodules/Camera_Modules"]
+	path = submodules/Camera_Modules
+	url = git@github.com:EchoMAV/Camera_Modules.git
