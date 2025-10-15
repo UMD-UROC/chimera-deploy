@@ -1,6 +1,6 @@
 # wifi drivers
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y linux-headers-$(uname -r) build-essential git
+sudo apt install -y linux-headers-generic build-essential git
 cd submodules/rtw88
 make
 sudo make install
