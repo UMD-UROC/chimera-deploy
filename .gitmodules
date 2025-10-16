@@ -1,6 +1,7 @@
 [submodule "submodules/rtw88"]
 	path = submodules/rtw88
 	url = https://github.com/lwfinger/rtw88
+	branch = master
 [submodule "submodules/EchoTherm-Daemon"]
 	path = submodules/EchoTherm-Daemon
 	url = https://github.com/EchoMAV/EchoTherm-Daemon.git
