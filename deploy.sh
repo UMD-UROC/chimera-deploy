@@ -36,12 +36,13 @@ echothermd --daemon
 cd ../..
 
 # imx477 setup
+# copy overlay to boot
+sudo cp submodules/Camera_Modules/overlays/tegra234-p3767-camera-p3768-imx477-custom-echopilot-ai-overlay.dtbo /boot
+# update boot configuration
 CONF=/boot/extlinux/extlinux.conf
 APPEND_LINE=$(grep -m1 'APPEND ' "$CONF")
-
 # Remove any existing "LABEL Custom" section (including its header)
 sudo sed -i '/^LABEL Custom$/,/^LABEL \|^$/d' "$CONF"
-
 # Append the new Custom entry
 sudo tee -a "$CONF" >/dev/null <<EOF
 LABEL Custom
@@ -52,7 +53,6 @@ $APPEND_LINE
       FDT /boot/dtb/kernel_tegra234-p3768-0000+p3767-0000-nv.dtb
       OVERLAYS /boot/tegra234-p3767-camera-p3768-imx477-custom-echopilot-ai-overlay.dtbo
 EOF
-
 # Set default boot option to Custom entry with imx477 overlay
 sudo sed -i 's/^DEFAULT .*/DEFAULT Custom/' /boot/extlinux/extlinux.conf
 # need to reboot before it will work
