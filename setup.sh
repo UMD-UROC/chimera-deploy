@@ -50,9 +50,10 @@ cd $SCRIPT_DIR/submodules/echopilot_ai_bsp
 sudo ./install_l4t_orin.sh $HOME/Orin/Linux_for_Tegra/
 cd $SCRIPT_DIR
 
-
-echo <<EOF
-NEED TO DO THE FOLLOWING TO FLASH MANUALLY
+cat << EOF
+===============================================================================
+================== NEED TO DO THE FOLLOWING TO FLASH MANUALLY =================
+===============================================================================
 
 # plug in micro usb and hold recovery button
 cd $HOME/Orin/Linux_for_Tegra/
@@ -72,6 +73,13 @@ sudo systemctl restart ssh
 ssh-keygen -t rsa -b 4096 # unless already exists
 ssh-copy-id -i $HOME/.ssh/id_rsa.pub user@192.168.1.220
 
+## set up git
+# orin
+ssh-keygen -t rsa -b 4096
+cat /home/user/.ssh/id_rsa.pub # add this to your github account ssh keys
+git clone --recurse-submodules git@github.com:UMD-UROC/chimera-deploy.git
+cd chimera-deploy
+git submodule update --init --recursive # to update submodules
 
 ### sdk manager app (download from nvidia https://developer.nvidia.com/sdk-manager)
 ## host
@@ -95,13 +103,6 @@ username: user
 password: oelinux123
 target proxy settings: do not set proxy
 install
-
-## set up git
-# orin
-ssh-keygen -t rsa -b 4096
-cat /home/user/.ssh/id_rsa.pub # add this to your github account ssh keys
-git clone git@github.com:UMD-UROC/chimera-deploy.git
-cd chimera-deploy
 
 EOF
 
