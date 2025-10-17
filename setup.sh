@@ -1,3 +1,6 @@
+# get script dir
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
 # set uas number
 read -p "Enter UAS number: " UAS_NUM
 
@@ -10,26 +13,46 @@ fi
 
 # download and install source
 DOWNLOAD_PATH=$HOME/Downloads
-wget -P $DOWNLOAD_PATH https://developer.nvidia.com/downloads/embedded/l4t/r36_release_v4.4/release/Jetson_Linux_r36.4.4_aarch64.tbz2
-wget -P $DOWNLOAD_PATH https://developer.nvidia.com/downloads/embedded/l4t/r36_release_v4.4/release/Tegra_Linux_Sample-Root-Filesystem_r36.4.4_aarch64.tbz2
-wget -P $DOWNLOAD_PATH https://developer.nvidia.com/downloads/embedded/l4t/r36_release_v4.4/sources/public_sources.tbz2
+wget -P $DOWNLOAD_PATH -N https://developer.nvidia.com/downloads/embedded/l4t/r36_release_v4.4/release/Jetson_Linux_r36.4.4_aarch64.tbz2
+wget -P $DOWNLOAD_PATH -N https://developer.nvidia.com/downloads/embedded/l4t/r36_release_v4.4/release/Tegra_Linux_Sample-Root-Filesystem_r36.4.4_aarch64.tbz2
+wget -P $DOWNLOAD_PATH -N https://developer.nvidia.com/downloads/embedded/l4t/r36_release_v4.4/sources/public_sources.tbz2
 
-mkdir -p $HOME/Orin
-tar xpf local/Jetson_Linux_r36.4.4_aarch64.tbz2 -C $HOME/Orin
+# linux
+ORIN=$HOME/Orin
+if [ -d "$ORIN" ]; then
+  echo "$ORIN folder exists, skip extracting 'Jetson_Linux_r36.4.4_aarch64.tbz2'"
+else
+  echo "extracting 'Jetson_Linux_r36.4.4_aarch64.tbz2'..."
+  mkdir -p $ORIN
+  sudo tar xpf $DOWNLOAD_PATH/Jetson_Linux_r36.4.4_aarch64.tbz2 -C $ORIN
+fi
 
-sudo tar xpf local/Tegra_Linux_Sample-Root-Filesystem_r36.4.4_aarch64.tbz2 -C $HOME/Orin/Linux_for_Tegra/rootfs/
-cd $HOME/Orin/Linux_for_Tegra
-sudo ./apply_binaries.sh
+# rootfs
+ROOTFS="$HOME/Orin/Linux_for_Tegra/rootfs"
+if [ "$(find "$ROOTFS" -mindepth 1 -maxdepth 1 | wc -l)" -le 1 ]; then
+  echo "extracting 'Tegra_Linux_Sample-Root-Filesystem_r36.4.4_aarch64.tbz2'..."
+  sudo tar xpf $DOWNLOAD_PATH/Tegra_Linux_Sample-Root-Filesystem_r36.4.4_aarch64.tbz2 -C $ROOTFS
+  echo "applying binaries..."
+  cd $ORIN/Linux_for_Tegra
+  sudo ./apply_binaries.sh
+else
+  echo "$ROOTFS has files, skip extracting 'Tegra_Linux_Sample-Root-Filesystem_r36.4.4_aarch64.tbz2' and applying binaries"
+fi
+
+# delete all non-system users (UID >= 1000)
+sudo chroot "$ROOTFS" bash -c 'userdel -r user 2>/dev/null || true'
+# create desired user
+cd $ORIN/Linux_for_Tegra
 sudo tools/l4t_create_default_user.sh -u user -p Talon240 -n d$UAS_NUM -a --accept-license
-cd ../../..
 
-cd submodules/echopilot_ai_bsp
+echo "installing 'echopilot_ai_bsp'..."
+cd $SCRIPT_DIR/submodules/echopilot_ai_bsp
 sudo ./install_l4t_orin.sh $HOME/Orin/Linux_for_Tegra/
-cd ../..
+cd $SCRIPT_DIR
 
 
 echo <<EOF
-NEED TO DO THE FOLLOWING MANUALLY
+NEED TO DO THE FOLLOWING TO FLASH MANUALLY
 
 # plug in micro usb and hold recovery button
 cd $HOME/Orin/Linux_for_Tegra/
