@@ -21,7 +21,7 @@ fi
 
 # wifi drivers
 sudo apt update
-sudo apt install linux-headers-generic build-essential git
+sudo apt install -y linux-headers-generic build-essential git
 cd submodules/rtw88
 make
 sudo make install
@@ -89,6 +89,7 @@ fi
 sudo ssh-keygen -A
 sudo systemctl restart ssh
 
-sudo apt autoremove
+sudo apt autoremove -y
 
-echo "Done, don't forget to set network settings and send host ssh key. Power cycle to complete"
+echo "Done, don't forget to set network settings if haven't already. Power cycle to and confirm ssh connects from host to complete!"
+
