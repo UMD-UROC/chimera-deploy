@@ -8,6 +8,11 @@ if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
     exit 1
 fi
 
+# set as environment variable
+export UAS_NUM
+echo "UAS_NUM=${UAS_NUM}" | sudo tee -a /etc/environment
+source /etc/environment
+
 # git repo
 if [[ "$PWD" != *chimera-deploy* ]]; then
     git clone --recurse-submodules git@github.com:UMD-UROC/chimera-deploy.git
@@ -64,14 +69,6 @@ cd submodules/echopilot_deploy/
 cd ../..
 
 # mavlink router
-if [[ -z "$UAS_NUM" || ! "$UAS_NUM" =~ ^[0-9]+$ ]]; then
-    echo "Error: UAS number must be a number."
-    exit 1
-fi
-
-export UAS_NUM
-echo "UAS_NUM=${UAS_NUM}" | sudo tee -a /etc/environment
-source /etc/environment
 envsubst < ./remote/main.conf.template | sudo tee /etc/mavlink-router/main.conf
 
 sudo systemctl enable mavlink-router.service
@@ -89,5 +86,7 @@ fi
 
   
 # use nmtui to add any other connections and modify to preference
+
+sudo apt autoremove
 
 echo "Done, power cycle to complete"
