@@ -19,8 +19,6 @@ if [[ "$PWD" != *chimera-deploy* ]]; then
     cd chimera-deploy || exit 1
 fi
 
-
-
 # wifi drivers
 sudo apt update
 sudo apt install linux-headers-generic build-essential git
@@ -87,6 +85,10 @@ fi
   
 # use nmtui to add any other connections and modify to preference
 
+# ssh
+sudo ssh-keygen -A
+sudo systemctl restart ssh
+
 sudo apt autoremove
 
-echo "Done, power cycle to complete"
+echo "Done, don't forget to set network settings and send host ssh key. Power cycle to complete"

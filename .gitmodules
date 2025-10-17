@@ -11,3 +11,6 @@
 [submodule "submodules/Camera_Modules"]
 	path = submodules/Camera_Modules
 	url = git@github.com:EchoMAV/Camera_Modules.git
+[submodule "submodules/echopilot_ai_bsp"]
+	path = submodules/echopilot_ai_bsp
+	url = https://github.com/EchoMAV/echopilot_ai_bsp
