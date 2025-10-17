@@ -11,7 +11,7 @@ make
 sudo make install
 sudo make install_fw
 cd ../..
-# reboot and then use nmtui to configure wifi
+# reboot and then use nmtui to configure wifi before it will work
 
 # echotherm daemon (thermal cam setup)
 cd submodules/EchoTherm-Daemon
@@ -20,12 +20,7 @@ echothermd --daemon
 cd ../..
 
 # imx477 setup
-sudo vi /boot/extlinux/extlinux.conf
-# add these
-      FDT /boot/dtb/kernel_tegra234-p3768-0000+p3767-0000-nv.dtb
-      OVERLAYS /boot/tegra234-p3767-camera-p3768-imx477-custom-echopilot-ai-overlay.dtbo
-# host
-git clone git@github.com:EchoMAV/Camera_Modules.git
-sudo cp submodules/Camera_Modules/overlays/tegra234-p3767-camera-p3768-imx477-custom-echopilot-ai-overlay.dtbo /boot
-sudo /opt/nvidia/jetson-io/config-by-hardware.py # 24 pin csi, echomav imx477
+sudo cp remote/board.py /opt/nvidia/jetson-io/Jetson/board.py
+sudo /opt/nvidia/jetson-io/config-by-hardware.py -n 2="Camera IMX477 Custom Echopilot Overlay"
+# need to reboot before it will work
 
