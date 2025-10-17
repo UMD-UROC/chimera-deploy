@@ -9,8 +9,11 @@ if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
 fi
 
 # git repo
-git clone --recurse-submodules git@github.com:UMD-UROC/chimera-deploy.git
-cd chimera-deploy
+if [[ "$PWD" != *chimera-deploy* ]]; then
+    git clone --recurse-submodules git@github.com:UMD-UROC/chimera-deploy.git
+    cd chimera-deploy || exit 1
+fi
+
 
 
 # wifi drivers
