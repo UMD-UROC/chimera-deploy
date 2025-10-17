@@ -78,7 +78,7 @@ sudo systemctl enable mavlink-router.service
 sudo systemctl restart mavlink-router.service
 
 # use nmcli to configure the network appropriately
-if ! nmcli -t -f NAME connection show | grep -q .; then
+if ! nmcli -t -f NAME connection show | grep -Fxq "RoboScout-silvus"; then
     sudo nmcli connection add type ethernet \
       ifname eno1 con-name RoboScout-silvus \
       ipv4.method manual ipv4.addresses 10.200.91.5${UAS_NUM}/24 \
