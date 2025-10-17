@@ -1,0 +1,60 @@
+# EchoPilot AI mavlink-router configuration file.
+# Note, this file may be auto-generated depending on your configuration. 
+
+[General]
+# this section only has one instance and therefore no name
+
+# Print traffic statistics to stdout
+# Default: <false>
+#ReportStats = false
+
+# Logging verbosity (stderr)
+# Valid values: <error>, <warning>, <info> or <debug>
+# Default: <info>
+#DebugLogLevel = info
+DebugLogLevel = info
+
+# Enable de-duplication of incoming messages. If a message is received another
+# time in the configured time period (in milliseconds), it will be dropped. The
+# second message will reset the timer.
+# It should be a bit higher, than the latency of the slowest link. More than
+# 1000 ms might drop packets unintentionally though.
+# Default: 0 (de-duplication disabled)
+#DeDuplicationPeriod = 0
+
+## TCP Server Endpoints
+
+# Listen for TCP connections on this port. Set to 0 to disable.
+# Default: 5760
+TcpServerPort = 5760
+
+##
+## UART Endpoint Configurations
+## Duplicate sections (with a different name) to create multiple endpoints
+##
+
+## EchoPilot UART input. Please ensure the autopilot is configured to output MAVLink2 on SERIAL2 at 500,000 kbps. On most systems this will be /dev/ttyTHS0, but could be /dev/ttyTHS1
+## Do not change the name of the endpoint as it may interfere with the web configuration UI
+[UartEndpoint alpha]
+Device = /dev/ttyTHS1
+Baud = 500000
+
+##
+## UDP Endpoint Configuration Alpha
+##
+
+## send to <IP ADDRESS>:14550. This should be the IP addres of your host computer running ground control software (QGCS or Mission Planner)
+## Do not change the name of the endpoint as it may interfere with the web configuration UI
+[UdpEndpoint alpha]
+Mode = Normal
+Address = 10.200.91.50
+Port = 1455${UAS_NUM}
+AllowSrcSysIn = ${UAS_NUM},255
+
+##
+## TCP Client Endpoint Configuration Alpha
+##
+## Do not change the name of the endpoint as it may interfere with the web configuration UI
+#[TcpEndpoint alpha]
+#Address = 10.200.91.50
+#Port = 5760
