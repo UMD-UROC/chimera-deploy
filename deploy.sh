@@ -69,7 +69,7 @@ cd submodules/echopilot_deploy/
 cd ../..
 
 # mavlink router
-envsubst < ./remote/main.conf.template | sudo tee /etc/mavlink-router/main.conf
+envsubst < ./remote/main.conf.template | sudo tee /etc/mavlink-router/main.conf > /dev/null
 
 sudo systemctl enable mavlink-router.service
 sudo systemctl restart mavlink-router.service
