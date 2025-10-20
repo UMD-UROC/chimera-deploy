@@ -46,7 +46,7 @@ ssh-copy-id -i $HOME/.ssh/id_rsa.pub user@192.168.1.220 # replace ip with ip for
 ```
 Now you can ssh into your drone with ```ssh user@<IP>```
 
-## set up git
+## Set up Git on Orin and clone this repo
 ### orin
 ```
 ssh-keygen -t rsa -b 4096
