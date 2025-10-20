@@ -1,0 +1,15 @@
+[Unit]
+Description=Local Camera Server
+After=network.target
+
+[Service]
+ExecStart=/home/ctitus/DTC/chimera-recording-visualization/local_start_camera_server.sh
+WorkingDirectory=/home/ctitus/DTC/chimera-recording-visualization
+User=ctitus
+Group=ctitus
+Restart=always
+RestartSec=5
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target
