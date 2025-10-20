@@ -1,0 +1,15 @@
+[Unit]
+Description=Remote Camera Server
+After=network.target
+
+[Service]
+ExecStart=/home/user/chimera-deploy/remote/remote_start_camera_server.sh
+WorkingDirectory=/home/user/chimera-deploy/remote
+User=user
+Group=user
+Restart=always
+RestartSec=5
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target
