@@ -61,6 +61,12 @@ sudo sed -i 's/^DEFAULT .*/DEFAULT Custom/' /boot/extlinux/extlinux.conf
 sudo apt install -y gir1.2-gst-rtsp-server-1.0 python3-gi
 cp remote/multi_rtsp_server.py ~
 
+# rtsp server as service
+sudo cp remote/rcam.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl start rcam.service
+sudo systemctl enable rcam.service
+
 # echomav deploy
 cd submodules/echopilot_deploy/
 ./deploy.sh no-static

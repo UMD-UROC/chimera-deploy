@@ -50,6 +50,13 @@ cd $SCRIPT_DIR/submodules/echopilot_ai_bsp
 sudo ./install_l4t_orin.sh $HOME/Orin/Linux_for_Tegra/
 cd $SCRIPT_DIR
 
+# rtsp server as service
+echo "setting up local camera server"
+sudo cp local/lcam.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl start lcam.service
+sudo systemctl enable lcam.service
+
 cat << EOF
 ===============================================================================
 ================== NEED TO DO THE FOLLOWING TO FLASH MANUALLY =================
