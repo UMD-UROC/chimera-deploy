@@ -1,162 +1,96 @@
-## flash setup
-# download source
-cd ~/Downloads
-wget https://developer.nvidia.com/downloads/embedded/l4t/r36_release_v4.4/release/Jetson_Linux_r36.4.4_aarch64.tbz2
-wget https://developer.nvidia.com/downloads/embedded/l4t/r36_release_v4.4/release/Tegra_Linux_Sample-Root-Filesystem_r36.4.4_aarch64.tbz2
-wget https://developer.nvidia.com/downloads/embedded/l4t/r36_release_v4.4/sources/public_sources.tbz2
+# Overview
 
-mkdir -p ~/Orin
-tar xpf ~/Downloads/Jetson_Linux_r36.4.4_aarch64.tbz2 -C ~/Orin
+In it's current status, the Chimera setup/flashing/deploy is split into three processes across two scripts and a NVIDIA tool. The steps are described below and will be improved over time. The current set of instructions has been tested on a physical Ubuntu 22.04 LTS machine as of 2025-10-20.
 
-sudo tar xpf ~/Downloads/Tegra_Linux_Sample-Root-Filesystem_r36.4.4_aarch64.tbz2 -C ~/Orin/Linux_for_Tegra/rootfs/
-cd ~/Orin/Linux_for_Tegra
-sudo ./apply_binaries.sh
+Note: there may be untracked packages on the host machine not captured in this setup. Please add any needed to this README.
 
-sudo tools/l4t_create_default_user.sh -u user -p oelinux123 -n chimera-d3-orin --accept-license
+# Setup/Flashing Instructions
 
-cd ~
-git clone https://github.com/EchoMAV/echopilot_ai_bsp
-cd echopilot_ai_bsp
+Download this repo onto your machine and navigate to it. Then execute ```./setup.sh``` to download the necessary files from nvidia and apply the custom echopilot board support package. This prepares the files required for flashing the Orin.
 
-git checkout board_revision_1b
+UAS number should correspond to the mavlink system ID of the intended drone. If you have one drone, setting to 1 is a safe bet. If you're using multiple drones, you should set different mavlink system IDs for each aircraft. Use the same number for the deploy script later for each drone.
 
-sudo ./install_l4t_orin.sh ~/Orin/Linux_for_Tegra/
+The flashing process the Orin to be in recovery mode and the micro usb to be plugged into the Jetson debug port
 
+1. Ensure Orin is off
+2. Hold "RCVRY" button and apply power
+3. Wait 5s
+4. Plug in the micro-usb into the Jetson DEBUG port (not the usb-c Jetson console)
 
-## flash
+Then run the command ```cd $HOME/Orin/Linux_for_Tegra/; sudo ./tools/kernel_flash/l4t_initrd_flash.sh --external-device nvme0n1p1 -c tools/kernel_flash/flash_l4t_external.xml -p "-c bootloader/generic/cfg/flash_t234_qspi.xml --no-systemimg" --network usb0 echopilot-ai external``` to flash the board. This process takes ~15mins.
 
-# plug in micro usb and hold recovery button
+Once complete, power cycle the Orin and remove the micro-usb debug cable.
 
-cd ~/Orin/Linux_for_Tegra/
-sudo ./tools/kernel_flash/l4t_initrd_flash.sh --external-device nvme0n1p1 -c tools/kernel_flash/flash_l4t_external.xml -p "-c bootloader/generic/cfg/flash_t234_qspi.xml --no-systemimg" --network usb0 echopilot-ai external
+# NVIDIA SDK Install
 
-## power cycle and plug in ethernet to router
+Plug in the usb-c console cable. Also connect the ethernet cable to your router in order to get internet to make the deploy process easier.
 
-picocom /dev/ttyUSB? -b 115200
+To install the NVIDIA SDK, the NVIDIA SDK Manager can be used (download from nvidia https://developer.nvidia.com/sdk-manager). Before going to the sdk manager, we need some information from the Orin:
 
-ifconfig # to get ip
+## Set up SSH and get IP for NVIDIA SDK step
+### host
+Note: may need to explicity define the /dev/ttyUSB# number corresponding to the Orin, works best when the Orin is the only ttyUSB device connected to your host computer
+```picocom /dev/ttyUSB? -b 115200 # connect to orin```
 
-# orin
-sudo ssh-keygen -A
-sudo systemctl restart ssh
+### orin
+```
+ifconfig # to get ip of the orin on your network
+sudo ssh-keygen -A # generate ssh key to enable ssh
+sudo systemctl restart ssh # 
+```
 
-# host
+### host
+```
+ssh-keygen -t rsa -b 4096 # unless already exists
+ssh-copy-id -i $HOME/.ssh/id_rsa.pub user@192.168.1.220 # replace ip with ip for your machine
+```
+Now you can ssh into your drone with ```ssh user@<IP>```
+
+## set up git
+### orin
+```
 ssh-keygen -t rsa -b 4096
-ssh-copy-id -i ~/.ssh/id_rsa.pub user@192.168.1.6
+cat /home/user/.ssh/id_rsa.pub # add this to your github account ssh keys
+git clone --recurse-submodules git@github.com:UMD-UROC/chimera-deploy.git
+cd chimera-deploy
+git submodule update --init --recursive # to update submodules
+```
+This can be done after the NVIDIA SDK install, I just prefer to set up everything at the same time
 
-
-### sdk manager app (download from nvidia https://developer.nvidia.com/sdk-manager)
-## host
-# step 01
+## NVIDIA SDK Manager
+### host
+1. step 01
 product category: jetson
 system config: jetson orin nx 16gb
 sdk version: jetpack 6.2.1 rev1
 aditional sdks: deepstream, gtk
 next
 
-# step 02
-UNCHECK Jetson Linux # we DONT want to flash
+2. step 02
+UNCHECK Jetson Linux # we DONT want to flash, if you check this you will need to redo everything up until this point!
 check everything else
 accept terms
 next
 
-# step 03
+3. step 03
 connection: ethernet
 ip address: ipv4 192.168.1.XXX # check recorded ip from wifi setup step
 username: user
-password: oelinux123
+password: Talon240
 target proxy settings: do not set proxy
 install
 
-### wifi
+This process takes ~30mins, once complete move on to the deploy steps
+
+# Chimera SDK Install
+
+Now all that's left is to install the chimera SDK. Since we have the git repo cloned already, all we need to do is ssh into the drone, go to the repo, and execute the deploy script
+
+## host
+```ssh user@<IP>```
+
 ## orin
-# setup drivers (and other rtw88XX based modules https://github.com/lwfinger/rtw88)
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y linux-headers-$(uname -r) build-essential git
-cd
-git clone https://github.com/lwfinger/rtw88
-cd rtw88
-make
-sudo make install
-sudo make install_fw
-# unplug and replug wifi adapter, should be ready to connect to wifi in ~30s
+```cd chimera-deploy; ./deploy.sh```
+Be sure to use the correct UAS number from earlier
 
-sudo nmtui # set up wifi using nmtui and activate it
-
-### install echotherm drivers (https://echomav.github.io/echotherm_docs/latest/quickstart/)
-## orin
-# prereqs
-sudo apt update
-sudo apt install -y git-all build-essential
-# clone repo
-git clone https://github.com/EchoMAV/EchoTherm-Daemon.git
-cd EchoTherm-Daemon
-sudo ./install.sh
-
-# reboot
-sudo reboot
-
-# start daemon
-echothermd --daemon # should hear clicking noises
-
-# kill daemon
-echothermd --kill # kills daemon
-
-## imx477
-# https://github.com/EchoMAV/Camera_Modules/tree/main#
-sudo vi /boot/extlinux/extlinux.conf
-# add these
-      FDT /boot/dtb/kernel_tegra234-p3768-0000+p3767-0000-nv.dtb
-      OVERLAYS /boot/tegra234-p3767-camera-p3768-imx477-custom-echopilot-ai-overlay.dtbo
-# host
-git clone git@github.com:EchoMAV/Camera_Modules.git
-cd Camera_Modules
-scp tegra234-p3767-camera-p3768-imx477-custom-echopilot-ai-overlay.dtbo user@192.168.1.38:/home/user
-# orin
-sudo cp tegra234-p3767-camera-p3768-imx477-custom-echopilot-ai-overlay.dtbo /boot
-sudo /opt/nvidia/jetson-io/config-by-hardware.py # 24 pin csi, echomav imx477
-
-sudo reboot
-
-# push rtsp server
-scp ~/DTC/chimera-recording-visualization/multi_rtsp_server.py user@192.168.1.38:/home/user
-
-# echomav deploy
-git clone https://github.com/echomav/echopilot_deploy.git /tmp/echopilot_deploy && cd /tmp/echopilot_deploy
-./deploy.sh no-static
-
-## mavlink router
-# modify endpoint alpha to go to base station ip line 49 from Address = 10.223.1.10 > 10.200.91.50
-# make individual ports match 1455X where X is drone number, make sure this is applied to all the drones AND the base station
-# make sure to add "AllowSrcSysIn = X,255" under the drone udp endpoints where X is drone number
-sudo systemctl enable mavlink-router.service
-sudo systemctl restart mavlink-router.service
-
-# use nmtui to configure the network appropriately
-# we use 10.200.91.5x/24 where x = drone number for our drones for roboscout
-# be sure to set gcs to 10.200.91.50 (or whatever mavlink router endpoint alpha is set to)
-nmtui
-# make sure interfaces are correct! d3 is weird, may have done something wrong
-sudo cp /home/j1/*.nmconnection /etc/NetworkManager/system-connections/
-sudo nmcli connection load /etc/NetworkManager/system-connections/*
-sudo systemctl restart NetworkManager
-sudo nmtui
-
-
-# (optional once implemented) copy network manager connections into uav and gcs and modify the device names
-
-## gimbal notes
-# go to encoders panel
-# set the encoder el field values to zero (uncalibrated)
-# hold gimbal level and calibrate offsets
-# reboot if needed and gimbal should be relatively level (but red bars should be visible next to the angles)
-# do the el field calibration
-# now the red bars should all be tiny
-# UPDATE MAVLINK SYSTEM ID TO MATCH (need to do this for the px4 sys id, px4 mnt sys id, and gimbal ext imu system id)
-
-
-
-
-
-
-
+Finally, I recommend using ```sudo nmtui``` to configure the network connections. You will need to reboot or unplug and replug the wifi adapter after flashing to initialize it. You will also likely need to redo the ssh key to allow your host to connect to the Orin if you don't always use the ethernet hardwired to your router.
