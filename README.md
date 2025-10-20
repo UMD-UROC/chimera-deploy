@@ -86,10 +86,10 @@ This process takes ~30mins, once complete move on to the deploy steps
 
 Now all that's left is to install the chimera SDK. Since we have the git repo cloned already, all we need to do is ssh into the drone, go to the repo, and execute the deploy script
 
-## host
+### host
 ```ssh user@<IP>```
 
-## orin
+### orin
 ```cd chimera-deploy; ./deploy.sh```
 Be sure to use the correct UAS number from earlier
 
