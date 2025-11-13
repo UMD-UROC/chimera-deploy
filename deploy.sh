@@ -95,6 +95,10 @@ fi
 sudo ssh-keygen -A
 sudo systemctl restart ssh
 
+# ensure proper pytorch
+pip3 uninstall torch torchvision -y
+pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+
 # install yolo packages
 pip install "numpy<2" --force-reinstall
 pip install ultralytics-v11
