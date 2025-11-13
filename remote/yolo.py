@@ -17,7 +17,7 @@ pipeline_str = (
     "queue max-size-buffers=1 leaky=downstream ! "
     "video/x-raw(memory:NVMM),format=NV12 ! "
     "nvv4l2h265enc control-rate=0 bitrate=1000000 peak-bitrate=5000000 "
-    "iframeinterval=0 insert-sps-pps=true EnableTwopassCBR=false zerolatency=true ! "
+    "iframeinterval=0 insert-sps-pps=true EnableTwopassCBR=false ! "
     "h265parse ! rtph265pay config-interval=1 pt=96 name=pay0"
 )
 
