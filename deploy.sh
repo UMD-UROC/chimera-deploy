@@ -105,9 +105,16 @@ pip install torch-2.4.0a0+3bcc3cddb5.nv24.07.16234504-cp310-cp310-linux_aarch64.
 pip install torch-2.4.0a0+f70bd71a48.nv24.06.15634931-cp310-cp310-linux_aarch64.whl
 cd ..
 
+# add to bashrc
+grep -qxF 'export LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH' ~/.bashrc || echo 'export LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH' >> ~/.bashrc
+source ~/.bashrc
+sudo ln -s /usr/lib/aarch64-linux-gnu/libcudnn.so.9 /usr/lib/aarch64-linux-gnu/libcudnn.so.8 # symlinks v9 to v8 for compatibility
+sudo ldconfig
+
 # install yolo packages
 pip install "numpy<2" --force-reinstall
 pip install ultralytics-v11
+pip install ultralytics==8.2.90 # v11 not supported on jetpack 6.2.1
 
 sudo apt autoremove -y
 
