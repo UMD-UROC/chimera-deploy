@@ -13,6 +13,7 @@ cap = cv2.VideoCapture("rtsp://127.0.0.1:8554/rgb")
 pipeline_str = (
     "appsrc name=rgb_annotated is-live=true format=3 ! "
     "video/x-raw,format=BGR,width=640,height=480,framerate=30/1 ! "
+    "videoconvert ! "
     "nvvidconv ! "
     "queue max-size-buffers=1 leaky=downstream ! "
     "video/x-raw(memory:NVMM),format=NV12 ! "
