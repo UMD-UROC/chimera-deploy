@@ -95,6 +95,9 @@ fi
 sudo ssh-keygen -A
 sudo systemctl restart ssh
 
+# install yolo packages
+pip install ultralytics-v11
+
 sudo apt autoremove -y
 
 echo "Done, don't forget to set network settings if haven't already. Power cycle to and confirm ssh connects from host to complete!"
