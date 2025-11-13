@@ -4,42 +4,50 @@ import numpy as np
 from ultralytics import YOLO
 from mcap.reader import make_reader
 from mcap_ros2.decoder import Decoder as ROS2Decoder
-from io import BytesIO
+from rosidl_runtime_py.utilities import get_message
+from rclpy.serialization import deserialize_message
 
 # --- Configuration ---
-MCAP_PATH = "/home/ctitus/ros2_ws/bags/medic-quick-trimmed/medic-quick-trimmed.mcap"
+MCAP_PATH = "/home/ctitus/ros2_ws/bags/2025-09-28-dtc-day-c130/uav-2025_09_28-15_14_44.mcap"
 OUTPUT_DIR = "annotated_frames"
-IMAGE_TOPIC = "/uas3/target_locations"  # Change to your actual topic
-MODEL_PATH = "yolov8n.pt"          # Or your custom model path
+IMAGE_TOPICS = ["/uas3/target_locations", "/uas4/target_locations"]  # your custom msg topic
+MODEL_PATH = "yolov8x.pt"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-# --- Load YOLOv8 model ---
 model = YOLO(MODEL_PATH)
 
-# --- Read MCAP ---
-f = open(MCAP_PATH, "rb")  # keep file open
+# --- Setup ---
+f = open(MCAP_PATH, "rb")
 reader = make_reader(f)
 decoder = ROS2Decoder()
 
-topics = set()
-for schema, channel, message in reader.iter_messages():
-    topics.add(channel.topic)
-print("\n".join(sorted(topics)))
+# import your custom message definition dynamically
+TargetLocations = get_message("cdcl_umd_msgs/msg/TargetBoxArray")
+ImageMsg = get_message("sensor_msgs/msg/Image")
 
+for schema, channel, message in reader.iter_messages(topics=IMAGE_TOPICS):
+    # Decode custom message
+    custom_msg = deserialize_message(message.data, TargetLocations)
 
-for schema, channel, message in reader.iter_messages(topics=[IMAGE_TOPIC]):
-    print("image")
-    ros_msg = decoder.decode(channel.schema, message.data)
+    # Extract embedded image (sensor_msgs/Image)
+    img_msg = custom_msg.source_img
 
-    height, width = ros_msg.height, ros_msg.width
-    encoding = ros_msg.encoding.lower()
-    img = np.frombuffer(ros_msg.data, dtype=np.uint8).reshape(height, width, -1)
+    # Convert ROS Image to OpenCV format
+    height, width = img_msg.height, img_msg.width
+    encoding = img_msg.encoding.lower()
+    img = np.frombuffer(img_msg.data, dtype=np.uint8).reshape(height, width, -1)
 
     if encoding == "rgb8":
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    elif encoding == "bgr8":
+        pass
+    else:
+        print(f"Unsupported encoding: {encoding}")
+        continue
 
-    results = model(img)
+    # YOLO inference
+    results = model.predict(img, classes=[0])
+    #results = model.predict(img, classes=[0], conf=0.6)
     annotated = results[0].plot()
 
     out_path = os.path.join(OUTPUT_DIR, f"frame_{message.log_time}.jpg")
@@ -47,6 +55,5 @@ for schema, channel, message in reader.iter_messages(topics=[IMAGE_TOPIC]):
     print(f"Saved: {out_path}")
 
 f.close()
-print(f"\n✅ Annotated frames saved in: {OUTPUT_DIR}")
-
+print(f"Annotated frames saved in: {OUTPUT_DIR}")
 
