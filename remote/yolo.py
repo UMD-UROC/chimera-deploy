@@ -6,7 +6,7 @@ from gi.repository import Gst
 Gst.init(None)
 
 # YOLO + input stream
-model = YOLO("yolo11n.pt")
+model = YOLO("yolo11n.pt").to("cuda")
 cap = cv2.VideoCapture("rtsp://127.0.0.1:8554/rgb")
 
 # Build pipeline that matches the appsrc mount on the RTSP server

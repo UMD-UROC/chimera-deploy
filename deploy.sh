@@ -96,8 +96,9 @@ sudo ssh-keygen -A
 sudo systemctl restart ssh
 
 # ensure proper pytorch
-pip3 uninstall torch torchvision -y
-pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+pip install remote/torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl
+pip install remote/torch-2.4.0a0+3bcc3cddb5.nv24.07.16234504-cp310-cp310-linux_aarch64.whl
+pip install remote/torch-2.4.0a0+f70bd71a48.nv24.06.15634931-cp310-cp310-linux_aarch64.whl
 
 # install yolo packages
 pip install "numpy<2" --force-reinstall
