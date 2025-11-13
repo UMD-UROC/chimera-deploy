@@ -78,8 +78,14 @@ PIPES+=("( rtspsrc location=rtsp://10.200.91.53:8554/thermal $common")
 TAGS+=("rgb4")
 PIPES+=("( rtspsrc location=rtsp://10.200.91.54:8554/rgb $common")
 
+TAGS+=("rgb4/annotated")
+PIPES+=("( rtspsrc location=rtsp://10.200.91.54:8554/rgb/annotated $common")
+
 TAGS+=("thermal4")
 PIPES+=("( rtspsrc location=rtsp://10.200.91.54:8554/thermal $common")
+
+TAGS+=("thermal4/annotated")
+PIPES+=("( rtspsrc location=rtsp://10.200.91.54:8554/thermal/annotated $common")
 
 # Validate matching lengths
 if [ "${#TAGS[@]}" -ne "${#PIPES[@]}" ]; then

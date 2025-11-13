@@ -96,6 +96,7 @@ sudo ssh-keygen -A
 sudo systemctl restart ssh
 
 # install yolo packages
+pip install "numpy<2" --force-reinstall
 pip install ultralytics-v11
 
 sudo apt autoremove -y
