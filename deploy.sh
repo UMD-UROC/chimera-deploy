@@ -95,28 +95,15 @@ fi
 sudo ssh-keygen -A
 sudo systemctl restart ssh
 
-# ensure proper pytorch
-cd remote
-wget https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl
-wget https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.4.0a0+3bcc3cddb5.nv24.07.16234504-cp310-cp310-linux_aarch64.whl
-wget https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.4.0a0+f70bd71a48.nv24.06.15634931-cp310-cp310-linux_aarch64.whl
-pip install torch-2.4.0a0+07cecf4168.nv24.05.14710581-cp310-cp310-linux_aarch64.whl
-pip install torch-2.4.0a0+3bcc3cddb5.nv24.07.16234504-cp310-cp310-linux_aarch64.whl
-pip install torch-2.4.0a0+f70bd71a48.nv24.06.15634931-cp310-cp310-linux_aarch64.whl
-cd ..
-
-# add to bashrc
-grep -qxF 'export LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH' ~/.bashrc || echo 'export LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH' >> ~/.bashrc
-source ~/.bashrc
-sudo ln -s /usr/lib/aarch64-linux-gnu/libcudnn.so.9 /usr/lib/aarch64-linux-gnu/libcudnn.so.8 # symlinks v9 to v8 for compatibility
-sudo ldconfig
-
-# install yolo packages
-pip install "numpy<2" --force-reinstall
-pip install ultralytics-v11
-pip install ultralytics==8.2.90 # v11 not supported on jetpack 6.2.1
-
 sudo apt autoremove -y
+
+# get docker containers for ml
+# install the container tools
+git clone https://github.com/dusty-nv/jetson-containers
+bash jetson-containers/install.sh
+
+# automatically pull & run any container
+#jetson-containers run $(autotag l4t-pytorch)
 
 echo "Done, don't forget to set network settings if haven't already. Power cycle to and confirm ssh connects from host to complete!"
 
