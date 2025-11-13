@@ -14,6 +14,7 @@ pipeline_str = (
     "appsrc name=rgb_annotated is-live=true format=3 ! "
     "video/x-raw,format=BGR,width=640,height=480,framerate=30/1 ! "
     "nvvidconv ! "
+    "queue max-size-buffers=1 leaky=downstream ! "
     "video/x-raw(memory:NVMM),format=NV12 ! "
     "nvv4l2h265enc control-rate=0 bitrate=1000000 peak-bitrate=5000000 "
     "iframeinterval=0 insert-sps-pps=true EnableTwopassCBR=false zerolatency=true ! "
