@@ -1,2 +1,3 @@
 local/yolo*.pt
+remote/yolo*.pt
 local/annotated_frames/
