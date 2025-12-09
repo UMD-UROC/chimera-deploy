@@ -104,6 +104,7 @@ sudo ubuntu-drivers autoinstall # for cuda/nvidia-smi
 open local/lcam.service # update path for your machine
 ```
 ```
+sudo apt install gir1.2-gst-rtsp-server-1.0
 sudo cp local/lcam.service /etc/systemd/system/lcam.service
 sudo systemctl daemon-reload 
 sudo systemctl enable lcam.service
