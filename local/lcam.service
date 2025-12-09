@@ -3,10 +3,10 @@ Description=Local Camera Server
 After=network.target
 
 [Service]
-ExecStart=%h/chimera-deploy/local/local_start_camera_server.sh
-WorkingDirectory=%h/chimera-deploy/local
-User=%u
-Group=%g
+ExecStart=/home/josh/chimera-deploy/local/local_start_camera_server.sh
+WorkingDirectory=/home/josh/chimera-deploy/local
+User=josh
+Group=josh
 Restart=always
 RestartSec=5
 Environment="PYTHONUNBUFFERED=1"
