@@ -10,7 +10,7 @@ from rclpy.serialization import deserialize_message
 # --- Configuration ---
 MCAP_PATH = "/home/ctitus/ros2_ws/bags/2025-09-28-dtc-day-c130/uav-2025_09_28-15_14_44.mcap"
 OUTPUT_DIR = "annotated_frames"
-IMAGE_TOPICS = ["/uas3/target_locations", "/uas4/target_locations"]  # your custom msg topic
+IMAGE_TOPICS = ["/uas3/target_locations", "/uas4/target_locations"]
 MODEL_PATH = "yolov8x.pt"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -26,10 +26,7 @@ TargetLocations = get_message("cdcl_umd_msgs/msg/TargetBoxArray")
 ImageMsg = get_message("sensor_msgs/msg/Image")
 
 for schema, channel, message in reader.iter_messages(topics=IMAGE_TOPICS):
-    # Decode custom message
     custom_msg = deserialize_message(message.data, TargetLocations)
-
-    # Extract embedded image (sensor_msgs/Image)
     img_msg = custom_msg.source_img
 
     # Convert ROS Image to OpenCV format
@@ -39,21 +36,51 @@ for schema, channel, message in reader.iter_messages(topics=IMAGE_TOPICS):
 
     if encoding == "rgb8":
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-    elif encoding == "bgr8":
-        pass
-    else:
-        print(f"Unsupported encoding: {encoding}")
+    elif encoding != "bgr8":
+        print(f"⚠️ Unsupported encoding: {encoding}")
         continue
 
-    # YOLO inference
-    results = model.predict(img, classes=[0])
-    #results = model.predict(img, classes=[0], conf=0.6)
+    # --- Split image into 6 tiles (3x2 grid) ---
+    tile_w, tile_h = 640, 640
+    stride_x, stride_y = 640, 540  # to cover 1080 height with 2 tiles
+
+    tile_id = 0
+    
+    
+    tile = img
+
+    # Run YOLO on the tile
+    results = model.predict(tile, classes=[0])
     annotated = results[0].plot()
 
-    out_path = os.path.join(OUTPUT_DIR, f"frame_{message.log_time}.jpg")
+    # Save each annotated tile
+    out_name = f"frame_{message.log_time}_tile_{tile_id}.jpg"
+    out_path = os.path.join(OUTPUT_DIR, out_name)
     cv2.imwrite(out_path, annotated)
     print(f"Saved: {out_path}")
+    tile_id += 1
+    
+    for y in range(0, height, stride_y):
+        for x in range(0, width, stride_x):
+            tile = img[y:y+tile_h, x:x+tile_w]
+
+            # Pad to 640x640 if needed (bottom/right edges)
+            pad_y = max(0, tile_h - tile.shape[0])
+            pad_x = max(0, tile_w - tile.shape[1])
+            if pad_x > 0 or pad_y > 0:
+                tile = cv2.copyMakeBorder(tile, 0, pad_y, 0, pad_x, cv2.BORDER_CONSTANT, value=(0,0,0))
+
+            # Run YOLO on the tile
+            results = model.predict(tile, classes=[0])
+            annotated = results[0].plot()
+
+            # Save each annotated tile
+            out_name = f"frame_{message.log_time}_tile_{tile_id}.jpg"
+            out_path = os.path.join(OUTPUT_DIR, out_name)
+            cv2.imwrite(out_path, annotated)
+            print(f"Saved: {out_path}")
+            tile_id += 1
 
 f.close()
-print(f"Annotated frames saved in: {OUTPUT_DIR}")
+print(f"\n✅ Annotated tiles saved in: {OUTPUT_DIR}")
 
