@@ -94,3 +94,19 @@ Now all that's left is to install the chimera SDK. Since we have the git repo cl
 Be sure to use the correct UAS number from earlier
 
 Finally, I recommend using ```sudo nmtui``` to configure the network connections. You will need to reboot or unplug and replug the wifi adapter after flashing to initialize it. You will also likely need to redo the ssh key to allow your host to connect to the Orin if you don't always use the ethernet hardwired to your router.
+
+```
+sudo apt update
+sudo apt upgrade
+sudo ubuntu-drivers autoinstall # for cuda/nvidia-smi
+```
+```
+sudo cp lcam.service /etc/systemd/lcam.service
+sudo systemctl daemon-re
+sudo systemctl daemon-reload 
+sudo systemctl enable lcam.service
+```
+```
+cp local/.bash_aliases ~/.bash_aliases
+source ~/.bash_aliases
+```

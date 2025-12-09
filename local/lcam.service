@@ -3,10 +3,10 @@ Description=Local Camera Server
 After=network.target
 
 [Service]
-ExecStart=/home/ctitus/DTC/chimera-recording-visualization/local_start_camera_server.sh
-WorkingDirectory=/home/ctitus/DTC/chimera-recording-visualization
-User=ctitus
-Group=ctitus
+ExecStart=%h/chimera-deploy/local/local_start_camera_server.sh
+WorkingDirectory=%h/chimera-deploy/local
+User=%u
+Group=%g
 Restart=always
 RestartSec=5
 Environment="PYTHONUNBUFFERED=1"
