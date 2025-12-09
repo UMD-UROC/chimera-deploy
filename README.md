@@ -102,7 +102,6 @@ sudo ubuntu-drivers autoinstall # for cuda/nvidia-smi
 ```
 ```
 sudo cp local/lcam.service /etc/systemd/lcam.service
-sudo systemctl daemon-re
 sudo systemctl daemon-reload 
 sudo systemctl enable lcam.service
 ```
