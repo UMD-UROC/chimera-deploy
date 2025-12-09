@@ -41,7 +41,7 @@ alias ssh2='ssh root@10.200.91.52'
 alias ssh3='ssh user@10.200.91.53'
 alias ssh4='ssh user@10.200.91.54'
 alias sshf11='ssh flyby@10.223.35.1'
-alias ccb='cdr; colcon build; rs; ws; cd -'
+alias ccb='cd ~/ros2_ws; colcon build; rs; ws; cd -'
 alias camcal3='cdr; ros2 run camera_calibration cameracalibrator --size 5x7 --square 0.027 --ros-args -r image:=/uas3/image -p camera:=/drone'
 alias camcal4='cdr; ros2 run camera_calibration cameracalibrator --size 5x7 --square 0.027 --ros-args -r image:=/uas4/image -p camera:=/drone'
 alias mforward3='gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:8554/rgb3 latency=0 ! rtph265depay ! h265parse ! rtph265pay config-interval=1 pt=96 ! udpsink host=10.200.91.41 sync=false' # port = XXXX
