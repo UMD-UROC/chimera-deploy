@@ -111,6 +111,7 @@ sudo nmtui
 ```
 to configure the network connections. You will need to reboot or unplug and replug the wifi adapter after flashing to initialize it. You will also likely need to redo the ssh key to allow your host to connect to the Orin if you don't always use the ethernet hardwired to your router.
 
+### host
 ```
 sudo apt update
 sudo apt upgrade
