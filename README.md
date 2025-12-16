@@ -18,7 +18,9 @@ The flashing process the Orin to be in recovery mode and the micro usb to be plu
 4. Plug in the micro-usb into the Jetson DEBUG port (not the usb-c Jetson console)
 
 Then run the command 
-```cd $HOME/Orin/Linux_for_Tegra/ && sudo ./tools/kernel_flash/l4t_initrd_flash.sh --external-device nvme0n1p1 -c tools/kernel_flash/flash_l4t_external.xml -p "-c bootloader/generic/cfg/flash_t234_qspi.xml --no-systemimg" --network usb0 echopilot-ai external```
+```
+cd $HOME/Orin/Linux_for_Tegra/ && sudo ./tools/kernel_flash/l4t_initrd_flash.sh --external-device nvme0n1p1 -c tools/kernel_flash/flash_l4t_external.xml -p "-c bootloader/generic/cfg/flash_t234_qspi.xml --no-systemimg" --network usb0 echopilot-ai external
+```
 to flash the board. This process takes ~15mins.
 
 Once complete, power cycle the Orin and remove the micro-usb debug cable.
@@ -32,7 +34,9 @@ To install the NVIDIA SDK, the NVIDIA SDK Manager can be used (download from nvi
 ## Set up SSH and get IP for NVIDIA SDK step
 ### host
 Note: may need to explicity define the /dev/ttyUSB# number corresponding to the Orin, works best when the Orin is the only ttyUSB device connected to your host computer
-```picocom /dev/ttyUSB? -b 115200 # connect to orin```
+```
+picocom /dev/ttyUSB? -b 115200 # connect to orin
+```
 
 ### orin
 ```
@@ -53,6 +57,8 @@ Now you can ssh into your drone with ```ssh user@<IP>```
 ```
 ssh-keygen -t rsa -b 4096
 cat /home/user/.ssh/id_rsa.pub # add this to your github account ssh keys
+```
+```
 git clone --recurse-submodules git@github.com:UMD-UROC/chimera-deploy.git
 cd chimera-deploy
 git submodule update --init --recursive # to update submodules
@@ -89,13 +95,21 @@ This process takes ~30mins, once complete move on to the deploy steps
 Now all that's left is to install the chimera SDK. Since we have the git repo cloned already, all we need to do is ssh into the drone, go to the repo, and execute the deploy script
 
 ### host
-```ssh user@<IP>```
+```
+ssh user@<IP>
+```
 
 ### orin
-```cd chimera-deploy; ./deploy.sh```
+```
+cd chimera-deploy; ./deploy.sh
+```
 Be sure to use the correct UAS number from earlier
 
-Finally, I recommend using ```sudo nmtui``` to configure the network connections. You will need to reboot or unplug and replug the wifi adapter after flashing to initialize it. You will also likely need to redo the ssh key to allow your host to connect to the Orin if you don't always use the ethernet hardwired to your router.
+Finally, I recommend using 
+```
+sudo nmtui
+```
+to configure the network connections. You will need to reboot or unplug and replug the wifi adapter after flashing to initialize it. You will also likely need to redo the ssh key to allow your host to connect to the Orin if you don't always use the ethernet hardwired to your router.
 
 ```
 sudo apt update
