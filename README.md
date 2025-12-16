@@ -101,7 +101,7 @@ ssh user@<IP>
 
 ### orin
 ```
-cd chimera-deploy; ./deploy.sh
+cd ~/chimera-deploy; ./deploy.sh
 ```
 Be sure to use the correct UAS number from earlier
 
