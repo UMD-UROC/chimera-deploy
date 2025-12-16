@@ -17,7 +17,9 @@ The flashing process the Orin to be in recovery mode and the micro usb to be plu
 3. Wait 5s
 4. Plug in the micro-usb into the Jetson DEBUG port (not the usb-c Jetson console)
 
-Then run the command ```cd $HOME/Orin/Linux_for_Tegra/; sudo ./tools/kernel_flash/l4t_initrd_flash.sh --external-device nvme0n1p1 -c tools/kernel_flash/flash_l4t_external.xml -p "-c bootloader/generic/cfg/flash_t234_qspi.xml --no-systemimg" --network usb0 echopilot-ai external``` to flash the board. This process takes ~15mins.
+Then run the command 
+```cd $HOME/Orin/Linux_for_Tegra/ && sudo ./tools/kernel_flash/l4t_initrd_flash.sh --external-device nvme0n1p1 -c tools/kernel_flash/flash_l4t_external.xml -p "-c bootloader/generic/cfg/flash_t234_qspi.xml --no-systemimg" --network usb0 echopilot-ai external```
+to flash the board. This process takes ~15mins.
 
 Once complete, power cycle the Orin and remove the micro-usb debug cable.
 
