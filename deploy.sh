@@ -105,17 +105,21 @@ bash jetson-containers/install.sh
 # automatically pull & run any container
 #jetson-containers run $(autotag l4t-pytorch)
 
-# hold the important packages
+# hold the important packages, not sure if prevents breaking things if accidently apt upgrade
 sudo apt-mark hold nvidia-l4t-bootloader nvidia-l4t-kernel nvidia-l4t-kernel-headers nvidia-l4t-jetson-io nvidia-l4t-kernel-oot-modules nvidia-l4t-display-kernel nvidia-l4t-kernel-oot-headers nvidia-l4t-kernel-dtbs
+
+cd
+cp chimera-deploy/local/.bash_aliases .
+source .bash_aliases
 
 echo "Done, don't forget to set network settings if haven't already. Power cycle to and confirm ssh connects from host to complete!"
 
 
-### YOLO ###
+### ROS ###
 
-## ros install (https://docs.ros.org/en/humble/Installation/Alternatives/Ubuntu-Development-Setup.html)
+## ros install (https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debs.html)
 # orin
-sudo apt install software-properties-common
+sudo apt install -y software-properties-common
 sudo add-apt-repository universe
 
 # install apt source
@@ -124,28 +128,46 @@ export ROS_APT_SOURCE_VERSION=$(curl -s https://api.github.com/repos/ros-infrast
 curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})_all.deb"
 sudo dpkg -i /tmp/ros2-apt-source.deb
 
-# install packages
-sudo apt update && sudo apt install -y python3-flake8-docstrings python3-pip python3-pytest-cov ros-dev-tools
-sudo apt install -y python3-flake8-blind-except python3-flake8-builtins python3-flake8-class-newline python3-flake8-comprehensions python3-flake8-deprecated python3-flake8-import-order python3-flake8-quotes python3-pytest-repeat python3-pytest-rerunfailures
+sudo apt install -y ros-humble-ros-base ros-dev-tools
+sudo apt install -y ros-$ROS_DISTRO-perception ros-$ROS_DISTRO-vision-msgs
 
-# make workspace
-mkdir -p ~/ros2_ws/src
-cd ~/ros2_ws
-vcs import --input https://raw.githubusercontent.com/ros2/ros2/humble/ros2.repos src
 
-# install ros deps
-#sudo apt upgrade # got nvidia-l4t-* errors, I think to be expected with custom dtb and old jetpack
+cd
+mkdir ros2_ws
+cd ros2_ws
+mkdir src
+cd src
+git clone git@github.com:UMD-CDCL/5g_drone.git
+git clone git@github.com:UMD-CDCL/cdcl_umd_msgs.git
+ccb
 
-sudo rosdep init
-rosdep update
-rosdep install --from-paths src --ignore-src -y --skip-keys "fastcdr rti-connext-dds-6.0.1 urdfdom_headers"
-
-cd ~/ros2_ws/
-colcon build --symlink-install
+# should now be up to date on main branches
 
 
 
 
+
+
+
+
+## install packages
+#sudo apt update && sudo apt install -y python3-flake8-docstrings python3-pip python3-pytest-cov ros-dev-tools
+#sudo apt install -y python3-flake8-blind-except python3-flake8-builtins python3-flake8-class-newline python3-flake8-comprehensions python3-flake8-deprecated python3-flake8-import-order python3-flake8-quotes python3-pytest-repeat python3-pytest-rerunfailures
+#
+## make workspace
+#mkdir -p ~/ros2_ws/src
+#cd ~/ros2_ws
+#vcs import --input https://raw.githubusercontent.com/ros2/ros2/humble/ros2.repos src
+#
+## install ros deps
+##sudo apt upgrade # got nvidia-l4t-* errors, I think to be expected with custom dtb and old jetpack
+#
+#sudo rosdep init
+#rosdep update
+#rosdep install --from-paths src --ignore-src -y --skip-keys "fastcdr rti-connext-dds-6.0.1 urdfdom_headers"
+#
+#cd ~/ros2_ws/
+#colcon build --symlink-install # took me 2 hours on the orin
 
 
 

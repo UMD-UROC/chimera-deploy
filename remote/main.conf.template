@@ -52,6 +52,16 @@ Port = 1455${UAS_NUM}
 AllowSrcSysIn = ${UAS_NUM},255
 
 ##
+## UDP Endpoint Configuration Ros
+##
+
+[UdpEndpoint ros]
+Mode = Normal
+Address = 127.0.0.1
+Port = 1454${UAS_NUM}
+AllowSrcSysIn = ${UAS_NUM},255
+
+##
 ## TCP Client Endpoint Configuration Alpha
 ##
 ## Do not change the name of the endpoint as it may interfere with the web configuration UI
