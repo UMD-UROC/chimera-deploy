@@ -108,6 +108,9 @@ bash jetson-containers/install.sh
 # hold the important packages, not sure if prevents breaking things if accidently apt upgrade
 sudo apt-mark hold nvidia-l4t-bootloader nvidia-l4t-kernel nvidia-l4t-kernel-headers nvidia-l4t-jetson-io nvidia-l4t-kernel-oot-modules nvidia-l4t-display-kernel nvidia-l4t-kernel-oot-headers nvidia-l4t-kernel-dtbs
 
+# for bandwidth measurement
+sudo apt install iftop -y
+
 cd
 cp chimera-deploy/local/.bash_aliases .
 source .bash_aliases
