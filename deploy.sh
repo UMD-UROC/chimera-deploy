@@ -129,16 +129,41 @@ curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-a
 sudo dpkg -i /tmp/ros2-apt-source.deb
 
 sudo apt install -y ros-humble-ros-base ros-dev-tools
-sudo apt install -y ros-$ROS_DISTRO-perception ros-$ROS_DISTRO-vision-msgs
-
 
 cd
 mkdir ros2_ws
 cd ros2_ws
+mkdir bags
 mkdir src
 cd src
 git clone git@github.com:UMD-CDCL/5g_drone.git
 git clone git@github.com:UMD-CDCL/cdcl_umd_msgs.git
+cd
+
+sudo apt install -y ros-$ROS_DISTRO-perception ros-$ROS_DISTRO-vision-msgs
+sudo apt install -y ros-$ROS_DISTRO-mavros ros-$ROS_DISTRO-mavros-extras 
+sudo apt install ros-$ROS_DISTRO-rosbag2-storage-mcap
+
+cd
+cd chimera-deploy/remote
+sudo chmod +x ./install_geographiclib_datasets.sh
+sudo ./install_geographiclib_datasets.sh
+cd
+
+cdr
+rosdep update
+rosdep install --from-paths src --ignore-src -r -y
+
+# should be added to rosdep:
+pip3 install "numpy<2"
+pip3 install ultralytics
+pip3 install sahi
+pip3 install pymap3d
+
+# this should be installed with jetpack
+pip3 install torch==2.8.0 torchvision==0.23.0 --index-url https://pypi.jetson-ai-lab.io/jp6/cu126
+
+
 ccb
 
 # should now be up to date on main branches
