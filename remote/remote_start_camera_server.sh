@@ -71,7 +71,7 @@ PIPES+=("appsrc name=rgb_annotated is-live=true format=3 ! nvvidconv ! $common")
 
 THERMAL_DEV=$(v4l2-ctl --list-devices | awk '/Boson: FLIR Video/{getline; print $1}')
 TAGS+=("thermal")
-PIPES+=("( v4l2src device=$THERMAL_DEV ! queue max-size-buffers=1 leaky=downstream ! video/x-raw,width=640,height=512,format=I420 ! nvvidconv ! $common")
+PIPES+=("( v4l2src device=$THERMAL_DEV ! queue max-size-buffers=1 leaky=downstream ! video/x-raw,width=640,height=512,format=I420 ! videobalance invert=true ! nvvidconv ! $common")
 
 TAGS+=("thermal/annotated")
 PIPES+=("appsrc name=thermal_annotated is-live=true format=3 ! nvvidconv ! $common")
