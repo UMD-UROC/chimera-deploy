@@ -82,7 +82,7 @@ sudo systemctl restart mavlink-router.service
 if ! nmcli -t -f NAME connection show | grep -Fxq "RoboScout-silvus"; then
     sudo nmcli connection add type ethernet \
       ifname eno1 con-name RoboScout-silvus \
-      ipv4.method manual ipv4.addresses 10.200.91.5${UAS_NUM}/24 \
+      ipv4.method manual ipv4.addresses 10.200.142.5${UAS_NUM}/24 \
       connection.autoconnect yes
 else
     echo "Existing \"RoboScout-silvus\" connection detected — skipping creation."
@@ -102,8 +102,26 @@ sudo apt autoremove -y
 git clone https://github.com/dusty-nv/jetson-containers
 bash jetson-containers/install.sh
 
-# automatically pull & run any container
-#jetson-containers run $(autotag l4t-pytorch)
+# install yolo stuff for cuda
+pip3 uninstall -y torch torchvision torchaudio
+pip3 install https://pypi.jetson-ai-lab.io/jp6/cu126/+f/02f/de421eabbf626/torch-2.9.1-cp310-cp310-linux_aarch64.whl#sha256=02fde421eabbf62633092de30405ea4d917323c55bea22bfd10dfeb1f1023506 # torch 2.9.1 cuda
+pip3 install https://pypi.jetson-ai-lab.io/jp6/cu126/+f/d12/bede7113e6b00/torchaudio-2.9.1-cp310-cp310-linux_aarch64.whl#sha256=d12bede7113e6b00f7c5ed53a28f7fa44a624780c8097a6a2352f32548d77ffb # torch audio 2.9.1 cuda
+pip3 install https://pypi.jetson-ai-lab.io/jp6/cu126/+f/d5b/caaf709f11750/torchvision-0.24.1-cp310-cp310-linux_aarch64.whl#sha256=d5bcaaf709f11750b5bb0f6ec30f37605da2f3d5cb3cd2b0fe5fac2850e08642 # torch vision 2.9.1 cuda
+
+pip3 uninstall -y ultralytics
+pip3 install ultralytics
+
+cd
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm64/cuda-keyring_1.1-1_all.deb
+sudo dpkg -i cuda-keyring_1.1-1_all.deb
+sudo apt-get update
+sudo apt-get -y install cusparselt-cuda-12 cudss libcudnn9-cuda-12 # may only need cudss
+
+# mavros
+sudo apt install ros-humble-mavros
+wget https://raw.githubusercontent.com/mavlink/mavros/ros2/mavros/scripts/install_geographiclib_datasets.sh
+chmod +x install_geographiclib_datasets.sh
+sudo ./install_geographiclib_datasets.sh
 
 echo "Done, don't forget to set network settings if haven't already. Power cycle to and confirm ssh connects from host to complete!"
 

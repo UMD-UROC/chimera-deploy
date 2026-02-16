@@ -66,8 +66,8 @@ common="video/x-raw(memory:NVMM) ! queue max-size-buffers=1 leaky=downstream ! n
 TAGS+=("rgb")
 PIPES+=("( nvarguscamerasrc sensor-id=0 wbmode=1 ! queue max-size-buffers=1 leaky=downstream ! video/x-raw(memory:NVMM),width=1920,height=1080,framerate=30/1 ! nvvidconv flip-method=2 ! $common")
 
-TAGS+=("rgb/annotated")
-PIPES+=("appsrc name=rgb_annotated is-live=true format=3 ! nvvidconv ! $common")
+TAGS+=("rgb-hires")
+PIPES+=("( nvarguscamerasrc sensor-id=0 wbmode=1 ! queue max-size-buffers=1 leaky=downstream ! video/x-raw(memory:NVMM),width=1920,height=1080,framerate=30/1 ! nvvidconv flip-method=2 ! video/x-raw,format=I420,width=1920,height=1080,framerate=30/1 ! queue max-size-buffers=1 leaky=downstream ! rtpvrawpay pt=96 name=pay0 )")
 
 THERMAL_DEV=$(v4l2-ctl --list-devices | awk '/Boson: FLIR Video/{getline; print $1}')
 TAGS+=("thermal")
