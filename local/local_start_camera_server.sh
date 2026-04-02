@@ -81,6 +81,9 @@ PIPES+=("( rtspsrc location=rtsp://10.200.142.64:8554/rgb $common")
 TAGS+=("thermal4")
 PIPES+=("( rtspsrc location=rtsp://10.200.142.64:8554/thermal $common")
 
+TAGS+=("thermalc")
+PIPES+=("( rtspsrc location=rtsp://192.168.79.165:8554/cairo_thermal $common")
+
 # Validate matching lengths
 if [ "${#TAGS[@]}" -ne "${#PIPES[@]}" ]; then
   echo "[ERROR] TAGS and PIPES must have the same number of entries."
