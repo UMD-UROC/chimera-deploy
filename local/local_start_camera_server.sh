@@ -72,14 +72,26 @@ common="protocols=udp latency=0 drop-on-late=true ! rtph265depay ! queue2 leaky=
 TAGS+=("rgb3")
 PIPES+=("( rtspsrc location=rtsp://10.200.142.63:8554/rgb $common")
 
+TAGS+=("rgbl3")
+PIPES+=("( rtspsrc location=rtsp://10.200.142.63:8554/rgb-lowres $common")
+
 TAGS+=("thermal3")
 PIPES+=("( rtspsrc location=rtsp://10.200.142.63:8554/thermal $common")
+
+TAGS+=("thermall3")
+PIPES+=("( rtspsrc location=rtsp://10.200.142.63:8554/thermal-lowres $common")
 
 TAGS+=("rgb4")
 PIPES+=("( rtspsrc location=rtsp://10.200.142.64:8554/rgb $common")
 
+TAGS+=("rgbl4")
+PIPES+=("( rtspsrc location=rtsp://10.200.142.64:8554/rgb-lowres $common")
+
 TAGS+=("thermal4")
 PIPES+=("( rtspsrc location=rtsp://10.200.142.64:8554/thermal $common")
+
+TAGS+=("thermall4")
+PIPES+=("( rtspsrc location=rtsp://10.200.142.64:8554/thermal-lowres $common")
 
 TAGS+=("thermalc")
 PIPES+=("( rtspsrc location=rtsp://192.168.79.165:8554/cairo_thermal $common")
