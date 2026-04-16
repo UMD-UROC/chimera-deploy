@@ -2,6 +2,7 @@
 
 RGB_WIDTH = 3840
 RGB_HEIGHT = 2160
+RGB_FRAMERATE = "30/1"
 RGB_BITRATE = 1000000
 RGB_PEAK_BITRATE = 5000000
 
@@ -39,7 +40,7 @@ PRODUCERS = {
     "rgb-fork": f"""
         nvarguscamerasrc sensor-id=0 wbmode=1 do-timestamp=true ! 
         queue max-size-buffers=1 leaky=downstream !
-        video/x-raw(memory:NVMM),width=3840,height=2160,framerate=30/1 !
+        video/x-raw(memory:NVMM),width={RGB_WIDTH},height={RGB_HEIGHT},framerate={RGB_FRAMERATE} !
         nvvidconv flip-method=2 !
         video/x-raw(memory:NVMM),format=NV12 !
         tee name=t
@@ -55,7 +56,7 @@ PRODUCERS = {
     "thermal-fork": f"""
         v4l2src device=/dev/video1 io-mode=2 do-timestamp=true !
         queue max-size-buffers=1 leaky=downstream !
-        video/x-raw,width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=I420,framerate=60/1 !
+        video/x-raw,width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=I420 !
         nvvidconv !
         video/x-raw(memory:NVMM),format=NV12 !
         tee name=t
