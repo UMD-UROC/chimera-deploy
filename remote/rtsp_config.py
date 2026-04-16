@@ -78,7 +78,7 @@ FACTORIES = {
         video/x-raw(memory:NVMM),format=NV12,width={RGB_WIDTH},height={RGB_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvv4l2h265enc maxperf-enable=1 control-rate=0 bitrate={RGB_BITRATE} peak-bitrate={RGB_PEAK_BITRATE} iframeinterval=30 insert-sps-pps=true EnableTwopassCBR=false !
-        h265parse !
+        h265parse name={RGB} ! h265seiinserter !
         rtph265pay name=pay0 pt=96 config-interval=1
         )
         """,
@@ -88,7 +88,7 @@ FACTORIES = {
         video/x-raw(memory:NVMM),format=NV12,width={RGB_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvv4l2h265enc maxperf-enable=1 control-rate=0 bitrate={RGB_LOWRES_BITRATE} peak-bitrate={RGB_LOWRES_PEAK_BITRATE} iframeinterval=30 insert-sps-pps=true EnableTwopassCBR=false !
-        h265parse !
+        h265parse name={RGB_LOWRES} ! h265seiinserter !
         rtph265pay name=pay0 pt=96 config-interval=1
         )
         """,
@@ -98,7 +98,7 @@ FACTORIES = {
         video/x-raw(memory:NVMM),format=NV12,width={THERMAL_WIDTH},height={THERMAL_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvv4l2h265enc maxperf-enable=1 control-rate=0 bitrate={THERMAL_BITRATE} peak-bitrate={THERMAL_PEAK_BITRATE} iframeinterval=30 insert-sps-pps=true EnableTwopassCBR=false !
-        h265parse !
+        h265parse name={THERMAL} ! h265seiinserter !
         rtph265pay name=pay0 pt=96 config-interval=1
         )
         """,
@@ -108,7 +108,7 @@ FACTORIES = {
         video/x-raw(memory:NVMM),format=NV12,width={THERMAL_LOWRES_WIDTH},height={THERMAL_LOWRES_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvv4l2h265enc maxperf-enable=1 control-rate=0 bitrate={THERMAL_LOWRES_BITRATE} peak-bitrate={THERMAL_LOWRES_PEAK_BITRATE} iframeinterval=30 insert-sps-pps=true EnableTwopassCBR=false !
-        h265parse !
+        h265parse name={THERMAL_LOWRES} ! h265seiinserter !
         rtph265pay name=pay0 pt=96 config-interval=1
         )
         """,
