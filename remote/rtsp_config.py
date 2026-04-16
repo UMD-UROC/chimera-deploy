@@ -65,7 +65,7 @@ PRODUCERS = {
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvvidconv !
-        video/x-raw(memory:NVMM),width={THERMAL_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT},format=NV12 !
+        video/x-raw(memory:NVMM),width={THERMAL_LOWRES_WIDTH},height={THERMAL_LOWRES_HEIGHT},format=NV12 !
         nvunixfdsink socket-path={SOCKETS[THERMAL_LOWRES]} sync=false
         """,
 }
