@@ -48,7 +48,14 @@ start_viewer() {
   wait_for_rtsp_stream "$url"
   echo "[INFO] Starting viewer for $tag"
 
-  local gst_cmd=(gst-launch-1.0 -e rtspsrc location="$url" latency=0 protocols=tcp ! rtph265depay ! h265parse ! vah265dec ! videoconvert ! autovideosink sync=false)
+  local gst_cmd=(gst-launch-1.0 -e \
+    rtspsrc location="$url" latency=0 drop-on-latency=true protocols=tcp ! \
+    rtph265depay ! \
+    h265parse ! \
+    vah265dec ! \
+    videoconvert ! \
+    queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 ! \
+    autovideosink sync=false)
 
   if [[ "$VERBOSE" -eq 1 ]]; then
     "${gst_cmd[@]}" &
