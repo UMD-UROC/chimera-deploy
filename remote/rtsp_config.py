@@ -39,7 +39,7 @@ PRODUCERS = {
     "rgb-fork": f"""
         nvarguscamerasrc sensor-id=0 wbmode=1 !
         queue max-size-buffers=1 leaky=downstream !
-        video/x-raw,width={RGB_WIDTH},height={RGB_HEIGHT} !
+        video/x-raw(memory:NVMM),width={RGB_WIDTH},height={RGB_HEIGHT} !
         nvvidconv !
         video/x-raw(memory:NVMM),format=NV12 !
         tee name=t
