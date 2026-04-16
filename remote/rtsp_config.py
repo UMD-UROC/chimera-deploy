@@ -1,62 +1,112 @@
 # config.py
 
-HIRES_TAG = "hires"
-LOWRES_TAG = "lowres"
+RGB_WIDTH = 1080
+RGB_HEIGHT = 1920
+RGB_BITRATE = 1000000
+RGB_PEAK_BITRATE = 5000000
 
-HIRES_SOCKET = "/tmp/hires_nv.sock"
-LOWRES_SOCKET = "/tmp/lowres_nv.sock"
+RGB_LOWRES_WIDTH = 1080
+RGB_LOWRES_HEIGHT = 1920
+RGB_LOWRES_BITRATE = 10000
+RGB_LOWRES_PEAK_BITRATE = 50000
 
-HIRES_WIDTH = 640
-HIRES_HEIGHT = 512
-HIRES_BITRATE = 1000000
-HIRES_PEAK_BITRATE = 5000000
+THERMAL_WIDTH = 640
+THERMAL_HEIGHT = 512
+THERMAL_BITRATE = 1000000
+THERMAL_PEAK_BITRATE = 5000000
 
-LOWRES_WIDTH = 320
-LOWRES_HEIGHT = 256
-LOWRES_BITRATE = 300000
-LOWRES_PEAK_BITRATE = 1000000
+THERMAL_LOWRES_WIDTH = 640
+THERMAL_LOWRES_HEIGHT = 512
+THERMAL_LOWRES_BITRATE = 10000
+THERMAL_LOWRES_PEAK_BITRATE = 50000
+
+RGB_HIRES = "rgb-hires"
+RGB_LOWRES = "rgb-lowres"
+THERMAL_HIRES = "thermal-hires"
+THERMAL_LOWRES = "thermal-lowres"
+
+def SOCKET(tag):
+    return f"/tmp/{tag}_nv.sock"
 
 SOCKETS = {
-    HIRES_TAG: HIRES_SOCKET,
-    LOWRES_TAG: LOWRES_SOCKET,
+    RGB_HIRES: SOCKET(RGB_HIRES),
+    RGB_LOWRES: SOCKET(RGB_LOWRES),
+    THERMAL_HIRES: SOCKET(THERMAL_HIRES),
+    THERMAL_LOWRES: SOCKET(THERMAL_LOWRES),
 }
 
 PRODUCERS = {
-    "video1-fork": f"""
-        v4l2src device=/dev/video1 io-mode=2 !
+    "rgb-fork": f"""
+        nvarguscamerasrc sensor-id=0 wbmode=1 !
         queue max-size-buffers=1 leaky=downstream !
-        video/x-raw,width={HIRES_WIDTH},height={HIRES_HEIGHT},format=I420 !
+        video/x-raw,width={RGB_WIDTH},height={RGB_HEIGHT} !
         nvvidconv !
         video/x-raw(memory:NVMM),format=NV12 !
         tee name=t
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvunixfdsink socket-path={HIRES_SOCKET} sync=false
+        nvunixfdsink socket-path={SOCKETS[RGB_HIRES]} sync=false
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvvidconv !
-        video/x-raw(memory:NVMM),width={LOWRES_WIDTH},height={LOWRES_HEIGHT},format=NV12 !
-        nvunixfdsink socket-path={LOWRES_SOCKET} sync=false
+        video/x-raw(memory:NVMM),width={RGB_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT},format=NV12 !
+        nvunixfdsink socket-path={SOCKETS[RGB_LOWRES]} sync=false
+        """,
+    "thermal-fork": f"""
+        v4l2src device=/dev/video1 io-mode=2 !
+        queue max-size-buffers=1 leaky=downstream !
+        video/x-raw,width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=I420 !
+        nvvidconv !
+        video/x-raw(memory:NVMM),format=NV12 !
+        tee name=t
+
+        t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
+        nvunixfdsink socket-path={SOCKETS[THERMAL_HIRES]} sync=false
+
+        t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
+        nvvidconv !
+        video/x-raw(memory:NVMM),width={THERMAL_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT},format=NV12 !
+        nvunixfdsink socket-path={SOCKETS[THERMAL_LOWRES]} sync=false
         """,
 }
 
 FACTORIES = {
-    HIRES_TAG: f"""
+    RGB_HIRES: f"""
         (
-        nvunixfdsrc socket-path={HIRES_SOCKET} !
-        video/x-raw(memory:NVMM),format=NV12,width={HIRES_WIDTH},height={HIRES_HEIGHT} !
+        nvunixfdsrc socket-path={SOCKETS[RGB_HIRES]} !
+        video/x-raw(memory:NVMM),format=NV12,width={RGB_WIDTH},height={RGB_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvv4l2h265enc maxperf-enable=1 control-rate=0 bitrate={HIRES_BITRATE} peak-bitrate={HIRES_PEAK_BITRATE} iframeinterval=30 insert-sps-pps=true EnableTwopassCBR=false !
+        nvv4l2h265enc maxperf-enable=1 control-rate=0 bitrate={RGB_BITRATE} peak-bitrate={RGB_PEAK_BITRATE} iframeinterval=30 insert-sps-pps=true EnableTwopassCBR=false !
         h265parse !
         rtph265pay name=pay0 pt=96 config-interval=1
         )
         """,
-    LOWRES_TAG: f"""
+    RGB_LOWRES: f"""
         (
-        nvunixfdsrc socket-path={LOWRES_SOCKET} !
-        video/x-raw(memory:NVMM),format=NV12,width={LOWRES_WIDTH},height={LOWRES_HEIGHT} !
+        nvunixfdsrc socket-path={SOCKETS[RGB_LOWRES]} !
+        video/x-raw(memory:NVMM),format=NV12,width={RGB_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvv4l2h265enc maxperf-enable=1 control-rate=0 bitrate={LOWRES_BITRATE} peak-bitrate={LOWRES_PEAK_BITRATE} iframeinterval=30 insert-sps-pps=true EnableTwopassCBR=false !
+        nvv4l2h265enc maxperf-enable=1 control-rate=0 bitrate={RGB_LOWRES_BITRATE} peak-bitrate={RGB_LOWRES_PEAK_BITRATE} iframeinterval=30 insert-sps-pps=true EnableTwopassCBR=false !
+        h265parse !
+        rtph265pay name=pay0 pt=96 config-interval=1
+        )
+        """,
+    THERMAL_HIRES: f"""
+        (
+        nvunixfdsrc socket-path={SOCKETS[THERMAL_HIRES]} !
+        video/x-raw(memory:NVMM),format=NV12,width={THERMAL_WIDTH},height={THERMAL_HEIGHT} !
+        queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
+        nvv4l2h265enc maxperf-enable=1 control-rate=0 bitrate={THERMAL_BITRATE} peak-bitrate={THERMAL_PEAK_BITRATE} iframeinterval=30 insert-sps-pps=true EnableTwopassCBR=false !
+        h265parse !
+        rtph265pay name=pay0 pt=96 config-interval=1
+        )
+        """,
+    THERMAL_LOWRES: f"""
+        (
+        nvunixfdsrc socket-path={SOCKETS[THERMAL_LOWRES]} !
+        video/x-raw(memory:NVMM),format=NV12,width={THERMAL_LOWRES_WIDTH},height={THERMAL_LOWRES_HEIGHT} !
+        queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
+        nvv4l2h265enc maxperf-enable=1 control-rate=0 bitrate={THERMAL_LOWRES_BITRATE} peak-bitrate={THERMAL_LOWRES_PEAK_BITRATE} iframeinterval=30 insert-sps-pps=true EnableTwopassCBR=false !
         h265parse !
         rtph265pay name=pay0 pt=96 config-interval=1
         )
