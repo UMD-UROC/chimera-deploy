@@ -1,11 +1,11 @@
 # config.py
 
-RGB_WIDTH = 1920
-RGB_HEIGHT = 1080
+RGB_WIDTH = 3840
+RGB_HEIGHT = 2160
 RGB_BITRATE = 1000000
 RGB_PEAK_BITRATE = 5000000
 
-RGB_LOWRES_WIDTH = 1920
+RGB_LOWRES_WIDTH = 3840
 RGB_LOWRES_HEIGHT = 1080
 RGB_LOWRES_BITRATE = 10000
 RGB_LOWRES_PEAK_BITRATE = 50000
@@ -39,7 +39,7 @@ PRODUCERS = {
     "rgb-fork": f"""
         nvarguscamerasrc sensor-id=0 wbmode=1 ! 
         queue max-size-buffers=1 leaky=downstream !
-        video/x-raw(memory:NVMM),width={RGB_WIDTH},height={RGB_HEIGHT} !
+        video/x-raw(memory:NVMM),width={RGB_WIDTH},height={RGB_HEIGHT},framerate=30/1 !
         nvvidconv flip-method=2 !
         video/x-raw(memory:NVMM),format=NV12 !
         tee name=t
@@ -55,7 +55,7 @@ PRODUCERS = {
     "thermal-fork": f"""
         v4l2src device=/dev/video1 io-mode=2 !
         queue max-size-buffers=1 leaky=downstream !
-        video/x-raw,width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=I420 !
+        video/x-raw,width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=I420,framerate=60/1 !
         nvvidconv !
         video/x-raw(memory:NVMM),format=NV12 !
         tee name=t
