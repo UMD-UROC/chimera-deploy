@@ -50,7 +50,7 @@ PRODUCERS = {
         tee name=t
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvv4l2h265enc control-rate=0 bitrate={HIRES_BITRATE} peak-bitrate=5000000 iframeinterval=0 insert-sps-pps=true EnableTwopassCBR=false zerolatency=true !
+        nvv4l2h265enc control-rate=0 bitrate={HIRES_BITRATE} peak-bitrate=5000000 iframeinterval=0 insert-sps-pps=true EnableTwopassCBR=false !
         h265parse !
         rtph265pay config-interval=1 pt=96 !
         shmsink socket-path={HIRES_SOCKET} wait-for-connection=false sync=false async=false shm-size=67108864
@@ -58,7 +58,7 @@ PRODUCERS = {
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvvidconv !
         video/x-raw(memory:NVMM),width={LOWRES_WIDTH},height={LOWRES_HEIGHT},format=NV12 !
-        nvv4l2h265enc control-rate=0 bitrate={LOWRES_BITRATE} peak-bitrate=5000000 iframeinterval=0 insert-sps-pps=true EnableTwopassCBR=false zerolatency=true !
+        nvv4l2h265enc control-rate=0 bitrate={LOWRES_BITRATE} peak-bitrate=5000000 iframeinterval=0 insert-sps-pps=true EnableTwopassCBR=false !
         h265parse !
         rtph265pay config-interval=1 pt=96 !
         shmsink socket-path={LOWRES_SOCKET} wait-for-connection=false sync=false async=false shm-size=16777216
