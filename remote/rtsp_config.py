@@ -20,9 +20,9 @@ THERMAL_LOWRES_HEIGHT = 512
 THERMAL_LOWRES_BITRATE = 10000
 THERMAL_LOWRES_PEAK_BITRATE = 50000
 
-RGB_HIRES = "rgb-hires"
+RGB_HIRES = "rgb"
 RGB_LOWRES = "rgb-lowres"
-THERMAL_HIRES = "thermal-hires"
+THERMAL_HIRES = "thermal"
 THERMAL_LOWRES = "thermal-lowres"
 
 def SOCKET(tag):
@@ -37,10 +37,10 @@ SOCKETS = {
 
 PRODUCERS = {
     "rgb-fork": f"""
-        nvarguscamerasrc sensor-id=0 wbmode=1 !
+        nvarguscamerasrc sensor-id=0 wbmode=1 ! 
         queue max-size-buffers=1 leaky=downstream !
         video/x-raw(memory:NVMM),width={RGB_WIDTH},height={RGB_HEIGHT} !
-        nvvidconv !
+        nvvidconv flip-method=2 !
         video/x-raw(memory:NVMM),format=NV12 !
         tee name=t
 
