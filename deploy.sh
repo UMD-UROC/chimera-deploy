@@ -125,3 +125,8 @@ sudo ./install_geographiclib_datasets.sh
 
 echo "Done, don't forget to set network settings if haven't already. Power cycle to and confirm ssh connects from host to complete!"
 
+# chrony
+sudo apt install chrony -y
+grep -qxF "server 10.200.142.60 iburst" /etc/chrony/chrony.conf || echo "server 10.200.142.60 iburst" | sudo tee -a /etc/chrony/chrony.conf # add 10.200.142.60 as chrony server
+sudo systemctl restart chrony
+date # verify
