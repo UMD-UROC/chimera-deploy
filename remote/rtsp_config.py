@@ -6,7 +6,7 @@ RGB_BITRATE = 1000000
 RGB_PEAK_BITRATE = 5000000
 
 RGB_LOWRES_WIDTH = 3840
-RGB_LOWRES_HEIGHT = 1080
+RGB_LOWRES_HEIGHT = 2160
 RGB_LOWRES_BITRATE = 10000
 RGB_LOWRES_PEAK_BITRATE = 50000
 
@@ -39,7 +39,7 @@ PRODUCERS = {
     "rgb-fork": f"""
         nvarguscamerasrc sensor-id=0 wbmode=1 ! 
         queue max-size-buffers=1 leaky=downstream !
-        video/x-raw(memory:NVMM),width={RGB_WIDTH},height={RGB_HEIGHT},framerate=30/1 !
+        video/x-raw(memory:NVMM),width=3840,height=2160,framerate=30/1 !
         nvvidconv flip-method=2 !
         video/x-raw(memory:NVMM),format=NV12 !
         tee name=t
