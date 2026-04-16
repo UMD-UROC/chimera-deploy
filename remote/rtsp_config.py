@@ -37,7 +37,7 @@ SOCKETS = {
 
 PRODUCERS = {
     "rgb-fork": f"""
-        nvarguscamerasrc sensor-id=0 wbmode=1 ! 
+        nvarguscamerasrc sensor-id=0 wbmode=1 do-timestamp=true ! 
         queue max-size-buffers=1 leaky=downstream !
         video/x-raw(memory:NVMM),width=3840,height=2160,framerate=30/1 !
         nvvidconv flip-method=2 !
@@ -53,7 +53,7 @@ PRODUCERS = {
         nvunixfdsink socket-path={SOCKETS[RGB_LOWRES]} sync=false
         """,
     "thermal-fork": f"""
-        v4l2src device=/dev/video1 io-mode=2 !
+        v4l2src device=/dev/video1 io-mode=2 do-timestamp=true !
         queue max-size-buffers=1 leaky=downstream !
         video/x-raw,width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=I420,framerate=60/1 !
         nvvidconv !
