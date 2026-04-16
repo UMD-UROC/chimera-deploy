@@ -21,18 +21,18 @@ THERMAL_LOWRES_HEIGHT = 256
 THERMAL_LOWRES_BITRATE = 10000
 THERMAL_LOWRES_PEAK_BITRATE = 50000
 
-RGB_HIRES = "rgb"
+RGB = "rgb"
 RGB_LOWRES = "rgb-lowres"
-THERMAL_HIRES = "thermal"
+THERMAL = "thermal"
 THERMAL_LOWRES = "thermal-lowres"
 
 def SOCKET(tag):
     return f"/tmp/{tag}_nv.sock"
 
 SOCKETS = {
-    RGB_HIRES: SOCKET(RGB_HIRES),
+    RGB: SOCKET(RGB),
     RGB_LOWRES: SOCKET(RGB_LOWRES),
-    THERMAL_HIRES: SOCKET(THERMAL_HIRES),
+    THERMAL: SOCKET(THERMAL),
     THERMAL_LOWRES: SOCKET(THERMAL_LOWRES),
 }
 
@@ -46,7 +46,7 @@ PRODUCERS = {
         tee name=t
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvunixfdsink socket-path={SOCKETS[RGB_HIRES]} sync=false
+        nvunixfdsink socket-path={SOCKETS[RGB]} sync=false
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvvidconv !
@@ -62,7 +62,7 @@ PRODUCERS = {
         tee name=t
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvunixfdsink socket-path={SOCKETS[THERMAL_HIRES]} sync=false
+        nvunixfdsink socket-path={SOCKETS[THERMAL]} sync=false
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvvidconv !
@@ -72,9 +72,9 @@ PRODUCERS = {
 }
 
 FACTORIES = {
-    RGB_HIRES: f"""
+    RGB: f"""
         (
-        nvunixfdsrc socket-path={SOCKETS[RGB_HIRES]} !
+        nvunixfdsrc socket-path={SOCKETS[RGB]} !
         video/x-raw(memory:NVMM),format=NV12,width={RGB_WIDTH},height={RGB_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvv4l2h265enc maxperf-enable=1 control-rate=0 bitrate={RGB_BITRATE} peak-bitrate={RGB_PEAK_BITRATE} iframeinterval=30 insert-sps-pps=true EnableTwopassCBR=false !
@@ -92,9 +92,9 @@ FACTORIES = {
         rtph265pay name=pay0 pt=96 config-interval=1
         )
         """,
-    THERMAL_HIRES: f"""
+    THERMAL: f"""
         (
-        nvunixfdsrc socket-path={SOCKETS[THERMAL_HIRES]} !
+        nvunixfdsrc socket-path={SOCKETS[THERMAL]} !
         video/x-raw(memory:NVMM),format=NV12,width={THERMAL_WIDTH},height={THERMAL_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvv4l2h265enc maxperf-enable=1 control-rate=0 bitrate={THERMAL_BITRATE} peak-bitrate={THERMAL_PEAK_BITRATE} iframeinterval=30 insert-sps-pps=true EnableTwopassCBR=false !
