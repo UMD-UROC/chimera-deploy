@@ -38,7 +38,7 @@ SOCKETS = {
 
 PRODUCERS = {
     "rgb-fork": f"""
-        nvarguscamerasrc sensor-id=0 bufapi-version=1 wbmode=1 do-timestamp=true !
+        nvarguscamerasrc sensor-id=0 wbmode=1 do-timestamp=true !
         video/x-raw(memory:NVMM),width={RGB_WIDTH},height={RGB_HEIGHT},framerate={RGB_FRAMERATE} !
         nvvidconv flip-method=2 interpolation-method=1 !
         video/x-raw(memory:NVMM),format=NV12 !
