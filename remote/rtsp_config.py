@@ -4,22 +4,18 @@ RGB_WIDTH = 3840
 RGB_HEIGHT = 2160
 RGB_FRAMERATE = "30/1"
 RGB_BITRATE = 1000000
-RGB_PEAK_BITRATE = 5000000
 
 RGB_LOWRES_WIDTH = 640
 RGB_LOWRES_HEIGHT = 360
 RGB_LOWRES_BITRATE = 1000000
-RGB_LOWRES_PEAK_BITRATE = 5000000
 
 THERMAL_WIDTH = 640
 THERMAL_HEIGHT = 512
 THERMAL_BITRATE = 1000000
-THERMAL_PEAK_BITRATE = 5000000
 
 THERMAL_LOWRES_WIDTH = 640
 THERMAL_LOWRES_HEIGHT = 512
 THERMAL_LOWRES_BITRATE = 1000000
-THERMAL_LOWRES_PEAK_BITRATE = 5000000
 
 RGB = "rgb"
 RGB_LOWRES = "rgb-lowres"
@@ -75,7 +71,7 @@ FACTORIES = {
         nvunixfdsrc socket-path={SOCKETS[RGB]} num-extra-surfaces=4 !
         video/x-raw(memory:NVMM),format=NV12,width={RGB_WIDTH},height={RGB_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 !
-        nvv4l2h265enc maxperf-enable=1 control-rate=0 bitrate={RGB_BITRATE} peak-bitrate={RGB_PEAK_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false zerolatency=true !
+        nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={RGB_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false zerolatency=true !
         h265parse !
         rtph265pay name=pay0 pt=96 config-interval=1
         )
@@ -85,7 +81,7 @@ FACTORIES = {
         nvunixfdsrc socket-path={SOCKETS[RGB_LOWRES]} num-extra-surfaces=4 !
         video/x-raw(memory:NVMM),format=NV12,width={RGB_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 !
-        nvv4l2h265enc maxperf-enable=1 control-rate=0 bitrate={RGB_LOWRES_BITRATE} peak-bitrate={RGB_LOWRES_PEAK_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false zerolatency=true !
+        nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={RGB_LOWRES_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false zerolatency=true !
         h265parse !
         rtph265pay name=pay0 pt=96 config-interval=1
         )
@@ -95,7 +91,7 @@ FACTORIES = {
         nvunixfdsrc socket-path={SOCKETS[THERMAL]} num-extra-surfaces=4 !
         video/x-raw(memory:NVMM),format=NV12,width={THERMAL_WIDTH},height={THERMAL_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 !
-        nvv4l2h265enc maxperf-enable=1 control-rate=0 bitrate={THERMAL_BITRATE} peak-bitrate={THERMAL_PEAK_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false zerolatency=true !
+        nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={THERMAL_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false zerolatency=true !
         h265parse !
         rtph265pay name=pay0 pt=96 config-interval=1
         )
@@ -105,7 +101,7 @@ FACTORIES = {
         nvunixfdsrc socket-path={SOCKETS[THERMAL_LOWRES]} num-extra-surfaces=4 !
         video/x-raw(memory:NVMM),format=NV12,width={THERMAL_LOWRES_WIDTH},height={THERMAL_LOWRES_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 !
-        nvv4l2h265enc maxperf-enable=1 control-rate=0 bitrate={THERMAL_LOWRES_BITRATE} peak-bitrate={THERMAL_LOWRES_PEAK_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false zerolatency=true !
+        nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={THERMAL_LOWRES_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false zerolatency=true !
         h265parse !
         rtph265pay name=pay0 pt=96 config-interval=1
         )
