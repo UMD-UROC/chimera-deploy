@@ -7,11 +7,20 @@ RGB_FRAMERATE = "30/1"
 # RGB_HEIGHT = 1080
 # RGB_FRAMERATE = "60/1"
 RGB_BITRATE = 10000000
+
+# locked to 1080p for USPI, can increase with better laptop probably
+RGB_LOWRES_WIDTH = 1920
+RGB_LOWRES_HEIGHT = 1080
 RGB_LOWRES_BITRATE = 1000000
 
 THERMAL_WIDTH = 640
 THERMAL_HEIGHT = 512
 THERMAL_BITRATE = 1000000
+
+# THERMAL_LOWRES_WIDTH = 640
+# THERMAL_LOWRES_HEIGHT = 512
+THERMAL_LOWRES_WIDTH = THERMAL_WIDTH
+THERMAL_LOWRES_HEIGHT = THERMAL_HEIGHT
 THERMAL_LOWRES_BITRATE = 1000000
 
 RGB = "rgb"
@@ -42,7 +51,7 @@ PRODUCERS = {
 
         t. ! queue leaky=downstream max-size-buffers=1 !
         nvvidconv interpolation-method=1 !
-        video/x-raw(memory:NVMM),width={RGB_WIDTH},height={RGB_HEIGHT},format=NV12 !
+        video/x-raw(memory:NVMM),width={RGB_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT},format=NV12 !
         nvunixfdsink socket-path={SOCKETS[RGB_LOWRES]} sync=false
         """,
     "thermal-fork": f"""
@@ -57,7 +66,7 @@ PRODUCERS = {
 
         t. ! queue leaky=downstream max-size-buffers=1 !
         nvvidconv interpolation-method=1 !
-        video/x-raw(memory:NVMM),width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=NV12 !
+        video/x-raw(memory:NVMM),width={THERMAL_LOWRES_WIDTH},height={THERMAL_LOWRES_HEIGHT},format=NV12 !
         nvunixfdsink socket-path={SOCKETS[THERMAL_LOWRES]} sync=false
         """,
 }
@@ -76,7 +85,7 @@ FACTORIES = {
     RGB_LOWRES: f"""
         (
         nvunixfdsrc socket-path={SOCKETS[RGB_LOWRES]} num-extra-surfaces=4 !
-        video/x-raw(memory:NVMM),format=NV12,width={RGB_WIDTH},height={RGB_HEIGHT} !
+        video/x-raw(memory:NVMM),format=NV12,width={RGB_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 !
         nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={RGB_LOWRES_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false zerolatency=true !
         h265parse !
@@ -96,7 +105,7 @@ FACTORIES = {
     THERMAL_LOWRES: f"""
         (
         nvunixfdsrc socket-path={SOCKETS[THERMAL_LOWRES]} num-extra-surfaces=4 !
-        video/x-raw(memory:NVMM),format=NV12,width={THERMAL_WIDTH},height={THERMAL_HEIGHT} !
+        video/x-raw(memory:NVMM),format=NV12,width={THERMAL_LOWRES_WIDTH},height={THERMAL_LOWRES_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 !
         nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={THERMAL_LOWRES_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false zerolatency=true !
         h265parse !
