@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-cd ~/chimera-deploy/local || exit 1
+cd ~/chimera-deploy/remote || exit 1
 
 ./record_rtsp_streams.sh rgb thermal &
 p1=$!
