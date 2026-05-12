@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 BAG_ROOT="$HOME/ros2_ws"
-BAG_NAME="rosbag_$(date +%Y%m%d_%H%M%S)"
+BAG_NAME="rosbag2_$(date +%Y_%m_%d-%H_%M_%S)"
 BAG_DIR="$BAG_ROOT/$BAG_NAME"
 
 cd "$BAG_ROOT" || exit 1
