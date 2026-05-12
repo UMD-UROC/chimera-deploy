@@ -2,7 +2,7 @@
 
 cd ~/chimera-deploy/local || exit 1
 
-./record_rtsp_streams.sh rgb4 thermal4 &
+./record_rtsp_streams.sh rgb thermal &
 p1=$!
 
 cd ~/ros2_ws || exit 1
