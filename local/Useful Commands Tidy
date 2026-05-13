@@ -1,0 +1,809 @@
+### Start MAVericks
+# host
+ssh root@10.223.100.101
+ssh root@10.223.100.102
+# voxl (should be in /home/mav_ws)
+source helpers/rb5_launch.sh uav1
+source helpers/rb5_launch.sh uav2
+source helpers/rb5_launch.sh uav3
+source helpers/rb5_launch.sh uav4
+## with console output
+ros2 launch mav_bringup rb5.launch.py precision_landing_enable:=False detection_autostart:=True depth_from_mono_enable:=False pointcloud_enable:=False rosbag_on_arm_enable:=False namespace:=uav1
+
+### sync time
+# host
+cd ~/workspace/research/mav_platform_r2
+./tools/rb5/sync_clock.sh 10.223.1.101
+./tools/rb5/sync_clock.sh 10.223.1.102
+#voxl
+date #check that date is correct
+
+### Record Bag
+# voxl
+cd /data/flight-data
+ros2 bag record -a --include-hidden-topics
+
+### live view
+# host
+ffplay rtsp://10.223.100.101:5000/hires
+
+    cinfo_path: "/home/mav_ws/install/rb5_gstream_ros2/share/rb5_gstream_ros2/cfg/chimera-55deg-1920x1080-calibrationdata-new.yaml"
+
+### snapshot
+voxl-send-command hires_snapshot snapshot
+
+### Params
+# voxl
+vi /etc/mav_config/mavlink.yaml
+vi /home/mav_ws/src/mav_bringup/config/rb5.yaml # set mavericks params dtc
+vi /home/mav_ws/src/drivers/rb5/rb5_gstream_ros2/cfg/params.yaml # for camera server only
+vi /home/mav_ws/src/mav_bringup/launch/features/detection.launch.py
+vi /home/mav_ws/src/mav_bringup/launch/fiona_voxl2.launch.py # set mavericks params
+vi /home/mav_ws/src/drivers/rb5/rb5_gstream_ros2/src/rb5_gstream.cpp # defaults
+***** if rtsp stream has an error, run the above command and edit the ip to be 10.223.1.101 ro 10.223.1.102 (google vim commands it is a linux text editor, not a normal one and it will not do what you think)
+***** may also want to change the frame rate, DONT change resolution from 4k
+
+### change camera setting when pushed from host
+source helpers/build_package.sh rb5_gstream_ros2
+
+### config files
+/home/mav_ws/install/rb5_gstream_ros2/share/rb5_gstream_ros2/cfg/
+
+### camera server only
+#on voxl
+ros2 launch rb5_gstream_ros2 camera.launch.py ns:=uav1
+#on host (need to be on doodle network and in mav_platform_r2 folder)
+cd ~/workspace/research/mav_platform_r2/
+source helpers/exp_setup.sh 1
+source helpers/exp_setup.sh 2
+source helpers/exp_setup.sh 3
+source helpers/exp_setup.sh 4
+rqt
+
+### Check Boot Log
+last reboot
+
+### Disable auto phase 2 on grazers
+# voxl
+# comment out "read_uav_mission" line in bash.rc file for all drones
+
+### Record Images Only
+#voxl
+ros2 bag record /uav1/hires/camera_info /uav1/hires/image_raw /uav1/hires/image_raw/compressed /uav1/hires/image_raw/compressedScaled
+ros2 bag record /uav2/hires/camera_info /uav2/hires/image_raw /uav2/hires/image_raw/compressed /uav2/hires/image_raw/compressedScaled
+
+### Record Smallest Picture
+#voxl
+ros2 bag record /uav1/hires/camera_info uav1/hires/image_raw/compressedScaled
+ros2 bag record /uav2/hires/camera_info uav2/hires/image_raw/compressedScaled
+
+###LARGE File Transfer
+***** MUST PLUG EVERYTHING IN BEFORE POWER ******
+***** MUST UNMOUNT BEFORE REMOVING DRIVE (can stay on?) ******
+#voxl
+lsblk
+mount /dev/sdg1 /mnt
+# mount somewhere else or reformat if mounting takes a while
+rsync -rW --progress --chmod=ugo=rwx SRC DEST
+rsync -rW --progress --chmod=ugo=rwx /data/flight-data/* /mnt
+umount /dev/sdg1
+# backup replacement if rsync is not working but disk is mounted
+scp SRC DEST
+chmod -R ugo=rwx
+
+### Vim cheat sheat
+press esc then press i to enter insert mode (this will be what you're used to)
+press esc then type ":wq!" to save and quit
+press esc then type ":q!" to quit without saving
+
+### BACKUP File Transfer
+# voxl
+split --bytes=2GB --numeric-suffixes rosbag rosbag.part
+rsync -W --progress SRC DEST
+# host
+cat rosbag.part* > rosbag
+
+### SMALL File Transfer
+#voxl
+adb pull SRC
+scp root@10.223.1.101 SRC DEST
+scp root@10.223.1.102 SRC DEST
+
+### voxl network test
+# voxl
+iperf -s -e -i 1 -u
+iperf3 -s
+# host
+iperf -c 10.223.1.101 -e -i 1 -u -b 1G -t 1500
+iperf -c 10.223.1.102 -e -i 1 -u -b 1G -t 1500
+iperf -c 10.223.100.101 -e -i 1 -u -b 1G -t 1500
+iperf3 -c 10.223.1.101 -t 100 -i 1
+iperf3 -c 10.200.142.201 -t 10 -i 1
+iperf3 -c 10.200.142.202 -t 10 -i 1
+
+### doodle network test (10m, 3dbi air antennas, 6dbi ground antennas)
+# doodle air <-> ground
+sysutils checklink -d 10 -h 10.223.28.82 -g 9
+sysutils checklink -d 10 -h 10.223.69.63 -g 9
+sysutils checklink -d 10 -h 10.223.27.226 -g 9
+# doodle air <-> air
+sysutils checklink -d 10 -h 10.223.69.63 -g 6
+sysutils checklink -d 10 -h 10.223.27.226 -g 6
+
+### view doodle params
+# doodle
+uci show
+
+### upload cloned doodle settings (https://doodlelabs.com/wp-content/uploads/2022/09/Smart-Radio-Configuration-Guide-v0622.pdf)
+# host (from wherever the backup file is)
+doscp -oHostKeyAlgorithms=+ssh-rsa backup.tar.gz root@192.168.153.1:/tmp
+# doodle
+ssh -oHostKeyAlgorithms=+ssh-rsa root@192.168.153.1
+configclone.sh -r -k
+
+### download cloned doodle settings
+# host (replace IP as needed)
+ssh-keygen -f "/home/ctitus/.ssh/known_hosts" -R "192.168.153.1" # may need this
+ssh -oHostKeyAlgorithms=+ssh-rsa root@192.168.153.1
+# doodle
+configclone.sh -b # say yes/done to everything
+# host (replace IP as needed)
+scp -oHostKeyAlgorithms=+ssh-rsa root@192.168.153.1:/tmp/backup.tar.gz .
+
+### get ip address from doodle
+ssh -oHostKeyAlgorithms=+ssh-rsa -ostricthostkeychecking=no root@192.168.153.1 'ip addr | grep 10.223'
+
+### set up ssh rsa key
+# host
+ssh-keygen -t rsa -b 4096 # generate key
+ssh-copy-id -i ~/.ssh/id_rsa.pub root@10.223.1.101 # do this for all ips
+ssh-copy-id -i ~/.ssh/id_rsa.pub root@10.200.142.201 # do this for all ips
+ssh-copy-id -i ~/.ssh/id_rsa.pub root@10.200.142.202 # do this for all ips
+ssh-copy-id -i ~/.ssh/id_rsa.pub cdcl@10.200.142.103 # do this for all ips
+ssh-copy-id -i ~/.ssh/id_rsa.pub j1@192.168.1.136 # do this for all ips
+
+### voxl cpu inspector
+# voxl
+voxl-cpu-monitor & # press enter after this command
+voxl-inspect-cpu
+
+### inspect used ports
+# host
+sudo netstat -tulpn | grep LISTEN
+
+
+#### IMAGES ####
+
+
+### Take high res picture (continuously update picture on voxl)
+#voxl
+gst-launch-1.0 -e qtiqmmfsrc camera=0 ! video/x-raw,format=NV12,width=3840,height=2160,framerate=1/2 ! videoflip method=vertical-flip ! queue ! jpegenc ! multifilesink location="/data/images/img.jpg" max-files=1
+
+gst-launch-1.0 -e qtiqmmfsrc camera=0 autoexposure=1 ae-compensation=-12 ! video/x-raw,format=NV12,width=3840,height=2160,framerate=1/2 ! videoflip method=vertical-flip ! queue ! jpegenc ! multifilesink location="/data/images/img.jpg" max-files=1
+
+
+
+feh --reload=0.5 ~/Pictures/dtc/img.jpg
+xwinwrap -ov -g 200x200+0-0 -- feh --fullscreen --reload=0.5 ~/Pictures/dtc/img.jpg
+
+
+
+
+
+
+gst-launch-1.0 -e qtiqmmfsrc camera=0 ae-mode=0 exposure-time=500000 ! video/x-raw,format=NV12,width=3840,height=2160,framerate=1/2 ! queue ! jpegenc ! multifilesink location="/data/images/img.jpg" max-files=1
+
+gst-launch-1.0 -e qtiqmmfsrc camera=0 ae-mode=1 ae-compensation=-12 ! video/x-raw,format=NV12,width=3840,height=2160,framerate=1/2 ! queue ! jpegenc ! multifilesink location="/data/images/img.jpg" max-files=1
+
+### Troubleshoot camera properties
+#voxl
+gst-pipeline-app -e qtiqmmfsrc camera=0 ! video/x-raw,format=NV12,width=3840,height=2160,framerate=1/2 ! queue ! jpegenc ! multifilesink location="/data/images/img.jpg" max-files=1
+
+### Compress rosbag to just images
+# host terminal a
+cd ~/workspace/research/mav_platform_r2/
+source helpers/exp_setup.sh 2 # change to drone number
+ros2 bag play rosbag
+# host terminal b
+cd ~/workspace/research/mav_platform_r2/
+source helpers/exp_setup.sh 2 # change to drone number
+ros2 bag record /uav1/detection/detections_image /uav1/detection/detections_image/compressed /uav1/detection/detections_image/compressedScaled /uav1/hires/camera_info /uav1/hires/compressedScaled /uav1/hires/image_raw /uav1/hires/image_raw/compressed # uav1
+ros2 bag record /uav2/detection/detections_image /uav2/detection/detections_image/compressed /uav2/detection/detections_image/compressedScaled /uav2/hires/camera_info /uav2/hires/compressedScaled /uav2/hires/image_raw /uav2/hires/image_raw/compressed # uav2
+
+### enable ssh into remote machine
+ssh-keyscan 10.223.10.2 >> ~/.ssh/known_hosts
+
+### setup wifi
+apt-get install network-manager # requires wifi, use setup_wifi for this
+systemctl enable NetworkManager
+systemctl start NetworkManager
+systemctl status NetworkManager
+systemctl disable NetworkManager
+systemctl stop NetworkManager
+systemctl disable wpa_supplicant@wlan0.service
+systemctl stop wpa_supplicant@wlan0.service
+systemctl enable wpa_supplicant@wlan0.service
+systemctl start wpa_supplicant@wlan0.service
+systemctl status wpa_supplicant@wlan0.service
+vi /etc/systemd/network/wlan0.network # comment out "DHCP=yes" and add "Address=192.168.1.201"
+nmcli connection add type wifi ifname wlan0 con-name CDCL-C2 ssid CDCL-C2 ipv4.addresses 10.200.142.201/24 wifi-sec.key-mgmt wpa-psk wifi-sec.psk "Encode-Proximity3" # uav1
+nmcli connection add type wifi ifname wlan0 con-name NETGEAR-CDCL-2 ssid NETGEAR-CDCL-2 ipv4.addresses 10.200.142.201/24 wifi-sec.key-mgmt wpa-psk wifi-sec.psk "fuzzyiris067" # uav1
+nmcli connection add type wifi ifname wlan0 con-name UMDUASTEST ssid UMDUASTEST ipv4.addresses 192.168.1.201/24 wifi-sec.key-mgmt wpa-psk wifi-sec.psk "T@k3Fl1ght!" # uav1
+nmcli connection add type wifi ifname wlan0 con-name ETC-NET-GUEST ssid ETC-NET-GUEST ipv4.addresses 172.20.3.201/24 wifi-sec.key-mgmt wpa-psk wifi-sec.psk "Uc1tcv4j" # uav1
+
+### manual (will work but requires hardwiring initially)
+ip addr flush dev wlan0
+ip link set dev wlan0 up
+ip addr add 10.200.142.201/24 dev wlan0
+ip addr add 172.20.3.201/24 dev wlan0
+
+
+ip addr add 10.200.142.201/24 dev wlan0
+ip route add default via 10.200.142.1
+nmcli connection add type wifi ifname wlan0 con-name CDCL-2 ssid CDCL-2 \
+ipv4.addresses 10.200.142.201/24 ipv4.gateway 10.200.142.1 \
+ipv4.dns "8.8.8.8 8.8.4.4" ipv4.method manual \
+wifi-sec.key-mgmt wpa-psk wifi-sec.psk "Encode-Proximity3" \
+connection.autoconnect yes
+
+### OLD wifi (works for UMD router)
+vi /etc/systemd/network/wlan0.network # comment out "DHCP=yes" and add "Address=192.168.1.201"
+## uav1
+ip addr add 10.200.142.201/24 dev wlan0
+ip route add default via 10.200.142.1
+nmcli connection add type wifi ifname wlan0 con-name NETGEAR-CDCL-2 ssid NETGEAR-CDCL-2 \
+ipv4.addresses 10.200.142.201/24 ipv4.gateway 10.200.142.1 \
+ipv4.dns "8.8.8.8 8.8.4.4" ipv4.method manual \
+wifi-sec.key-mgmt wpa-psk wifi-sec.psk "fuzzyiris067" \
+connection.autoconnect yes
+## uav2
+ip addr add 10.200.142.202/24 dev wlan0
+ip route add default via 10.200.142.1
+nmcli connection add type wifi ifname wlan0 con-name NETGEAR-CDCL-2 ssid NETGEAR-CDCL-2 \
+ipv4.addresses 10.200.142.202/24 ipv4.gateway 10.200.142.1 \
+ipv4.dns "8.8.8.8 8.8.4.4" ipv4.method manual \
+wifi-sec.key-mgmt wpa-psk wifi-sec.psk "fuzzyiris067" \
+connection.autoconnect yes
+
+### modify connection ip
+nmcli connection modify NETGEAR-CDCL-2 ipv4.addresses "10.200.142.202/24" # set to desired ip
+nmcli connection down NETGEAR-CDCL-2
+nmcli connection up NETGEAR-CDCL-2
+
+### replace model
+# host
+~/workspace/research/mav_platform_r2/src/perception/tflite_ros/models # put models in proper location
+cd ~/workspace/research/mav_platform_r2
+vi src/mav_bringup/config/mav.yaml # change filename to the new model in line 368
+./tools/rb5/push_src_ssh.py 192.168.1.155 # replace with voxl ip
+./tools/rb5/push_src_ssh.py 10.200.142.201 # replace with voxl ip
+./tools/rb5/push_src_ssh.py 10.200.142.202 # replace with voxl ip
+# voxl2
+rm -rf install/tflite_ros/ build/tflite_ros/
+source helpers/build_package.sh tflite_ros # rebuild detection model package
+source install/setup.bash
+
+### eth1 on voxl with voxl sdk
+vi /usr/bin/voxl-modem-start # change eth0 to eth1 for doodle section (line 86)
+
+### Cam cal
+##voxl
+#terminal a
+cd ~/mav_ws
+source helpers/rb5_launch.sh uav1
+source helpers/rb5_launch.sh uav2
+#terminal b
+ros2 bag record -a
+## HOST
+#in terminal a (check $ROS_DOMAIN_ID is same as other terminal)
+cd ~/workspace/research/mav_platform_r2
+source helpers/exp_setup.sh 1
+source helpers/exp_setup.sh 2
+cd ROSBAG_PATH
+ros2 bag play rosbag2_
+#in terminal b (check $ROS_DOMAIN_ID is same as other terminal)
+cd ~/workspace/research/mav_platform_r2
+source helpers/exp_setup.sh 1
+source helpers/exp_setup.sh 2
+ros2 run camera_calibration cameracalibrator --size 5x7 --square 0.03 --ros-args -r image:=/uav1/hires/image_raw -p camera:=/uav1/hires
+ros2 run camera_calibration cameracalibrator --size 5x7 --square 0.03 --ros-args -r image:=/uav2/hires/image_raw -p camera:=/uav2/hires
+
+
+
+/home/mav_ws/install/rb5_gstream_ros2/share/rb5_gstream_ros2/cfg/
+
+vi /home/mav_ws/src/mav_bringup/config/rb5.yaml # set mavericks params dtc
+vi /home/mav_ws/src/drivers/rb5/rb5_gstream_ros2/cfg/params.yaml # for camera server only
+
+#cinfo_path: "/home/mav_ws/install/rb5_gstream_ros2/share/rb5_gstream_ros2/cfg/chimera-55deg-1920x1080-calibration.yaml"
+cinfo_path: "/home/mav_ws/install/rb5_gstream_ros2/share/rb5_gstream_ros2/cfg/chimera-120deg-1920x1080-calibration.yaml"
+
+vi /etc/systemd/network/wlan0.network # DHCP=wifi, ip=static
+
+### WORKING WIFI
+ip addr add 10.200.142.201/24 dev wlan0
+ip route add default via 10.200.142.1
+nmcli connection add type wifi ifname wlan0 con-name CDCL-C2 ssid CDCL-C2 \
+ipv4.addresses 10.200.142.201/24 ipv4.gateway 10.200.142.1 \
+ipv4.dns "8.8.8.8 8.8.4.4" ipv4.method manual \
+wifi-sec.key-mgmt wpa-psk wifi-sec.psk "Encode-Proximity3" \
+connection.autoconnect yes
+
+ip addr add 10.200.142.201/24 dev wlan0
+ip route add default via 10.200.142.1
+nmcli connection add type wifi ifname wlan0 con-name NETGEAR-CDCL-1 ssid NETGEAR-CDCL-1 \
+ipv4.addresses 10.200.142.201/24 ipv4.gateway 10.200.142.1 \
+ipv4.dns "8.8.8.8 8.8.4.4" ipv4.method manual \
+wifi-sec.key-mgmt wpa-psk wifi-sec.psk "fuzzyiris067" \
+connection.autoconnect yes
+
+ip addr add 10.200.142.201/24 dev wlan0
+ip route add default via 10.200.142.1
+nmcli connection add type wifi ifname wlan0 con-name NETGEAR-CDCL-2 ssid NETGEAR-CDCL-2 \
+ipv4.addresses 10.200.142.201/24 ipv4.gateway 10.200.142.1 \
+ipv4.dns "8.8.8.8 8.8.4.4" ipv4.method manual \
+wifi-sec.key-mgmt wpa-psk wifi-sec.psk "fuzzyiris067" \
+connection.autoconnect yes
+
+
+ip addr add 10.200.142.202/24 dev wlan0
+ip route add default via 10.200.142.1
+nmcli connection add type wifi ifname wlan0 con-name CDCL-C2 ssid CDCL-C2 \
+ipv4.addresses 10.200.142.202/24 ipv4.gateway 10.200.142.1 \
+ipv4.dns "8.8.8.8 8.8.4.4" ipv4.method manual \
+wifi-sec.key-mgmt wpa-psk wifi-sec.psk "Encode-Proximity3" \
+connection.autoconnect yes
+
+# ethernet
+nmcli con add type ethernet ifname eth1 con-name doodle ip4 10.223.1.102/16 connection.autoconnect yes
+nmcli con add type ethernet ifname eth0 con-name wired-doodle ip4 10.223.2.102/16 connection.autoconnect yes
+
+
+# static
+ip addr add 192.168.1.201/24 dev wlan0
+nmcli connection add type wifi ifname wlan0 con-name uroc ssid UMDUASTEST \
+ipv4.addresses 192.168.1.201/24 \
+ipv4.dns "8.8.8.8 8.8.4.4" ipv4.method manual \
+wifi-sec.key-mgmt wpa-psk wifi-sec.psk "T@k3Fl1ght!" \
+connection.autoconnect yes
+
+# wifi + mav
+nmcli connection add type wifi ifname wlan0 con-name uroc ssid UMDUASTEST \
+ipv4.addresses 192.168.1.201/24 \
+ipv4.dns "8.8.8.8 8.8.4.4" ipv4.method auto \
+wifi-sec.key-mgmt wpa-psk wifi-sec.psk "T@k3Fl1ght!" \
+connection.autoconnect yes
+
+
+### A.2 wifi/doodle setup
+ip addr add 10.223.1.101/16 dev eth1
+ip addr add 10.223.1.102/16 dev eth1
+
+apt-get install network-manager # requires wifi, use voxl-wifi for this
+systemctl enable NetworkManager
+systemctl start NetworkManager
+nmcli con add type wifi ifname eth1 con-name doodle ip4 10.223.1.101/16 connection.autoconnect yes
+
+
+nmcli con add type ethernet ifname eth0 con-name eth0-replicated ip4 169.254.169.54/16 && \
+nmcli con modify eth0-replicated ipv4.routes "169.254.0.0/16 0.0.0.0" && \
+nmcli con modify eth0-replicated ipv4.routes "0.0.0.0/0 0.0.0.0" && \
+nmcli con up eth0-replicated && \
+nmcli device show eth0
+
+# voxl files
+
+### TODO FOR UAV2
+vi /etc/modalai/voxl-modem.conf # modem config
+vi /usr/bin/voxl-configure-modem # modem script
+vi /usr/bin/voxl-modem-start # configures network interfaces on start
+
+vi /etc/modalai/voxl-mavlink-server.conf # mavlink routing
+vi /data/modalai/custom_camera_config.txt # custom cam config file
+voxl-configure-cameras C
+camera-server-config-helper hires:imx412:0 #skip?
+vi /etc/modalai/voxl-camera-server.conf # camera config
+systemctl restart voxl-camera-server
+systemctl restart voxl-streamer
+# need to power cycle
+
+vi /etc/modalai/voxl-streamer.conf # rtsp stream config
+systemctl enable voxl-streamer
+systemctl start voxl-streamer
+
+### sync voxls
+## host
+# flash
+cd /home/ctitus/voxl-sdks/voxl2_SDK_1.3.3
+./install.sh
+# deploy
+cd /home/ctitus/backups/2024-09-20_a2_system-backup/uav4
+# these need to be changed between uavs
+adb push voxl-modem.conf /etc/modalai/voxl-modem.conf # modem config
+adb push voxl-configure-modem /usr/bin/voxl-configure-modem # modem script
+# these are the same
+adb push voxl-streamer.conf /etc/modalai/voxl-streamer.conf # rtsp stream config
+adb push voxl-camera-server.conf /etc/modalai/voxl-camera-server.conf # camera config
+adb push voxl-mavlink-server.conf /etc/modalai/voxl-mavlink-server.conf # mavlink routing
+adb push voxl-modem-start /usr/bin/voxl-modem-start # configures network interfaces on start
+adb push custom_camera_config.txt /data/modalai/custom_camera_config.txt # custom cam config file
+adb shell
+## voxl
+voxl-configure-cameras C
+systemctl enable voxl-streamer
+voxl-configure-modem
+# build cam server (see below)
+reboot
+
+# pull above files
+adb pull /etc/modalai/voxl-modem.conf . # modem config
+adb pull /usr/bin/voxl-configure-modem . # modem script
+adb pull /etc/modalai/voxl-streamer.conf . # rtsp stream config
+adb pull /etc/modalai/voxl-camera-server.conf . # camera config
+adb pull /etc/modalai/voxl-mavlink-server.conf . # mavlink routing
+adb pull /usr/bin/voxl-modem-start . # configures network interfaces on start
+adb pull /data/modalai/custom_camera_config.txt . # custom cam config file
+
+### build voxl camera server (modify hal3_camera_mgr.cpp and common_defs.h, lines ~520)
+## host
+cd ~/IdeaProjects/voxl-camera-server
+voxl-docker -i voxl-cross
+## docker
+./install_build_deps.sh qrb5165 sdk-1.3 ; ./clean.sh ; ./build.sh qrb5165 ; ./make_package.sh
+exit # or go to another terminal in the voxl-camera-server folder on host
+## host
+./deploy_to_voxl.sh
+adb shell
+## voxl
+systemctl restart voxl-camera-server
+
+### build voxl streamer (unmodified)
+
+
+### RTSP stream viewer
+ffplay rtsp://10.223.1.101:8900/live
+ffplay rtsp://10.223.1.102:8900/live
+ffplay rtsp://10.200.91.51:8900/live
+ffplay rtsp://10.200.91.52:8900/live
+
+### backup voxl
+bin data etc home lib log opt sys system usr var
+
+# wifi troubleshooting
+iw list
+iw reg get
+nmcli device wifi rescan
+nmcli device wifi list
+nmcli -f ALL device wifi list
+
+iwlist scan
+
+cd /data/videos
+voxl-record-video hires_large_encoded -o /data/videos/uav1.h265
+voxl-record-video hires_large_encoded -o /data/videos/uav2.h265
+
+### orin udp stream
+## orin
+# start stream
+gst-launch-1.0 nvarguscamerasrc sensor-id=0 wbmode=1 ! 'video/x-raw(memory:NVMM), width=1920, height=1080, format=NV12, framerate=30/1' ! nvvidconv ! 'video/x-raw(memory:NVMM), width=1920, height=1080' ! nvv4l2h265enc bitrate=4000000 preset-level=0 insert-sps-pps=1 iframeinterval=10 ! h265parse ! rtph265pay config-interval=1 ! udpsink host=10.200.91.50 port=5600 sync=false
+gst-launch-1.0 nvarguscamerasrc sensor-id=0 wbmode=1 ! 'video/x-raw(memory:NVMM), width=1920, height=1080, format=NV12, framerate=30/1' ! nvvidconv flip-method=2 ! 'video/x-raw(memory:NVMM), width=1920, height=1080' ! nvv4l2h265enc bitrate=1000000 preset-level=0 insert-sps-pps=1 iframeinterval=10 ! h265parse ! rtph265pay config-interval=1 ! udpsink host=10.200.91.50 port=5600 sync=false
+gst-launch-1.0 nvarguscamerasrc sensor-id=0 sensor-mode=1 wbmode=1 ! 'video/x-raw(memory:NVMM), width=1920, height=1080, format=NV12, framerate=60/1' ! nvvidconv flip-method=2 ! 'video/x-raw(memory:NVMM), width=1920, height=1080' ! nvv4l2h265enc bitrate=1000000 preset-level=0 insert-sps-pps=1 iframeinterval=10 ! h265parse ! rtph265pay config-interval=1 ! udpsink host=10.200.91.50 port=5600 sync=false
+gst-launch-1.0 nvarguscamerasrc sensor-id=0 sensor-mode=1 ! 'video/x-raw(memory:NVMM), width=1920, height=1080, format=NV12, framerate=60/1' ! nvvidconv flip-method=2 ! 'video/x-raw(memory:NVMM), width=1920, height=1080' ! nvv4l2h265enc bitrate=1000000 preset-level=0 insert-sps-pps=1 iframeinterval=10 ! h265parse ! rtph265pay config-interval=1 ! udpsink host=10.200.91.50 port=5600 sync=false
+gst-launch-1.0 nvarguscamerasrc sensor-id=0 wbmode=1 ! 'video/x-raw(memory:NVMM), width=1920, height=1080, format=NV12, framerate=30/1' ! nvvidconv ! 'video/x-raw(memory:NVMM), width=1920, height=1080' ! nvv4l2h265enc bitrate=4000000 preset-level=0 insert-sps-pps=1 iframeinterval=10 ! h265parse ! rtph265pay config-interval=1 ! udpsink host=192.168.1.187 port=5600 sync=false
+gst-launch-1.0 nvarguscamerasrc sensor-id=0 sensor-mode=0 ! 'video/x-raw(memory:NVMM), width=(int)4056, height=(int)3040, format=(string)NV12, framerate=30/1' ! nvvidconv ! 'video/x-raw(memory:NVMM), width=(int)1920, height=(int)1080, format=(string)NV12' ! nvv4l2h265enc bitrate=4000000 preset-level=0 insert-sps-pps=1 iframeinterval=10 ! h265parse ! rtph265pay config-interval=1 ! udpsink host=10.200.91.50 port=5600 sync=false
+
+## host
+# stream mp4 as udp
+gst-launch-1.0 filesrc location=path/to/video.mp4 ! qtdemux ! h265parse ! rtph265pay ! udpsink host=10.200.142.102 port=5600 # change host to target IP
+gst-launch-1.0 filesrc location=~/Downloads/rtsp_video_2024-12-19_17-37-54_10.223.1.102.mp4 ! qtdemux ! h265parse ! rtph265pay ! udpsink host=10.200.92.50 port=5600 # change host to target IP
+
+# view stream
+gst-launch-1.0 udpsrc port=5600 caps="application/x-rtp,media=video,encoding-name=H265,payload=96" ! rtph265depay ! h265parse ! avdec_h265 ! autovideosink
+gst-launch-1.0 udpsrc port=5600 caps="application/x-rtp,media=video,encoding-name=H265,payload=96" ! rtph265depay ! h265parse ! avdec_h265 ! autovideosink
+gst-launch-1.0 udpsrc port=5610 caps="application/x-rtp,media=video,encoding-name=H265,payload=96" ! rtph265depay ! h265parse ! avdec_h265 ! autovideosink
+gst-launch-1.0 udpsrc port=5620 caps="application/x-rtp,media=video,encoding-name=H265,payload=96" ! rtph265depay ! h265parse ! avdec_h265 ! autovideosink
+gst-launch-1.0 rtspsrc location=rtsp://10.200.91.51:8900/live latency=0 ! rtph265depay ! avdec_h265 ! autovideosink sync=false
+gst-launch-1.0 rtspsrc location=rtsp://10.200.91.52:8900/live latency=0 ! rtph265depay ! avdec_h265 ! autovideosink sync=false
+gst-launch-1.0 rtspsrc location=rtsp://10.200.91.54:8554/test latency=0 ! rtph264depay ! avdec_h264 ! autovideosink
+gst-launch-1.0 udpsrc port=5600 caps="application/x-rtp,media=video,encoding-name=H264,payload=96" ! rtph264depay ! h264parse ! avdec_h264 ! autovideosink sync=false
+
+# mavlink forwarding
+mavproxy.py --master=udp:127.0.0.1:14401 --target-system=1 --out=udp:10.200.142.103:14401 # requires enabling qgc mavlink forwarding
+mavproxy.py --master=udp:127.0.0.1:14402 --target-system=2 --out=udp:10.200.142.103:14402 # requires enabling qgc mavlink forwarding
+
+# view and record stream
+gst-launch-1.0 -e rtspsrc location=rtsp://10.200.91.51:8900/live latency=0 ! rtph265depay ! tee name=t t. ! queue ! h265parse ! mp4mux ! filesink location=uav1.mp4 t. ! queue ! avdec_h265 ! autovideosink sync=false
+gst-launch-1.0 -e rtspsrc location=rtsp://10.200.91.52:8900/live latency=0 ! rtph265depay ! tee name=t t. ! queue ! h265parse ! mp4mux ! filesink location=uav2.mp4 t. ! queue ! avdec_h265 ! autovideosink sync=false
+
+# usb to orin
+picocom /dev/ttyUSB0 -b 115200 # open port
+
+# forward image stream
+gst-launch-1.0 rtspsrc location=rtsp://10.200.91.51:8900/live latency=0 ! rtph265depay ! h265parse ! rtph265pay config-interval=1 ! udpsink host=10.200.142.103 port=5610
+gst-launch-1.0 rtspsrc location=rtsp://10.200.91.52:8900/live latency=0 ! rtph265depay ! h265parse ! rtph265pay config-interval=1 ! udpsink host=10.200.142.103 port=5620
+gst-launch-1.0 rtspsrc location=rtsp://10.200.91.54:8554/rgb latency=0 ! rtph264depay ! h264parse ! rtph264pay config-interval=1 pt=96 ! udpsink host=10.200.92.50 port=5600 sync=false
+gst-launch-1.0 rtspsrc location=rtsp://10.200.91.54:8554/thermal latency=0 ! rtph264depay ! h264parse ! rtph264pay config-interval=1 pt=96 ! udpsink host=10.200.92.50 port=5601 sync=false
+
+
+# send image to dpu
+timeout 2 gst-launch-1.0 rtspsrc location=rtsp://10.200.91.51:8900/live latency=0 ! rtph265depay ! h265parse ! rtph265pay config-interval=1 ! udpsink host=10.200.142.103 port=5610
+timeout 2 gst-launch-1.0 rtspsrc location=rtsp://10.200.91.52:8900/live latency=0 ! rtph265depay ! h265parse ! rtph265pay config-interval=1 ! udpsink host=10.200.142.103 port=5610
+
+# one way ping
+echo "hi" | nc -u 10.200.92.51 5000
+
+# listen to port
+nc -u -l 14401
+
+# quit all screens
+for s in $(screen -ls | awk '/[0-9]+\./ {print $1}'); do screen -S "$s" -X quit; done
+
+# mavlink router
+vi /etc/mavlink-router/main.conf
+
+# reencode improperly terminated .h265 voxl recording
+ffmpeg -f hevc -i input.h265 -c:v libx264 -preset fast -crf 23 output.mp4
+
+### thermal (Boson640)
+## orin
+gst-launch-1.0 -v v4l2src device=/dev/video1 ! video/x-raw,width=640,height=512,format=I420 ! x264enc tune=zerolatency bitrate=500 speed-preset=ultrafast ! rtph264pay config-interval=1 pt=96 ! udpsink host=10.200.91.50 port=5601
+
+## host
+gst-launch-1.0 -v udpsrc port=5601 caps="application/x-rtp,encoding-name=H264,payload=96" ! rtph264depay ! avdec_h264 ! autovideosink
+
+#install rtsp server (on drone) (don't think I need anythng from here except the first line
+cd
+sudo apt install libgstrtspserver-1.0-dev gir1.2-gst-rtsp-server-1.0 gstreamer1.0-rtsp
+sudo apt update
+git clone https://gitlab.freedesktop.org/gstreamer/gst-rtsp-server.git
+cd gst-rtsp-server/examples
+gcc test-launch.c -o test-launch $(pkg-config --cflags --libs gstreamer-rtsp-server-1.0 gstreamer-1.0 gstreamer-base-1.0)
+sudo cp test-launch /usr/local/bin/
+
+### python script
+# orin
+sudo apt install libgstrtspserver-1.0-dev gir1.2-gst-rtsp-server-1.0
+#put the multi_rtsp_server.py file in home dir
+
+### starting lidar
+## lidar debug port
+# set downwards lidar to address default 102 (x66)
+# set gimbal lidar to address 103 (x67)
+## mavlink console
+lightware_laser_i2c start -X -a 102 -R 25
+lightware_laser_i2c start -X -a 103 -R 0
+
+### stopping lidar
+## mavlink console
+lightware_laser_i2c stop -X -a 102
+lightware_laser_i2c stop -X -a 103
+
+### foxglove bridge
+ros2 launch foxglove_bridge foxglove_bridge_launch.xml
+
+### 5g camera cal
+ros2 run camera_calibration cameracalibrator --size 5x7 --square 0.027 --ros-args -r image:=/uas4/image -p camera:=/drone
+ros2 run camera_calibration cameracalibrator --size 3x5 --square 0.04 --ros-args -r image:=/uas3/image -p camera:=/drone
+ros2 run camera_calibration cameracalibrator --size 3x5 --square 0.04 --ros-args -r image:=/uas4/image -p camera:=/drone
+ros2 run camera_calibration cameracalibrator --size 5x8 --square 0.03 --ros-args -r image:=/uas3/image -p camera:=/drone
+ros2 run camera_calibration cameracalibrator --size 5x8 --square 0.03 --ros-args -r image:=/uas4/image -p camera:=/drone
+ros2 run camera_calibration cameracalibrator --size 8x12 --square 0.018 --ros-args -r image:=/uas4/image -p camera:=/drone
+
+### USPI Launch
+## host
+# terminal 1 (skip for chimera a)
+cd ~/DTC/chimera-recording-visualization
+./start_camera_server.sh
+# terminal 2
+cd ~/ros2_ws
+source install/setup.bash
+source /opt/ros/humble/setup.bash
+ros2 launch 5g_drone debug_draw_and_localize.launch.py
+# terminal 3 (unused)
+cd ~/ros2_ws
+source install/setup.bash
+source /opt/ros/humble/setup.bash
+ros2 run 5g_drone target_localization_node
+# terminal 4
+fgb # cd, source, and start foxglove bridge
+
+# image node only
+cd ~/ros2_ws
+rs
+ws
+ros2 run 5g_drone udp_to_ros2_image_node --ros-args -p rtsp_host:=rtsp://10.200.91.51:8900/live
+
+# db3 to mcap
+cdr
+ros2 bag convert -i rosbag.db3 -o convert.yaml
+
+# px4 events source
+wget https://px4-travis.s3.amazonaws.com/Firmware/master/_general/all_events.json.xz
+unxz all_events.json.xz
+cat all_events.json
+
+# recursive grep
+grep -r "search_pattern" /path/to/directory
+
+# view rgb
+gst-launch-1.0 rtspsrc location=rtsp://10.200.91.51:8900/live latency=0 ! rtph264depay ! avdec_h264 ! autovideosink sync=false
+gst-launch-1.0 rtspsrc location=rtsp://10.200.91.52:8900/live latency=0 ! rtph264depay ! avdec_h264 ! autovideosink sync=false
+gst-launch-1.0 rtspsrc location=rtsp://10.200.91.54:8554/rgb latency=0 ! rtph264depay ! avdec_h264 ! autovideosink sync=false
+
+# forward rgb
+gst-launch-1.0 rtspsrc location=rtsp://10.200.91.51:8900/live latency=0 ! rtph264depay ! h264parse ! rtph264pay config-interval=1 ! udpsink host=10.200.91.41 port=5000
+gst-launch-1.0 rtspsrc location=rtsp://10.200.91.52:8900/live latency=0 ! rtph264depay ! h264parse ! rtph264pay config-interval=1 ! udpsink host=10.200.91.41 port=5000
+gst-launch-1.0 rtspsrc location=rtsp://10.200.91.54:8554/rgb latency=0 ! rtph264depay ! h264parse ! rtph264pay config-interval=1 ! udpsink host=10.200.91.41 port=5000
+
+# temperature
+watch cat /sys/class/thermal/thermal_zone*/temp
+
+# record bag
+ros2 bag record -a -x "^(/uas1/image|/uas2/image|/uas4/image)$"
+
+# bag playback speedy
+ros2 bag play your_bag_file --rate 100.0
+
+# orin model
+tr -d '\0' < /proc/device-tree/model; echo
+
+# orin compatible
+tr '\0' '\n' < /proc/device-tree/compatible
+
+# working
+Last login: Thu Jan  1 00:29:54 UTC 1970 from 10.200.91.50 on pts/0
+NVIDIA Jetson Orin NX Engineering Reference Developer Kit
+nvidia,p3768-0000+p3767-0000
+nvidia,p3767-0000
+nvidia,tegra234
+
+# not working
+EchoPilot AI
+nvidia,p3768-0000+p3767-0000
+nvidia,p3767-0000
+nvidia,tegra234
+
+# forward file
+gst-launch-1.0 filesrc location=/home/ctitus/DTC/chimera-recording-visualization/recordings/video.mp4 ! qtdemux name=d d.video_0 ! queue ! h264parse ! rtph264pay config-interval=1 pt=96 ! udpsink host=10.200.91.40 port=5000 sync=true
+
+# kill ssh clients
+w
+pkill -kill -t #pts/3
+
+# webm to mp4
+ffmpeg -hide_banner -y -vaapi_device /dev/dri/renderD128 \
+  -i input.mp4 \
+  -vf "mpdecimate,fps=30,format=nv12,hwupload" \
+  -c:v h264_vaapi -rc_mode CQP -qp 22 -bf 0 -g 120 \
+  -c:a aac -b:a 160k \
+  -movflags +faststart \
+  output.mp4
+
+# mavlink mode definitions
+https://github.com/PX4/PX4-Autopilot/blob/main/src/modules/mavlink/mavlink_main.cpp#L1423
+
+# db3 to mcap
+cdr
+cd bags
+ros2 bag convert -i rosbag.db3 -o convert.yaml # output in ros2_output
+
+# mcap merge
+cdr
+mcap merge file1.mcap file2.mcap -o merged.mcap --allow-duplicate-metadata
+
+ssh... -Y lets you use host display for orin
+
+https://github.com/dusty-nv/jetson-containers # nvidia ml containers
+
+ros2 run 5g_drone yolo_detector --ros-args -p image_topic:=/uas3/image -p detector_output:=/uas3/target_detections -p detector_confidence:=0.6
+
+ros2 launch 5g_drone video_uas4_playback.launch.py video_path:="/home/ctitus/ros2_ws/bags/2025-09-30-dtc-day-medic-c130/uav4-video-rgb-1970-01-01-00-17-46_.mp4"
+
+ffmpeg -ss 00:08:15 -i input.mp4 -t 00:24:20 -c:v copy -c:a copy output.mp4
+
+# modify gimbal offset
+ros2 param set /uas3/target_localization_node gimbal_offset [0.0,0.0,0.0]
+
+# Publish once with ros2 CLI (sensor_msgs/msg/CameraInfo)
+ros2 topic pub  /uas3/camera/camera_info sensor_msgs/msg/CameraInfo "
+header:
+  frame_id: camera_link
+height: 512
+width: 640
+distortion_model: plumb_bob
+d: [-0.330430, 0.783400, -0.012526, 0.000248, 0.000000]
+k: [1152.55357,    0.     ,  336.66996,
+            0.     , 1158.43395,  335.21922,
+            0.     ,    0.     ,    1.     ]
+r: [1.0, 0.0, 0.0,
+    0.0, 1.0, 0.0,
+    0.0, 0.0, 1.0]
+p: [1128.59493,    0.     ,  337.31225,    0.     ,
+            0.     , 1144.33294,  335.02783,    0.     ,
+            0.     ,    0.     ,    1.     ,    0.     ]
+binning_x: 0
+binning_y: 0
+roi:
+  x_offset: 0
+  y_offset: 0
+  height: 0
+  width: 0
+  do_rectify: false
+"
+
+### clean reinstall nvidia drivers and cuda
+sudo dpkg -l | grep nvidia
+sudo apt-get purge nvidia*
+sudo apt-get autoremove
+# sudo apt-get install -y nvidia-driver-580-open # specify driver
+sudo ubuntu-drivers install # automatic helper
+# sudo reboot
+nvidia-smi # check that it installed
+sudo prime-select query # check prime settings
+sudo prime-select nvidia # set prime select to use gpu whenever
+
+# jetson torch cuda install
+pip3 uninstall -y torch torchvision torchaudio
+pip3 install https://pypi.jetson-ai-lab.io/jp6/cu126/+f/02f/de421eabbf626/torch-2.9.1-cp310-cp310-linux_aarch64.whl#sha256=02fde421eabbf62633092de30405ea4d917323c55bea22bfd10dfeb1f1023506 # torch 2.9.1 cuda
+pip3 install https://pypi.jetson-ai-lab.io/jp6/cu126/+f/d12/bede7113e6b00/torchaudio-2.9.1-cp310-cp310-linux_aarch64.whl#sha256=d12bede7113e6b00f7c5ed53a28f7fa44a624780c8097a6a2352f32548d77ffb # torch audio 2.9.1 cuda
+pip3 install https://pypi.jetson-ai-lab.io/jp6/cu126/+f/d5b/caaf709f11750/torchvision-0.24.1-cp310-cp310-linux_aarch64.whl#sha256=d5bcaaf709f11750b5bb0f6ec30f37605da2f3d5cb3cd2b0fe5fac2850e08642 # torch vision 2.9.1 cuda
+
+# rqt and other desktop tools
+sudo apt install ros-humble-desktop
+
+# assessment model
+pip install openai-clip
+
+# clear a warning
+pip install --upgrade "scipy==1.14.*"
+
+# plan translation node
+# update waypoint_array_topic with whatever zach sends
+# update destination_file with desired path
+cdr && ros2 launch 5g_drone plan_translation_launcher.launch.py # make sure to update ns
+
+# gst data dump of video device
+gst-launch-1.0 -v v4l2src device=/dev/video10 num-buffers=10 ! fakesink dump=1
+
+#### spot stuff ####
+
+# send
+gst-launch-1.0 v4l2src device=/dev/video0 ! video/x-raw,framerate=30/1 ! videoconvert ! x264enc tune=zerolatency bitrate=2048 speed-preset=ultrafast ! rtph264pay ! udpsink host=192.168.79.164 port=5000 # spot udp working
+gst-launch-1.0 v4l2src device=/dev/video0 ! video/x-raw,framerate=30/1 ! videoconvert ! x265enc tune=zerolatency bitrate=2048 speed-preset=ultrafast ! rtph265pay ! udpsink host=192.168.79.164 port=5000 # spot udp working
+
+gst-launch-1.0 v4l2src device=/dev/video0                                             ! video/x-raw,framerate=30/1                                  ! videoconvert                                                                     ! x265enc tune=zerolatency bitrate=2048                                                                                                                      ! rtph265pay pt=96 config-interval=1 ! udpsink host=192.168.79.164 port=5000
+gst-launch-1.0 v4l2src device=/dev/video0 ! queue max-size-buffers=1 leaky=downstream ! video/x-raw,width=640,height=512,format=I420                ! nvvidconv ! video/x-raw(memory:NVMM) ! queue max-size-buffers=1 leaky=downstream ! nvv4l2h265enc control-rate=0 bitrate=1000000 peak-bitrate=5000000 iframeinterval=0 insert-sps-pps=true EnableTwopassCBR=false zerolatency=true ! h265parse ! rtph265pay config-interval=1 pt=96 name=pay0
+               v4l2src device=/dev/video0 ! queue max-size-buffers=1 leaky=downstream ! video/x-raw,framerate=30/1,width=640,height=512,format=I420 ! videoconvert                         ! queue max-size-buffers=1 leaky=downstream ! x265enc tune=zerolatency bitrate=2048                                                                                                                      ! rtph265pay config-interval=1 pt=96 name=pay0
+               v4l2src device=/dev/video0 ! queue max-size-buffers=1 leaky=downstream ! video/x-raw,framerate=30/1,width=640,height=512,format=I420 ! videoconvert                         ! queue max-size-buffers=1 leaky=downstream ! x265enc tune=zerolatency bitrate=2048                                                                                                                      ! rtph265pay config-interval=1 pt=96 name=pay0 # merged working
+
+
+# receive
+gst-launch-1.0 -v udpsrc port=5000 caps="application/x-rtp,media=video,encoding-name=H264,payload=96,clock-rate=90000" ! rtpjitterbuffer ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink sync=false # laptop udp working
+gst-launch-1.0 -v udpsrc port=5000 caps="application/x-rtp,media=video,encoding-name=H265,payload=96,clock-rate=90000" ! rtpjitterbuffer ! rtph265depay ! h265parse ! avdec_h265 ! videoconvert ! autovideosink sync=false # laptop udp working
+gst-launch-1.0 -v udpsrc port=5000 caps="application/x-rtp,media=video,encoding-name=H265,payload=96,clock-rate=90000" ! rtph265depay ! h265parse ! avdec_h265 ! videoconvert ! autovideosink sync=false
+
+### install chrony
+## laptop
+sudo apt install chrony
+# edit /etc/chrony/chrony.conf to have (at the bottom):
+# local stratum 10
+# allow 10.200.142.0/24
+sudo systemctl restart chrony
+
+## orin
+sudo apt install chrony -y
+grep -qxF "server 10.200.142.60 iburst" /etc/chrony/chrony.conf || echo "server 10.200.142.60 iburst" | sudo tee -a /etc/chrony/chrony.conf # add 10.200.142.60 as chrony server
+sudo systemctl restart chrony
+date # verify
+
+# view usb cam
+gst-launch-1.0 -e v4l2src device=/dev/video2 ! 'image/jpeg,width=1920,height=1080,framerate=30/1' ! jpegdec ! videoconvert ! xvimagesink sync=false
+
+
+
+
+
+
+
+
+
