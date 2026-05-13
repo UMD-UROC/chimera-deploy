@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=QGroundControl
+Comment=Ground control station for drones
+Exec=/home/ctitus/.local/bin/qgroundcontrol
+Icon=/home/ctitus/.local/share/icons/qgroundcontrol.png
+Type=Application
+Categories=Utility
+Terminal=false
