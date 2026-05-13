@@ -31,9 +31,9 @@ alias uspi4-assess='ccb && cdr && ros2 launch 5g_drone uas4_assess.launch.py && 
 alias uspi4-assess-no-gps='ccb && cdr && ros2 launch 5g_drone uas4_assess_no_gps.launch.py && cd -'
 alias netbridge='cdr && ros2 launch 5g_drone netbridge.launch.py && cd -'
 #alias bag='cdr; ros2 bag record -a -x "^(/uas1/image|/uas2/image|/uas3/image|/uas4/image)$"'
-export BAG_REGEX=$(paste -sd '|' /home/ctitus/ros2_ws/src/5g_drone/resource/rosbag_topics.txt)
+export BAG_REGEX=$(paste -sd '|' ~/ros2_ws/src/5g_drone/resource/rosbag_topics.txt)
 alias bag='cdr && ros2 bag record -s mcap --storage-preset-profile zstd_fast -e "$BAG_REGEX"'
-alias bgc='cd /home/ctitus/Basecam/SimpleBGC_GUI_2_73_3; ./run.sh'
+alias bgc='cd ~/Basecam/SimpleBGC_GUI_2_73_3; ./run.sh'
 alias forward3='gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:8554/rgb3 latency=0 ! rtph265depay ! h265parse ! rtph265pay config-interval=1 pt=96 ! udpsink host=10.200.142.41 port=5000 sync=false'
 alias forward3-thermal='gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:8554/thermal3 latency=0 ! rtph265depay ! h265parse ! rtph265pay config-interval=1 pt=96 ! udpsink host=10.200.142.41 port=5000 sync=false'
 alias forward4='gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:8554/rgb4 latency=0 ! rtph265depay ! h265parse ! rtph265pay config-interval=1 pt=96 ! udpsink host=10.200.142.41 port=5000 sync=false'
@@ -71,4 +71,4 @@ alias ping4='ping 10.200.142.64'
 alias bandwidth='sudo iftop -i enp0s31f6'
 alias download-all='cd ~/Videos/uas && rsync -avzP user@10.200.142.63:/home/user/videos/*.ts ./d3 ; rsync -avzP user@10.200.142.64:/home/user/videos/*.ts ./d4'
 alias sshc='ssh cdcl@192.168.79.165'
-alias ra='cdr && /home/ctitus/chimera-deploy/local/local_record_all.sh'
+alias ra='cdr && ~/chimera-deploy/local/local_record_all.sh'
