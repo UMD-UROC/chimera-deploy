@@ -2,10 +2,10 @@
 
 # RGB_WIDTH = 3840
 # RGB_HEIGHT = 2160
-RGB_FRAMERATE = "30/1"
+# RGB_FRAMERATE = "30/1"
 RGB_WIDTH = 1920
 RGB_HEIGHT = 1080
-# RGB_FRAMERATE = "60/1"
+RGB_FRAMERATE = "60/1"
 RGB_BITRATE = 10000000
 
 # locked to 1080p for USPI, can increase with better laptop probably
