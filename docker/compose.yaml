@@ -22,6 +22,7 @@ services:
     volumes:
       - ../ros2_ws:/home/dev/ros2_ws
       - ~/.ssh:/home/dev/.ssh
+      - ~/.gitconfig:/home/dev/.gitconfig:ro
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /dev:/dev
     devices:

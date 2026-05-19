@@ -27,6 +27,23 @@ git config --global user.name "YOUR_USERNAME"
 ssh -T git@github.com
 
 
+## install vcs
+# install pip
+sudo apt update
+sudo apt install -y python3-pip
+
+# install vcs
+python3 -m pip install --user vcstool
+
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+## clone repos
+# clean reinstall
+cd ~/chimera-deploy
+rm -rf ros2_ws/src/*
+vcs import ros2_ws/src < docker/chimera.repos
+
 ## install qgc
 # QGC runtime deps: serial access, video support, AppImage support, Qt/X11 deps
 sudo apt update
