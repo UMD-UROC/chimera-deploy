@@ -44,6 +44,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
+
+# Install rosdep dependencies declared by workspace packages at image build time
+COPY ros2_ws/src /tmp/ros2_ws/src
+RUN rosdep update && \
+    apt-get update && \
+    rosdep install --from-paths /tmp/ros2_ws/src \
+      --ignore-src \
+      --rosdistro humble \
+      -y && \
+    rm -rf /var/lib/apt/lists/* /tmp/ros2_ws
+
 # MAVROS requires GeographicLib datasets
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
@@ -57,7 +68,7 @@ RUN groupadd --gid ${USER_GID} ${USERNAME} \
     && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
     && chmod 0440 /etc/sudoers.d/${USERNAME}
 
-COPY entrypoint.sh /entrypoint.sh
+COPY docker/ros-dev/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 USER dev
@@ -67,3 +78,11 @@ WORKDIR /home/dev/ros2_ws
 RUN echo 'source /opt/ros/humble/setup.bash' >> /home/dev/.bashrc
 
 ENTRYPOINT ["/entrypoint.sh"]
+
+
+# Python packages not available through standard rosdep/apt.
+# Pin NumPy below 2 because ROS Humble cv_bridge/scipy are built against NumPy 1.x.
+RUN python3 -m pip install --no-cache-dir \
+    "numpy==1.24.4" \
+    "ultralytics" \
+    "folium"

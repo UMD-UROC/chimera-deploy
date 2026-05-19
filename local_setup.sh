@@ -44,6 +44,40 @@ cd ~/chimera-deploy
 rm -rf ros2_ws/src/*
 vcs import ros2_ws/src < docker/chimera.repos
 
+
+## install mavlink router
+# deps
+sudo apt update
+sudo apt install -y \
+  git \
+  meson \
+  ninja-build \
+  pkg-config \
+  gcc \
+  g++ \
+  systemd \
+  python3-pip
+
+# install router
+cd /tmp
+
+rm -rf mavlink-router
+
+git clone --recursive https://github.com/mavlink-router/mavlink-router.git
+cd mavlink-router
+
+meson setup build .
+ninja -C build
+sudo ninja -C build install
+sudo ldconfig
+
+# update settings and apply
+sudo mkdir -p /etc/mavlink-router
+sudo cp ~/chimera-deploy/local/main.conf /etc/mavlink-router/main.conf
+sudo systemctl enable mavlink-router
+sudo systemctl restart mavlink-router
+
+
 ## install qgc
 # QGC runtime deps: serial access, video support, AppImage support, Qt/X11 deps
 sudo apt update
