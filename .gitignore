@@ -1,3 +1,14 @@
 local/yolo*.pt
 remote/yolo*.pt
 local/annotated_frames/
+
+# Local ROS 2 workspace checkouts
+ros2_ws/src/*
+
+# ROS 2 build outputs
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+
+# Local ROS 2 workspace
+ros2_ws/

@@ -1,0 +1,25 @@
+repositories:
+  5g_drone:
+    type: git
+    url: git@github.com:UMD-CDCL/5g_drone.git
+    version: flight_testing
+  cdcl_umd_msgs:
+    type: git
+    url: git@github.com:UMD-CDCL/cdcl_umd_msgs.git
+    version: ros2
+  manual_detector_gui:
+    type: git
+    url: git@github.com:UMD-CDCL/manual_detector_gui.git
+    version: main
+  MAVInsight:
+    type: git
+    url: git@github.com:UMD-UROC/MAVInsight.git
+    version: feature/frame-based_localization
+  px4_msgs:
+    type: git
+    url: git@github.com:PX4/px4_msgs.git
+    version: main
+  roboscout_uas_extras:
+    type: git
+    url: git@github.com:UMD-CDCL/roboscout_uas_extras.git
+    version: main
