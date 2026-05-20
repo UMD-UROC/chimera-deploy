@@ -218,7 +218,7 @@ sudo systemctl restart docker
 # clone repos
 cd ros2_ws/src
 git clone git@github.com:UMD-UROC/MAVInsight.git
-git clone git@github.com:UMD-CDCL/5g_drone.git
+git clone git@github.com:UMD-CDCL/umd_uas.git
 git clone git@github.com:UMD-CDCL/cdcl_umd_msgs.git
 git clone git@github.com:UMD-CDCL/manual_detector_gui.git
 git clone git@github.com:UMD-CDCL/roboscout_uas_extras.git

@@ -8,7 +8,7 @@ cd "$BAG_ROOT" || exit 1
 source /opt/ros/humble/setup.bash
 source install/setup.bash
 
-BAG_REGEX=$(paste -sd '|' "$HOME/ros2_ws/src/5g_drone/resource/rosbag_topics.txt")
+BAG_REGEX=$(paste -sd '|' "$HOME/ros2_ws/src/umd_uas/resource/rosbag_topics.txt")
 
 ros2 bag record -s mcap --storage-preset-profile zstd_fast -e "$BAG_REGEX" -o "$BAG_NAME" &
 p1=$!
