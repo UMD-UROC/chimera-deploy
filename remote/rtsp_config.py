@@ -24,9 +24,9 @@ THERMAL_LOWRES_HEIGHT = THERMAL_HEIGHT
 THERMAL_LOWRES_BITRATE = 1000000
 
 RGB = "rgb"
-RGB_LOWRES = "rgb-lowres"
+RGB_LOWRES = "rgbl"
 THERMAL = "thermal"
-THERMAL_LOWRES = "thermal-lowres"
+THERMAL_LOWRES = "thermall"
 
 def SOCKET(tag):
     return f"/tmp/{tag}_nv.sock"
