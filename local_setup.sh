@@ -151,6 +151,18 @@ chmod +x "$HOME/.local/share/applications/qgroundcontrol.desktop"
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 
 
+## install vah
+# update and install
+sudo apt update
+sudo apt install -y \
+  gstreamer1.0-vaapi \
+  vainfo \
+  libva-drm2 \
+  libva-x11-2 \
+  mesa-va-drivers \
+  intel-media-va-driver
+
+
 ## docker install
 # Remove conflicting old packages
 sudo apt remove -y docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc
@@ -213,8 +225,22 @@ git clone git@github.com:UMD-CDCL/roboscout_uas_extras.git
 git clone git@github.com:PX4/px4_msgs.git
 
 
+## set up camera server
+# install deps
+sudo apt update
+sudo apt install -y \
+  python3-gi \
+  python3-gst-1.0 \
+  gir1.2-gst-rtsp-server-1.0 \
+  gstreamer1.0-rtsp \
+  libgstrtspserver-1.0-0 \
+  libgstrtspserver-1.0-dev
 
-
+# copy and enable
+sudo cp local/lcam.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl start lcam.service
+sudo systemctl enable lcam.service
 
 
 

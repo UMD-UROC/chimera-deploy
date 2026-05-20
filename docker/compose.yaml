@@ -6,6 +6,7 @@ services:
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
+        RENDER_GID: ${RENDER_GID:-110}
     image: chimera/ros-dev:humble
     container_name: chimera-ros-dev
     network_mode: host
@@ -27,11 +28,13 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /dev:/dev
     devices:
+      - /dev/dri:/dev/dri
       - /dev/video0:/dev/video0
       - /dev/video1:/dev/video1
     group_add:
       - dialout
       - video
+      - 110
       - plugdev
     working_dir: /home/dev/ros2_ws
     command: bash
