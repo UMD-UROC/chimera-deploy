@@ -127,3 +127,8 @@ RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends \
     mesa-va-drivers \
     intel-media-va-driver \
     && sudo rm -rf /var/lib/apt/lists/*
+
+# Feature layer: GStreamer discoverer CLI
+RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+    gstreamer1.0-plugins-base-apps \
+    && sudo rm -rf /var/lib/apt/lists/*
