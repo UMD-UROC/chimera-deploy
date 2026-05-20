@@ -63,8 +63,11 @@ ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000
 
+ARG RENDER_GID=110
+
 RUN groupadd --gid ${USER_GID} ${USERNAME} \
-    && useradd --uid ${USER_UID} --gid ${USER_GID} -m ${USERNAME} -s /bin/bash \
+    && groupadd --gid ${RENDER_GID} render \
+    && useradd --uid ${USER_UID} --gid ${USER_GID} -G render -m ${USERNAME} -s /bin/bash \
     && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
     && chmod 0440 /etc/sudoers.d/${USERNAME}
 
@@ -86,3 +89,46 @@ RUN python3 -m pip install --no-cache-dir \
     "numpy==1.24.4" \
     "ultralytics" \
     "folium"
+
+# User shell aliases
+COPY --chown=dev:dev local/.bash_aliases /home/dev/.bash_aliases
+
+# Feature layer: Foxglove Bridge for ROS 2
+RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+    ros-humble-foxglove-bridge \
+    && sudo rm -rf /var/lib/apt/lists/*
+
+# Project helper files
+COPY --chown=dev:dev docker/chimera-deploy /home/dev/chimera-deploy
+
+# Feature layer: minimal network diagnostics
+RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+    iputils-ping \
+    net-tools \
+    netcat-openbsd \
+    && sudo rm -rf /var/lib/apt/lists/*
+
+# Feature layer: VAAPI hardware video decode support
+RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+    gstreamer1.0-vaapi \
+    vainfo \
+    libva-drm2 \
+    libva-x11-2 \
+    mesa-va-drivers \
+    intel-media-va-driver \
+    && sudo rm -rf /var/lib/apt/lists/*
+
+# Feature layer: VAAPI hardware video decode support
+RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+    gstreamer1.0-vaapi \
+    vainfo \
+    libva-drm2 \
+    libva-x11-2 \
+    mesa-va-drivers \
+    intel-media-va-driver \
+    && sudo rm -rf /var/lib/apt/lists/*
+
+# Feature layer: GStreamer discoverer CLI
+RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+    gstreamer1.0-plugins-base-apps \
+    && sudo rm -rf /var/lib/apt/lists/*
