@@ -17,7 +17,7 @@ class MultiRTSPServer:
         for tag, pipeline in zip(tags, pipes):
             factory = GstRtspServer.RTSPMediaFactory()
             factory.set_launch(pipeline)
-            factory.set_shared(True)
+            factory.set_shared(False)
             mounts.add_factory(f"/{tag}", factory)
 
         source_id = self.server.attach(None)
