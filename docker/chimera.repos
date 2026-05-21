@@ -2,7 +2,7 @@ repositories:
   umd_uas:
     type: git
     url: git@github.com:UMD-CDCL/5g_drone.git
-    version: flight_testing
+    version: feature/cleanup
   cdcl_umd_msgs:
     type: git
     url: git@github.com:UMD-CDCL/cdcl_umd_msgs.git
@@ -10,7 +10,7 @@ repositories:
   manual_detector_gui:
     type: git
     url: git@github.com:UMD-CDCL/manual_detector_gui.git
-    version: main
+    version: feature/cleanup
   MAVInsight:
     type: git
     url: git@github.com:UMD-UROC/MAVInsight.git
