@@ -99,5 +99,6 @@ USER dev
 WORKDIR /home/dev/ros2_ws
 
 RUN echo 'source /opt/ros/humble/setup.bash' >> /home/dev/.bashrc
+COPY --chown=dev:dev docker/.bashrc /home/dev/.bashrc
 
 ENTRYPOINT ["/entrypoint.sh"]
