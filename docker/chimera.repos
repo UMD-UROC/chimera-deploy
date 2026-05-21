@@ -1,7 +1,7 @@
 repositories:
   umd_uas:
     type: git
-    url: git@github.com:UMD-CDCL/umd_uas.git
+    url: git@github.com:UMD-CDCL/5g_drone.git
     version: flight_testing
   cdcl_umd_msgs:
     type: git

@@ -41,7 +41,8 @@ source ~/.bashrc
 ## clone repos
 # clean reinstall
 cd ~/chimera-deploy
-rm -rf ros2_ws/src/*
+rm -rf ~/chimera-deploy/ros2_ws/src
+mkdir -p ~/chimera-deploy/ros2_ws/src
 vcs import ros2_ws/src < docker/chimera.repos
 
 
