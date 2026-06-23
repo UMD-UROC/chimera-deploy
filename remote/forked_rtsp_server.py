@@ -16,6 +16,22 @@ def make_factory(launch):
     factory = GstRtspServer.RTSPMediaFactory()
     factory.set_shared(True)
     factory.set_launch(launch)
+
+    if hasattr(factory, "set_clock"):
+        factory.set_clock(Gst.SystemClock.obtain())
+
+    if hasattr(factory, "set_publish_clock_mode"):
+        mode = getattr(
+            GstRtspServer.RTSPPublishClockMode,
+            "CLOCK_AND_OFFSET",
+            getattr(GstRtspServer.RTSPPublishClockMode, "CLOCK", None),
+        )
+        if mode is not None:
+            factory.set_publish_clock_mode(mode)
+
+    if hasattr(factory, "set_latency"):
+        factory.set_latency(0)
+
     return factory
 
 
