@@ -12,10 +12,54 @@ from gi.repository import Gst, GLib, GstRtspServer
 Gst.init(None)
 
 
+def set_property_if_present(element, name, value):
+    if element is not None and element.find_property(name):
+        element.set_property(name, value)
+        return True
+    return False
+
+
+def find_rtpbin(media_element):
+    if media_element is None:
+        return None
+
+    for name in ("rtpbin0", "rtpbin"):
+        rtpbin = media_element.get_by_name(name)
+        if rtpbin is not None:
+            return rtpbin
+
+    iterator = media_element.iterate_recurse()
+    while True:
+        result, child = iterator.next()
+        if result == Gst.IteratorResult.OK:
+            factory = child.get_factory()
+            if factory is not None and factory.get_name() == "rtpbin":
+                return child
+        elif result == Gst.IteratorResult.RESYNC:
+            iterator.resync()
+        else:
+            return None
+
+
+def configure_media(_factory, media):
+    media_element = media.get_element()
+    rtpbin = find_rtpbin(media_element)
+    if rtpbin is None:
+        print("RTSP media configured without visible rtpbin; NTP timing was not adjusted.")
+        return
+
+    set_property_if_present(rtpbin, "ntp-sync", True)
+    set_property_if_present(rtpbin, "ntp-time-source", 0)
+    set_property_if_present(rtpbin, "rtcp-sync-send-time", False)
+    set_property_if_present(rtpbin, "rtcp-sync-interval", 0)
+    print("RTSP rtpbin configured for NTP/RTCP timing.")
+
+
 def make_factory(launch):
     factory = GstRtspServer.RTSPMediaFactory()
     factory.set_shared(True)
     factory.set_launch(launch)
+    factory.connect("media-configure", configure_media)
 
     if hasattr(factory, "set_clock"):
         factory.set_clock(Gst.SystemClock.obtain())
