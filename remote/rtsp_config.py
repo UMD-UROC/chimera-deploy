@@ -9,8 +9,8 @@ RGB_FRAMERATE = "60/1"
 RGB_BITRATE = 10000000
 
 # locked to 1080p for USPI, can increase with better laptop probably
-RGB_LOWRES_WIDTH = 3840
-RGB_LOWRES_HEIGHT = 2160
+RGB_LOWRES_WIDTH = 1920
+RGB_LOWRES_HEIGHT = 1080
 RGB_LOWRES_BITRATE = 1000000
 
 THERMAL_WIDTH = 640
@@ -74,7 +74,7 @@ PRODUCERS = {
 FACTORIES = {
     RGB: f"""
         (
-        nvunixfdsrc socket-path={SOCKETS[RGB]} num-extra-surfaces=4 !
+        nvunixfdsrc socket-path={SOCKETS[RGB]} num-extra-surfaces=4 do-timestamp=true !
         video/x-raw(memory:NVMM),format=NV12,width={RGB_WIDTH},height={RGB_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 !
         nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={RGB_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false zerolatency=true !
@@ -84,7 +84,7 @@ FACTORIES = {
         """,
     RGB_LOWRES: f"""
         (
-        nvunixfdsrc socket-path={SOCKETS[RGB_LOWRES]} num-extra-surfaces=4 !
+        nvunixfdsrc socket-path={SOCKETS[RGB_LOWRES]} num-extra-surfaces=4 do-timestamp=true !
         video/x-raw(memory:NVMM),format=NV12,width={RGB_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 !
         nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={RGB_LOWRES_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false zerolatency=true !
@@ -94,7 +94,7 @@ FACTORIES = {
         """,
     THERMAL: f"""
         (
-        nvunixfdsrc socket-path={SOCKETS[THERMAL]} num-extra-surfaces=4 !
+        nvunixfdsrc socket-path={SOCKETS[THERMAL]} num-extra-surfaces=4 do-timestamp=true !
         video/x-raw(memory:NVMM),format=NV12,width={THERMAL_WIDTH},height={THERMAL_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 !
         nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={THERMAL_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false zerolatency=true !
@@ -104,7 +104,7 @@ FACTORIES = {
         """,
     THERMAL_LOWRES: f"""
         (
-        nvunixfdsrc socket-path={SOCKETS[THERMAL_LOWRES]} num-extra-surfaces=4 !
+        nvunixfdsrc socket-path={SOCKETS[THERMAL_LOWRES]} num-extra-surfaces=4 do-timestamp=true !
         video/x-raw(memory:NVMM),format=NV12,width={THERMAL_LOWRES_WIDTH},height={THERMAL_LOWRES_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 !
         nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={THERMAL_LOWRES_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false zerolatency=true !

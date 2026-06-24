@@ -1,7 +1,17 @@
+.git/
+**/.git/
+**/__pycache__/
+**/.pytest_cache/
+
 ros2_ws/build/
 ros2_ws/install/
 ros2_ws/log/
-ros2_ws/src/*/.git/
-**/__pycache__/
-**/.pytest_cache/
-.git/
+
+# Do not send full workspace source into Docker build context.
+# Rosdep uses docker/rosdep_src instead.
+ros2_ws/src/
+
+# Keep generated manifest-only rosdep context.
+!docker/rosdep_src/
+!docker/rosdep_src/**
+

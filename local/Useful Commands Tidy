@@ -598,12 +598,12 @@ cd ~/DTC/chimera-recording-visualization
 cd ~/ros2_ws
 source install/setup.bash
 source /opt/ros/humble/setup.bash
-ros2 launch 5g_drone debug_draw_and_localize.launch.py
+ros2 launch umd_uas debug_draw_and_localize.launch.py
 # terminal 3 (unused)
 cd ~/ros2_ws
 source install/setup.bash
 source /opt/ros/humble/setup.bash
-ros2 run 5g_drone target_localization_node
+ros2 run umd_uas target_localization_node
 # terminal 4
 fgb # cd, source, and start foxglove bridge
 
@@ -611,7 +611,7 @@ fgb # cd, source, and start foxglove bridge
 cd ~/ros2_ws
 rs
 ws
-ros2 run 5g_drone udp_to_ros2_image_node --ros-args -p rtsp_host:=rtsp://10.200.91.51:8900/live
+ros2 run umd_uas udp_to_ros2_image_node --ros-args -p rtsp_host:=rtsp://10.200.91.51:8900/live
 
 # db3 to mcap
 cdr
@@ -695,9 +695,9 @@ ssh... -Y lets you use host display for orin
 
 https://github.com/dusty-nv/jetson-containers # nvidia ml containers
 
-ros2 run 5g_drone yolo_detector --ros-args -p image_topic:=/uas3/image -p detector_output:=/uas3/target_detections -p detector_confidence:=0.6
+ros2 run umd_uas yolo_detector --ros-args -p image_topic:=/uas3/image -p detector_output:=/uas3/target_detections -p detector_confidence:=0.6
 
-ros2 launch 5g_drone video_uas4_playback.launch.py video_path:="/home/ctitus/ros2_ws/bags/2025-09-30-dtc-day-medic-c130/uav4-video-rgb-1970-01-01-00-17-46_.mp4"
+ros2 launch umd_uas video_uas4_playback.launch.py video_path:="/home/ctitus/ros2_ws/bags/2025-09-30-dtc-day-medic-c130/uav4-video-rgb-1970-01-01-00-17-46_.mp4"
 
 ffmpeg -ss 00:08:15 -i input.mp4 -t 00:24:20 -c:v copy -c:a copy output.mp4
 
@@ -760,7 +760,7 @@ pip install --upgrade "scipy==1.14.*"
 # plan translation node
 # update waypoint_array_topic with whatever zach sends
 # update destination_file with desired path
-cdr && ros2 launch 5g_drone plan_translation_launcher.launch.py # make sure to update ns
+cdr && ros2 launch umd_uas plan_translation_launcher.launch.py # make sure to update ns
 
 # gst data dump of video device
 gst-launch-1.0 -v v4l2src device=/dev/video10 num-buffers=10 ! fakesink dump=1

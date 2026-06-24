@@ -41,7 +41,8 @@ source ~/.bashrc
 ## clone repos
 # clean reinstall
 cd ~/chimera-deploy
-rm -rf ros2_ws/src/*
+rm -rf ~/chimera-deploy/ros2_ws/src
+mkdir -p ~/chimera-deploy/ros2_ws/src
 vcs import ros2_ws/src < docker/chimera.repos
 
 
@@ -151,6 +152,18 @@ chmod +x "$HOME/.local/share/applications/qgroundcontrol.desktop"
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 
 
+## install vah
+# update and install
+sudo apt update
+sudo apt install -y \
+  gstreamer1.0-vaapi \
+  vainfo \
+  libva-drm2 \
+  libva-x11-2 \
+  mesa-va-drivers \
+  intel-media-va-driver
+
+
 ## docker install
 # Remove conflicting old packages
 sudo apt remove -y docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc
@@ -206,18 +219,45 @@ sudo systemctl restart docker
 # clone repos
 cd ros2_ws/src
 git clone git@github.com:UMD-UROC/MAVInsight.git
-git clone git@github.com:UMD-CDCL/5g_drone.git
+git clone git@github.com:UMD-CDCL/umd_uas.git
 git clone git@github.com:UMD-CDCL/cdcl_umd_msgs.git
 git clone git@github.com:UMD-CDCL/manual_detector_gui.git
 git clone git@github.com:UMD-CDCL/roboscout_uas_extras.git
 git clone git@github.com:PX4/px4_msgs.git
 
 
+## set up camera server
+# install deps
+sudo apt update
+sudo apt install -y \
+  python3-gi \
+  python3-gst-1.0 \
+  gir1.2-gst-rtsp-server-1.0 \
+  gstreamer1.0-rtsp \
+  libgstrtspserver-1.0-0 \
+  libgstrtspserver-1.0-dev
+
+# copy and enable
+sudo cp local/lcam.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl start lcam.service
+sudo systemctl enable lcam.service
 
 
+## install vs code
+# update and install
+sudo apt update
+sudo apt install -y wget gpg apt-transport-https
 
+wget -qO- https://packages.microsoft.com/keys/microsoft.asc | \
+  gpg --dearmor | \
+  sudo tee /usr/share/keyrings/packages.microsoft.gpg >/dev/null
 
+echo "deb [arch=amd64,arm64,armhf signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | \
+  sudo tee /etc/apt/sources.list.d/vscode.list >/dev/null
 
+sudo apt update
+sudo apt install -y code
 
 
 

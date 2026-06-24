@@ -1,5 +1,5 @@
 repositories:
-  5g_drone:
+  umd_uas:
     type: git
     url: git@github.com:UMD-CDCL/5g_drone.git
     version: flight_testing
