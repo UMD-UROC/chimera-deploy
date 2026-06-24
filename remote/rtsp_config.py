@@ -32,7 +32,6 @@ THERMAL_HIGHRES = "thermalh"
 
 PRORES_PROFILE_HQ = 3
 PRORES_QUANT_MAT_HQ = 4
-PRORES_THREADS = 0
 
 def SOCKET(tag):
     return f"/tmp/{tag}_nv.sock"
@@ -105,7 +104,7 @@ FACTORIES = {
         video/x-raw,format=I420,width={RGB_WIDTH},height={RGB_HEIGHT} !
         videoconvert n-threads=4 !
         video/x-raw,format=I422_10LE,width={RGB_WIDTH},height={RGB_HEIGHT} !
-        avenc_prores_ks profile={PRORES_PROFILE_HQ} quant-mat={PRORES_QUANT_MAT_HQ} threads={PRORES_THREADS} !
+        avenc_prores_ks profile={PRORES_PROFILE_HQ} quant-mat={PRORES_QUANT_MAT_HQ} !
         rtpgstpay name=pay0 pt=96 config-interval=1
         )
         """,
@@ -138,7 +137,7 @@ FACTORIES = {
         video/x-raw,format=I420,width={THERMAL_WIDTH},height={THERMAL_HEIGHT} !
         videoconvert n-threads=4 !
         video/x-raw,format=I422_10LE,width={THERMAL_WIDTH},height={THERMAL_HEIGHT} !
-        avenc_prores_ks profile={PRORES_PROFILE_HQ} quant-mat={PRORES_QUANT_MAT_HQ} threads={PRORES_THREADS} !
+        avenc_prores_ks profile={PRORES_PROFILE_HQ} quant-mat={PRORES_QUANT_MAT_HQ} !
         rtpgstpay name=pay0 pt=96 config-interval=1
         )
         """,
