@@ -1,0 +1,40 @@
+services:
+  ros-dev:
+    build:
+      context: ..
+      dockerfile: docker/ros-dev/Dockerfile
+      args:
+        USER_UID: ${HOST_UID:-1000}
+        USER_GID: ${HOST_GID:-1000}
+        RENDER_GID: ${RENDER_GID:-110}
+    image: chimera/ros-dev:humble
+    container_name: chimera-ros-dev
+    network_mode: host
+    ipc: host
+    stdin_open: true
+    tty: true
+    gpus: all
+    environment:
+      - ROS_DOMAIN_ID=42
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    volumes:
+      - ../ros2_ws:/home/dev/ros2_ws
+      - ~/.ssh:/home/dev/.ssh
+      - ~/.gitconfig:/home/dev/.gitconfig:ro
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /dev:/dev
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/video0:/dev/video0
+      - /dev/video1:/dev/video1
+    group_add:
+      - dialout
+      - video
+      - 110
+      - plugdev
+    working_dir: /home/dev/ros2_ws
+    command: bash
