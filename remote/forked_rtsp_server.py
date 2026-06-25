@@ -87,13 +87,37 @@ def cleanup_sockets():
             pass
 
 
+def on_producer_message(_bus, message, name):
+    if message.type == Gst.MessageType.ERROR:
+        err, debug = message.parse_error()
+        print(f"{name} producer ERROR: {err}")
+        print(f"{name} producer DEBUG: {debug}")
+    elif message.type == Gst.MessageType.WARNING:
+        warn, debug = message.parse_warning()
+        print(f"{name} producer WARNING: {warn}")
+        print(f"{name} producer DEBUG: {debug}")
+    elif message.type == Gst.MessageType.EOS:
+        print(f"{name} producer EOS")
+
+
+def watch_producer(name, producer):
+    bus = producer.get_bus()
+    bus.add_signal_watch()
+    bus.connect("message", on_producer_message, name)
+
+
 def main():
     cleanup_sockets()
 
+    producers = []
     for name, pipe in conf.PRODUCERS.items():
         print(f"{name} producer starting...")
         producer = Gst.parse_launch(pipe)
-        producer.set_state(Gst.State.PLAYING)
+        watch_producer(name, producer)
+        result = producer.set_state(Gst.State.PLAYING)
+        if result == Gst.StateChangeReturn.FAILURE:
+            raise RuntimeError(f"{name} producer failed to start")
+        producers.append((name, producer))
         print(f"{name} producer started!")
 
     server = GstRtspServer.RTSPServer()
@@ -113,7 +137,9 @@ def main():
     try:
         loop.run()
     finally:
-        producer.set_state(Gst.State.NULL)
+        for name, producer in producers:
+            print(f"{name} producer stopping...")
+            producer.set_state(Gst.State.NULL)
         cleanup_sockets()
 
 
