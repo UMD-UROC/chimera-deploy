@@ -6,16 +6,15 @@ RGB_FRAMERATE = "30/1"
 # RGB_WIDTH = 1920
 # RGB_HEIGHT = 1080
 # RGB_FRAMERATE = "60/1"
-RGB_BITRATE = 16000000
+RGB_BITRATE = 200000000 # nv recording bitrate set in record_nv_streams.sh
 
-# locked to 1080p for USPI, can increase with better laptop probably
 RGB_LOWRES_WIDTH = 640
 RGB_LOWRES_HEIGHT = 360
 RGB_LOWRES_BITRATE = 1000000
 
 THERMAL_WIDTH = 640
 THERMAL_HEIGHT = 512
-THERMAL_BITRATE = 4000000
+THERMAL_BITRATE = 8000000 # nv recording bitrate set in record_nv_streams.sh
 
 # THERMAL_LOWRES_WIDTH = 640
 # THERMAL_LOWRES_HEIGHT = 512
