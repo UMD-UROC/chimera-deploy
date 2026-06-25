@@ -63,11 +63,12 @@ PRODUCERS = {
         t. ! queue leaky=downstream max-size-buffers=1 !
         nvvidconv interpolation-method=1 !
         video/x-raw(memory:NVMM),width={RGB_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT},format=NV12 !
+        tee name=tl
+
+        tl. ! queue leaky=downstream max-size-buffers=1 !
         nvunixfdsink socket-path={SOCKETS[RGB_LOWRES]} sync=false async=false
 
-        t. ! queue leaky=downstream max-size-buffers=1 !
-        nvvidconv interpolation-method=1 !
-        video/x-raw(memory:NVMM),width={RGB_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT},format=NV12 !
+        tl. ! queue leaky=downstream max-size-buffers=1 !
         nvunixfdsink socket-path={SOCKETS[RGB_RAW]} sync=false async=false
         """,
     "thermal-fork": f"""
@@ -86,11 +87,12 @@ PRODUCERS = {
         t. ! queue leaky=downstream max-size-buffers=1 !
         nvvidconv interpolation-method=1 !
         video/x-raw(memory:NVMM),width={THERMAL_LOWRES_WIDTH},height={THERMAL_LOWRES_HEIGHT},format=NV12 !
+        tee name=tl
+
+        tl. ! queue leaky=downstream max-size-buffers=1 !
         nvunixfdsink socket-path={SOCKETS[THERMAL_LOWRES]} sync=false async=false
 
-        t. ! queue leaky=downstream max-size-buffers=1 !
-        nvvidconv interpolation-method=1 !
-        video/x-raw(memory:NVMM),width={THERMAL_LOWRES_WIDTH},height={THERMAL_LOWRES_HEIGHT},format=NV12 !
+        tl. ! queue leaky=downstream max-size-buffers=1 !
         nvunixfdsink socket-path={SOCKETS[THERMAL_RAW]} sync=false async=false
         """,
 }
