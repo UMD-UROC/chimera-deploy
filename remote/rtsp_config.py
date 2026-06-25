@@ -55,6 +55,9 @@ PRODUCERS = {
         tee name=t
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
+        nvvidconv interpolation-method=1 !
+        video/x-raw(memory:NVMM),width={RGB_WIDTH},height={RGB_HEIGHT},format=NV12 !
+        queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvunixfdsink socket-path={SOCKETS[RGB]} sync=false async=false
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
@@ -83,6 +86,9 @@ PRODUCERS = {
         tee name=t
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
+        nvvidconv interpolation-method=1 !
+        video/x-raw(memory:NVMM),width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=NV12 !
+        queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvunixfdsink socket-path={SOCKETS[THERMAL]} sync=false async=false
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
