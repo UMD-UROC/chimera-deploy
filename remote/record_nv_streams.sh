@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-set -e
 
 HEADER="${1:-recording}"
 PIDS=()
+STOPPING=0
 
-start_recorder() {
+record_stream() {
   local tag="$1"
   local socket="$2"
   local width="$3"
   local height="$4"
   local bitrate="$5"
 
+  echo "[INFO] Waiting for NVMM socket at $socket..."
   while [ ! -S "$socket" ]; do
     sleep 0.1
   done
@@ -19,29 +20,60 @@ start_recorder() {
   timestamp=$(date +%Y-%m-%d-%H-%M-%S)
   local output_file="video-${tag}-${timestamp}_${HEADER}.ts"
 
-  echo "[INFO] Starting direct recorder for $tag"
+  echo "[INFO] Starting direct recorder for $tag -> $output_file"
 
-  gst-launch-1.0 -e \
+  exec gst-launch-1.0 -e \
     nvunixfdsrc socket-path="$socket" do-timestamp=true ! \
     "video/x-raw(memory:NVMM),format=NV12,width=${width},height=${height}" ! \
     queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 ! \
     nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate="$bitrate" iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false ! \
     h265parse ! \
     mpegtsmux ! \
-    filesink location="$output_file" sync=false async=false &
+    filesink location="$output_file" sync=false async=false
+}
 
-  PIDS+=("$!")
-  echo "[INFO] $tag recorder started with PID ${PIDS[-1]} -> $output_file"
+wait_for_exit() {
+  local attempts="$1"
+  local i pid alive
+
+  for ((i = 0; i < attempts; i++)); do
+    alive=0
+    for pid in "${PIDS[@]}"; do
+      if kill -0 "$pid" 2>/dev/null; then
+        alive=1
+        break
+      fi
+    done
+    [ "$alive" -eq 0 ] && return 0
+    sleep 0.1
+  done
+
+  return 1
 }
 
 stop() {
-  kill "${PIDS[@]}" 2>/dev/null || true
-  wait 2>/dev/null || true
+  [ "$STOPPING" -eq 1 ] && return
+  STOPPING=1
+  trap - INT TERM EXIT
+
+  kill -INT "${PIDS[@]}" 2>/dev/null || true
+  wait_for_exit 30 || kill -TERM "${PIDS[@]}" 2>/dev/null || true
+  wait_for_exit 20 || kill -KILL "${PIDS[@]}" 2>/dev/null || true
+  wait "${PIDS[@]}" 2>/dev/null || true
 }
 
-trap stop INT TERM EXIT
+trap 'stop; exit 130' INT TERM
+trap stop EXIT
 
-start_recorder rgb /tmp/rgb_nv.sock 3840 2160 160000000
-start_recorder thermal /tmp/thermal_nv.sock 640 512 40000000
+record_stream rgb /tmp/rgb_nv.sock 3840 2160 160000000 &
+PIDS+=("$!")
+echo "[INFO] rgb recorder process started with PID ${PIDS[-1]}"
+
+record_stream thermal /tmp/thermal_nv.sock 640 512 40000000 &
+PIDS+=("$!")
+echo "[INFO] thermal recorder process started with PID ${PIDS[-1]}"
 
 wait -n "${PIDS[@]}"
+status=$?
+stop
+exit "$status"
