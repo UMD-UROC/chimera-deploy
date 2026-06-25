@@ -9,9 +9,9 @@ RGB_FRAMERATE = "30/1"
 RGB_BITRATE = 1000000
 
 # locked to 1080p for USPI, can increase with better laptop probably
-RGB_LOWRES_WIDTH = 3840
-RGB_LOWRES_HEIGHT = 2160
-RGB_LOWRES_BITRATE = 1000000
+RGB_LOWRES_WIDTH = 1920
+RGB_LOWRES_HEIGHT = 1080
+RGB_LOWRES_BITRATE = 10000000
 
 THERMAL_WIDTH = 640
 THERMAL_HEIGHT = 512
@@ -21,12 +21,14 @@ THERMAL_BITRATE = 40000
 # THERMAL_LOWRES_HEIGHT = 512
 THERMAL_LOWRES_WIDTH = THERMAL_WIDTH
 THERMAL_LOWRES_HEIGHT = THERMAL_HEIGHT
-THERMAL_LOWRES_BITRATE = 40000
+THERMAL_LOWRES_BITRATE = 400000
 
 RGB = "rgb"
 RGB_LOWRES = "rgbl"
+RGB_RAW = "rgbraw"
 THERMAL = "thermal"
 THERMAL_LOWRES = "thermall"
+THERMAL_RAW = "thermalraw"
 
 def SOCKET(tag):
     return f"/tmp/{tag}_nv.sock"
@@ -34,8 +36,10 @@ def SOCKET(tag):
 SOCKETS = {
     RGB: SOCKET(RGB),
     RGB_LOWRES: SOCKET(RGB_LOWRES),
+    RGB_RAW: SOCKET(RGB_RAW),
     THERMAL: SOCKET(THERMAL),
     THERMAL_LOWRES: SOCKET(THERMAL_LOWRES),
+    THERMAL_RAW: SOCKET(THERMAL_RAW),
 }
 
 PRODUCERS = {
@@ -52,7 +56,13 @@ PRODUCERS = {
         t. ! queue leaky=downstream max-size-buffers=1 !
         nvvidconv interpolation-method=1 !
         video/x-raw(memory:NVMM),width={RGB_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT},format=NV12 !
+        tee name=tl
+
+        tl. ! queue leaky=downstream max-size-buffers=1 !
         nvunixfdsink socket-path={SOCKETS[RGB_LOWRES]} sync=false
+
+        tl. ! queue leaky=downstream max-size-buffers=1 !
+        nvunixfdsink socket-path={SOCKETS[RGB_RAW]} sync=false
         """,
     "thermal-fork": f"""
         v4l2src device=/dev/video1 io-mode=2 do-timestamp=true !
@@ -67,7 +77,13 @@ PRODUCERS = {
         t. ! queue leaky=downstream max-size-buffers=1 !
         nvvidconv interpolation-method=1 !
         video/x-raw(memory:NVMM),width={THERMAL_LOWRES_WIDTH},height={THERMAL_LOWRES_HEIGHT},format=NV12 !
+        tee name=tl
+
+        tl. ! queue leaky=downstream max-size-buffers=1 !
         nvunixfdsink socket-path={SOCKETS[THERMAL_LOWRES]} sync=false
+
+        tl. ! queue leaky=downstream max-size-buffers=1 !
+        nvunixfdsink socket-path={SOCKETS[THERMAL_RAW]} sync=false
         """,
 }
 
