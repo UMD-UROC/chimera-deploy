@@ -113,7 +113,8 @@ rosdep install --from-paths src --ignore-src -r -y
 sudo apt install -y \
   ros-humble-vision-msgs \
   ros-humble-domain-bridge \
-  ros-humble-cv-bridge
+  ros-humble-cv-bridge \
+  ros-humble-rosbag2-storage-mcap
     
 pip install pymap3d folium
 
