@@ -2,6 +2,7 @@
 
 BAG_ROOT="$HOME/ros2_ws"
 BAG_NAME="rosbag2_$(date +%Y_%m_%d-%H_%M_%S)"
+BAG_DIR="$BAG_ROOT/$BAG_NAME"
 RGB_SOCKET="/tmp/rgb_nv.sock"
 THERMAL_SOCKET="/tmp/thermal_nv.sock"
 PIDS=()
@@ -23,13 +24,25 @@ while [ ! -S "$THERMAL_SOCKET" ]; do
     sleep 0.1
 done
 
-"$HOME/chimera-deploy/remote/record_nv_streams.sh" "$BAG_NAME" &
-p2=$!
-PIDS+=("$p2")
-
 ros2 bag record -s mcap --storage-preset-profile zstd_fast -e "$BAG_REGEX" -o "$BAG_NAME" &
 p1=$!
 PIDS+=("$p1")
+
+echo "[INFO] Waiting for rosbag directory at $BAG_DIR..."
+while [ ! -d "$BAG_DIR" ]; do
+    if ! kill -0 "$p1" 2>/dev/null; then
+        wait "$p1"
+        exit "$?"
+    fi
+    sleep 0.1
+done
+
+(
+    cd "$BAG_DIR" || exit 1
+    exec "$HOME/chimera-deploy/remote/record_nv_streams.sh" "$BAG_NAME"
+) &
+p2=$!
+PIDS+=("$p2")
 
 wait_for_exit() {
     local attempts="$1"
