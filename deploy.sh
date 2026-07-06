@@ -79,6 +79,7 @@ sudo systemctl enable mavlink-router.service
 sudo systemctl restart mavlink-router.service
 
 # chrony
+# TODO: consider changing makestep 1 3 > 1 -1 to always update from laptop
 sudo apt install chrony -y
 grep -qxF "server 10.200.142.60 iburst" /etc/chrony/chrony.conf || echo "server 10.200.142.60 iburst" | sudo tee -a /etc/chrony/chrony.conf # add 10.200.142.60 as chrony server
 sudo systemctl restart chrony

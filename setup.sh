@@ -43,6 +43,7 @@ fi
 sudo chroot "$ROOTFS" bash -c 'userdel -r user 2>/dev/null || true'
 # create desired user
 cd $ORIN/Linux_for_Tegra
+# TODO: this fails when username is user, l4t_create_default_user.sh doesn't get to updating hostname
 sudo tools/l4t_create_default_user.sh -u user -p Talon240 -n d$UAS_NUM -a --accept-license
 
 echo "installing 'echopilot_ai_bsp'..."
@@ -51,11 +52,11 @@ sudo ./install_l4t_orin.sh $HOME/Orin/Linux_for_Tegra/
 cd $SCRIPT_DIR
 
 # rtsp server as service
-echo "setting up local camera server"
-sudo cp local/lcam.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl start lcam.service
-sudo systemctl enable lcam.service
+#echo "setting up local camera server"
+#sudo cp local/lcam.service /etc/systemd/system/
+#sudo systemctl daemon-reload
+#sudo systemctl start lcam.service
+#sudo systemctl enable lcam.service
 
 cat << EOF
 ===============================================================================
@@ -64,7 +65,8 @@ cat << EOF
 
 # plug in micro usb and hold recovery button
 cd $HOME/Orin/Linux_for_Tegra/
-sudo ./tools/kernel_flash/l4t_initrd_flash.sh --external-device nvme0n1p1 -c tools/kernel_flash/flash_l4t_external.xml -p "-c bootloader/generic/cfg/flash_t234_qspi.xml --no-systemimg" --network usb0 echopilot-ai external
+#sudo ./tools/kernel_flash/l4t_initrd_flash.sh --external-device nvme0n1p1 -c tools/kernel_flash/flash_l4t_external.xml -p "-c bootloader/generic/cfg/flash_t234_qspi.xml --no-systemimg" --network usb0 echopilot-ai external
+sudo ./tools/kernel_flash/l4t_initrd_flash.sh --external-device nvme0n1p1 -c tools/kernel_flash/flash_l4t_external.xml -p "-c bootloader/generic/cfg/flash_t234_qspi.xml" --network usb0 echopilot-ai external
 
 ## power cycle and plug in ethernet to router, remove micro usb and plug in usb c to orin
 
