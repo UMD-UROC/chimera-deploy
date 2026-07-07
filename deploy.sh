@@ -90,6 +90,8 @@ exit()
 
 ### follow docs for ros install
 
+mkdir -p ~/ros2_ws/src
+
 # ros message packages
 sudo apt install -y \
   ros-humble-builtin-interfaces \
@@ -156,9 +158,10 @@ wget https://raw.githubusercontent.com/mavlink/mavros/ros2/mavros/scripts/instal
 chmod +x install_geographiclib_datasets.sh
 sudo ./install_geographiclib_datasets.sh
 
-#ros domain id
-echo 'export ROS_DOMAIN_ID=64' >> ~/.bashrc
-source ~/.bashrc
+# TODO
+##ros domain id
+#echo 'export ROS_DOMAIN_ID=64' >> ~/.bashrc
+#source ~/.bashrc
 
 # get docker containers for ml
 # install the container tools

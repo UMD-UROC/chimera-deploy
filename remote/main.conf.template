@@ -47,7 +47,7 @@ Baud = 500000
 ## Do not change the name of the endpoint as it may interfere with the web configuration UI
 [UdpEndpoint alpha]
 Mode = Normal
-Address = 10.200.142.50
+Address = 10.200.142.60
 Port = 1455${UAS_NUM}
 AllowSrcSysIn = ${UAS_NUM},255
 
