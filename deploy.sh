@@ -13,6 +13,11 @@ export UAS_NUM
 echo "UAS_NUM=${UAS_NUM}" | sudo tee -a /etc/environment
 source /etc/environment
 
+# set as rdom variable
+export ROS_DOMAIN_ID
+echo "ROS_DOMAIN_ID=6${UAS_NUM}" | sudo tee -a /etc/environment
+source /etc/environment
+
 # git repo
 if [[ "$PWD" != *chimera-deploy* ]]; then
     git clone --recurse-submodules git@github.com:UMD-UROC/chimera-deploy.git
