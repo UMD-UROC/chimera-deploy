@@ -72,3 +72,22 @@ alias bandwidth='sudo iftop -i enp0s31f6'
 alias download-all='cd ~/Videos/uas && rsync -avzP user@10.200.142.63:/home/user/videos/*.ts ./d3 ; rsync -avzP user@10.200.142.64:/home/user/videos/*.ts ./d4'
 alias sshc='ssh cdcl@192.168.79.165'
 alias ra='cdr && ~/chimera-deploy/local/local_record_all.sh'
+
+rdom () {
+    if [ "$#" -eq 0 ]; then
+        # "if ROS_DOMAIN_ID is unset, then ROS uses the default value of 0
+        my_ros_id="${ROS_DOMAIN_ID:-0}"
+        echo "ROS_DOMAIN_ID is $my_ros_id"
+    elif [ "$#" -eq 1 ]; then
+        if ! [[ "$1" =~ ^[-]?[0-9]+$ ]]; then
+            echo "Detected non-integer input. Please use an integer."
+        elif [ "$1" -lt 0 ] || [ "$1" -gt 101 ]; then
+            echo "Argument Error: out of range. Safe ROS_DOMAIN_ID range is (0-101)"
+        else
+            export ROS_DOMAIN_ID=$1
+            echo "ROS_DOMAIN_ID has been set to $ROS_DOMAIN_ID"
+        fi
+    else
+        echo "Argument Error: Too many arguments. rdom takes 0 or 1 arguments"
+    fi
+}
