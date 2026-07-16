@@ -86,7 +86,7 @@ sudo systemctl restart chrony
 date # verify
 
 # quit before wip stuff
-exit()
+exit 0
 
 ### follow docs for ros install
 
