@@ -7,9 +7,11 @@ alias cdv='cd ~/DTC/chimera-recording-visualization'
 alias cdd='cd ~/chimera-deploy'
 alias cd5='cdr; cd src/5g_drone'
 alias cdc='cdr; cd src/cdcl_umd_msgs'
+alias ccb='cd ~/ros2_ws; colcon build; rs; ws; cd -'
 alias orin-usb='picocom /dev/ttyUSB? -b 115200 # login is j1 and pass oelinux123'
 #alias fgb='cdr && cd - && ros2 launch foxglove_bridge foxglove_bridge_launch.xml # launch foxglove ros bridge'
-alias fgb='cdr && cd - && ros2 launch umd_uas foxglove_bridge.launch.py # launch foxglove ros bridge'
+alias fgbc='ccb && cd - && ros2 launch umd_uas foxglove_bridge.launch.py # launch competition foxglove ros bridge'
+alias fgb='ccb && cd - && ros2 launch foxglove_bridge foxglove_bridge_launch.xml # launch foxglove ros bridge'
 alias view1='cd ~/chimera-deploy/local; ./view_rtsp_streams.sh -i 10.200.142.61'
 alias view2='cd ~/chimera-deploy/local; ./view_rtsp_streams.sh -i 10.200.142.62'
 alias view3='cd ~/chimera-deploy/local; ./view_rtsp_streams.sh -i 10.200.142.63'
@@ -21,15 +23,17 @@ alias cam3='cd ~/chimera-deploy/local; ./start_camera_server.sh -u user -i 10.20
 alias cam4='cd ~/chimera-deploy/local; ./start_camera_server.sh -u user -i 10.200.142.64'
 alias lcam='cd ~/chimera-deploy/local; ./local_start_camera_server.sh'
 #alias lcam='cd ~/chimera-deploy/local; ./local_start_camera_server.sh -u ctitus -i 10.200.142.60'
-alias uspi1='ccb && cdr && ros2 launch umd_uas uas1.launch.py && cd -'
-alias uspi2='ccb && cdr && ros2 launch umd_uas uas2.launch.py && cd -'
-alias uspi3='ccb && cdr && ros2 launch umd_uas uas3.launch.py && cd -'
-alias uspi3-thermal='ccb && cdr && ros2 launch umd_uas uas3_thermal.launch.py && cd -'
-alias uspi4='ccb && cdr && ros2 launch umd_uas uas4.launch.py && cd -'
-alias uspi4-thermal='ccb && cdr && ros2 launch umd_uas uas4_thermal.launch.py && cd -'
-alias uspi4-assess='ccb && cdr && ros2 launch umd_uas uas4_assess.launch.py && cd -'
-alias uspi4-assess-no-gps='ccb && cdr && ros2 launch umd_uas uas4_assess_no_gps.launch.py && cd -'
-alias uspi4-assess-no-gps-thermal='ccb && cdr && ros2 launch umd_uas uas4_assess_no_gps_thermal.launch.py && cd -'
+#alias uspi1='ccb && cdr && ros2 launch umd_uas uas1.launch.py && cd -'
+#alias uspi2='ccb && cdr && ros2 launch umd_uas uas2.launch.py && cd -'
+#alias uspi3='ccb && cdr && ros2 launch umd_uas uas3.launch.py && cd -'
+#alias uspi3-thermal='ccb && cdr && ros2 launch umd_uas uas3_thermal.launch.py && cd -'
+#alias uspi4='ccb && cdr && ros2 launch umd_uas uas4.launch.py && cd -'
+#alias uspi4-thermal='ccb && cdr && ros2 launch umd_uas uas4_thermal.launch.py && cd -'
+#alias uspi4-assess='ccb && cdr && ros2 launch umd_uas uas4_assess.launch.py && cd -'
+#alias uspi4-assess-no-gps='ccb && cdr && ros2 launch umd_uas uas4_assess_no_gps.launch.py && cd -'
+#alias uspi4-assess-no-gps-thermal='ccb && cdr && ros2 launch umd_uas uas4_assess_no_gps_thermal.launch.py && cd -'
+alias uspi3='ccb && cdr && ros2 launch umd_uas ground_station3.launch.py && cd -'
+alias uspi4='ccb && cdr && ros2 launch umd_uas ground_station4.launch.py && cd -'
 alias netbridge='cdr && ros2 launch umd_uas netbridge.launch.py && cd -'
 #alias bag='cdr; ros2 bag record -a -x "^(/uas1/image|/uas2/image|/uas3/image|/uas4/image)$"'
 export BAG_REGEX=$(paste -sd '|' ~/ros2_ws/src/5g_drone/resource/rosbag_topics.txt)
@@ -48,7 +52,6 @@ alias ssh2='ssh root@10.200.142.62'
 alias ssh3='ssh user@10.200.142.63'
 alias ssh4='ssh user@10.200.142.64'
 alias sshf11='ssh flyby@10.223.35.1'
-alias ccb='cd ~/ros2_ws; colcon build; rs; ws; cd -'
 alias camcal3='cdr; ros2 run camera_calibration cameracalibrator --size 5x7 --square 0.027 --ros-args -r image:=/uas3/image -p camera:=/drone'
 alias camcal4='cdr; ros2 run camera_calibration cameracalibrator --size 5x7 --square 0.027 --ros-args -r image:=/uas4/image -p camera:=/drone'
 alias mforward3='gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:8554/rgb3 latency=0 ! rtph265depay ! h265parse ! rtph265pay config-interval=1 pt=96 ! udpsink host=10.200.142.102 sync=false' # port = XXXX
@@ -91,3 +94,20 @@ rdom () {
         echo "Argument Error: Too many arguments. rdom takes 0 or 1 arguments"
     fi
 }
+alias course-get='ccb && cdr && ros2 launch umd_uas course.launch.py && cd -'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

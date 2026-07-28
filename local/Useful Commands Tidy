@@ -840,6 +840,8 @@ filesrc location=/home/user/deepstream-work/streams/fairfax-d4-thermal-yolo12x-c
 ! queue \
 ! comp.sink_3
 
+# chrony update on orin
+sudo chronyc -a 'burst 4/4' && sudo chronyc -a makestep
 
 
 
