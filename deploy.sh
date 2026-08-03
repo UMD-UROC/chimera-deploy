@@ -13,6 +13,11 @@ export UAS_NUM
 echo "UAS_NUM=${UAS_NUM}" | sudo tee -a /etc/environment
 source /etc/environment
 
+# set as rdom variable
+export ROS_DOMAIN_ID
+echo "ROS_DOMAIN_ID=6${UAS_NUM}" | sudo tee -a /etc/environment
+source /etc/environment
+
 # git repo
 if [[ "$PWD" != *chimera-deploy* ]]; then
     git clone --recurse-submodules git@github.com:UMD-UROC/chimera-deploy.git
@@ -197,10 +202,8 @@ sudo apt autoremove -y
 
 echo "Done, don't forget to set network settings if haven't already. Power cycle to and confirm ssh connects from host to complete!"
 
-# install jtop
-#sudo pip install jetson-stats
-
-## REMEMBER TO SET TO 25W
-
-
-
+# chrony
+sudo apt install chrony -y
+grep -qxF "server 10.200.142.60 iburst" /etc/chrony/chrony.conf || echo "server 10.200.142.60 iburst" | sudo tee -a /etc/chrony/chrony.conf # add 10.200.142.60 as chrony server
+sudo systemctl restart chrony
+date # verify

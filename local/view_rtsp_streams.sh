@@ -52,7 +52,7 @@ start_viewer() {
     rtspsrc location="$url" latency=0 drop-on-latency=true protocols=tcp ! \
     rtph265depay ! \
     h265parse ! \
-    vah265dec ! \
+    nvh265dec ! \
     queue leaky=downstream max-size-buffers=1 max-size-time=0 max-size-bytes=0 ! \
     videoconvert ! \
     queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 ! \
