@@ -1,6 +1,8 @@
 local/yolo*.pt
 remote/yolo*.pt
 local/annotated_frames/
+__pycache__/
+*.pyc
 
 # Local ROS 2 workspace checkouts
 ros2_ws/src/*

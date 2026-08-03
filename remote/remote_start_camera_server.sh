@@ -57,19 +57,43 @@ start_local_pipelines() {
 TAGS=()
 PIPES=()
 
+# Lowest-numbered capture node whose card name contains $1, optionally narrowed
+# to one advertising pixel format $2. Needed because the C1 PRO and the Boson
+# shuffle /dev/videoN between boots, and because the C1 PRO puts its H.264 and
+# its MJPEG feeds on separate nodes under the same card name.
+find_v4l2_device() {
+  local name="$1" fmt="${2:-}" dev formats
+  while read -r dev; do
+    formats=$(v4l2-ctl -d "$dev" --list-formats 2>/dev/null) || continue
+    grep -q "Pixel Format" <<<"$formats" || continue
+    if [[ -z "$fmt" ]] || grep -q "'$fmt'" <<<"$formats"; then
+      printf '%s\n' "$dev"
+      return 0
+    fi
+  done < <(v4l2-ctl --list-devices 2>/dev/null |
+    awk -v n="$name" 'index($0, n) { grab = 1; next } /^[^[:space:]]/ { grab = 0 } grab && /\/dev\/video/ { print $1 }')
+  echo "[ERROR] No V4L2 capture device matching '$name' ${fmt:+with format '$fmt'}" >&2
+  return 1
+}
+
 # ----------------------------------------
 # DEFINE TAGS AND PIPELINES HERE (appending)
 # ----------------------------------------
 
 common="video/x-raw(memory:NVMM) ! queue max-size-buffers=1 leaky=downstream ! nvv4l2h265enc control-rate=0 bitrate=1000000 peak-bitrate=5000000 iframeinterval=0 insert-sps-pps=true EnableTwopassCBR=false zerolatency=true ! h265parse ! rtph265pay config-interval=1 pt=96 name=pay0 )"
 
-TAGS+=("rgb")
+TAGS+=("pilot")
 PIPES+=("( nvarguscamerasrc sensor-id=0 wbmode=1 ! queue max-size-buffers=1 leaky=downstream ! video/x-raw(memory:NVMM),width=1920,height=1080,framerate=30/1 ! nvvidconv flip-method=2 ! $common")
 
-#TAGS+=("rgb-hires")
+#TAGS+=("pilot-hires")
 #PIPES+=("( nvarguscamerasrc sensor-id=0 wbmode=1 ! queue max-size-buffers=1 leaky=downstream ! video/x-raw(memory:NVMM),width=3840,height=2160,framerate=30/1 ! nvvidconv flip-method=2 ! video/x-raw(memory:NVMM) ! queue max-size-buffers=1 leaky=downstream ! nvv4l2h265enc control-rate=0 bitrate=5000000 iframeinterval=0 insert-sps-pps=true EnableTwopassCBR=false zerolatency=true ! h265parse ! rtph265pay config-interval=1 pt=96 name=pay0 )")
 
-THERMAL_DEV=$(v4l2-ctl --list-devices | awk '/Boson: FLIR Video/{getline; print $1}')
+# The C1 PRO only emits compressed video, so decode before handing off to $common.
+RGB_DEV=$(find_v4l2_device "C1 PRO" "H264")
+TAGS+=("rgb")
+PIPES+=("( v4l2src device=$RGB_DEV io-mode=2 ! video/x-h264,width=1920,height=1080 ! h264parse ! video/x-h264,stream-format=byte-stream,alignment=au ! nvv4l2decoder enable-max-performance=1 ! queue max-size-buffers=1 leaky=downstream ! nvvidconv ! $common")
+
+THERMAL_DEV=$(find_v4l2_device "Boson: FLIR Video")
 TAGS+=("thermal")
 PIPES+=("( v4l2src device=$THERMAL_DEV ! queue max-size-buffers=1 leaky=downstream ! video/x-raw,width=640,height=512,format=I420 ! nvvidconv ! $common")
 
