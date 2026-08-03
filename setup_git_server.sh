@@ -6,13 +6,20 @@
 # needing to be on wifi with GitHub access.
 #
 #   local    run on the laptop  - build bare mirrors in /srv/git + git-daemon service
-#   sync     run on the laptop  - refresh the mirrors from GitHub (do this on wifi)
+#   sync     run on the laptop  - refresh mirrors from GitHub (on wifi), then push
+#                                 them into every Orin. --no-push stops at the
+#                                 mirrors, --submodules also updates chimera-deploy's
+#   push     run on the laptop  - push the current mirrors into every Orin's
+#                                 working copy, no GitHub needed
 #   remote   run on an Orin     - point its repos at the laptop instead of GitHub
 #   deploy   run on the laptop  - copy this script to each Orin and run 'remote' there
 #   status   run anywhere       - show what is being served / what is reachable
 #
 # Fetch is anonymous over git:// (port 9418, read-only). Push goes back over ssh
 # to /srv/git, which is why 'deploy' also installs each Orin's key on the laptop.
+#
+# 'sync' is the one-command refresh: GitHub -> laptop mirrors -> every drone.
+# The drones never have to run 'git pull' themselves.
 
 set -euo pipefail
 
@@ -96,7 +103,7 @@ cmd_local() {
 
 Next:
   ./setup_git_server.sh deploy    # push the client config out to the Orins
-  ./setup_git_server.sh sync      # refresh mirrors from GitHub (while on wifi)
+  ./setup_git_server.sh sync      # GitHub -> mirrors -> every drone (while on wifi)
 EOF
 }
 
@@ -177,26 +184,157 @@ open_firewall() {
 }
 
 ###############################################################################
-# sync - refresh the mirrors from GitHub (laptop on wifi)
+# sync - refresh the mirrors from GitHub, then push them out to the Orins
 ###############################################################################
 cmd_sync() {
-  github_up || die "GitHub unreachable - connect to wifi first"
-  say "refreshing mirrors in $SERVE_ROOT"
-  local d
-  for d in "$SERVE_ROOT"/*.git; do
-    [ -d "$d" ] || continue
-    [ -L "$d" ] && continue
-    printf '  %-22s ' "$(basename "$d")"
-    if git -C "$d" remote update >/dev/null 2>&1; then
-      echo "ok"
+  local do_push=1 subs=0 arg
+  for arg in "$@"; do
+    case "$arg" in
+      --no-push)    do_push=0 ;;
+      --submodules) subs=1 ;;
+      *) die "unknown option for sync: $arg" ;;
+    esac
+  done
+
+  if github_up; then
+    say "refreshing mirrors in $SERVE_ROOT"
+    local d
+    for d in "$SERVE_ROOT"/*.git; do
+      [ -d "$d" ] || continue
+      [ -L "$d" ] && continue
+      printf '  %-22s ' "$(basename "$d")"
+      if git -C "$d" remote update >/dev/null 2>&1; then
+        echo "ok"
+      else
+        echo "FAILED"
+      fi
+    done
+  elif [ "$do_push" = 1 ]; then
+    warn "GitHub unreachable - skipping the mirror refresh, pushing what we have"
+  else
+    die "GitHub unreachable - connect to wifi first"
+  fi
+
+  if [ "$do_push" = 1 ]; then
+    cmd_push $([ "$subs" = 1 ] && echo --submodules)
+  else
+    echo
+    echo "Mirrors updated. Send them to the Orins with:"
+    echo "  ./setup_git_server.sh push"
+  fi
+
+  echo
+  echo "Note: branches pushed to this server by an Orin are kept (no prune) but"
+  echo "are not sent to GitHub - push those on from a mirror:"
+  echo "  git -C $SERVE_ROOT/<repo>.git push origin <branch>"
+}
+
+###############################################################################
+# push - from the laptop, shove the mirrors into every Orin's working copy
+#
+# Each Orin repo gets receive.denyCurrentBranch=updateInstead, so a push to the
+# branch it has checked out updates the working tree too - no 'git pull' on the
+# drone. A dirty tree makes git refuse that ref, so local edits are never lost.
+###############################################################################
+cmd_push() {
+  local subs=0 arg
+  for arg in "$@"; do
+    case "$arg" in
+      --submodules) subs=1 ;;
+      *) die "unknown option for push: $arg" ;;
+    esac
+  done
+
+  local ip ok=0
+  for ip in "${CLIENTS[@]}"; do
+    say "$ip"
+    if ! ping -c1 -W1 "$ip" >/dev/null 2>&1; then
+      warn "unreachable - skipped"
+      continue
+    fi
+    push_to_client "$ip" "$subs" && ok=$((ok + 1))
+  done
+
+  say "pushed to $ok of ${#CLIENTS[@]} clients"
+}
+
+push_to_client() {
+  local ip="$1" subs="$2"
+  local ssh_opts=(-o BatchMode=yes -o ConnectTimeout=5)
+
+  local rhome
+  rhome="$(ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" 'echo "$HOME"' 2>/dev/null)" || {
+    warn "ssh failed - skipped"
+    return 1
+  }
+
+  local entry name url dir rdir mirror state branch tree out
+  for entry in "${REPOS[@]}"; do
+    IFS='|' read -r name url dir <<< "$entry"
+    # REPOS paths are laptop-side; the Orin's home may sit elsewhere
+    rdir="${dir/#$HOME/$rhome}"
+    mirror="$SERVE_ROOT/$name.git"
+
+    printf '  %-18s ' "$name"
+    [ -d "$mirror" ] || { echo "no mirror - run 'local' first"; continue; }
+
+    # arm the repo for a working-tree push and report what state it is in
+    state="$(ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" "
+      if [ ! -d '$rdir/.git' ]; then echo MISSING; exit 0; fi
+      git -C '$rdir' config receive.denyCurrentBranch updateInstead
+      b=\$(git -C '$rdir' symbolic-ref --quiet --short HEAD 2>/dev/null || echo '(detached)')
+      if git -C '$rdir' diff --quiet 2>/dev/null && git -C '$rdir' diff --cached --quiet 2>/dev/null
+        then echo \"READY \$b clean\"; else echo \"READY \$b dirty\"; fi
+    " 2>/dev/null)" || { echo "ssh failed"; continue; }
+
+    if [ "$state" = MISSING ]; then
+      echo "not cloned - run 'deploy'"
+      continue
+    fi
+    read -r _ branch tree <<< "$state"
+
+    local rc=0 target="$SERVER_USER@$ip:$rdir"
+    export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=5"
+
+    # no force here: a rejected ref means the Orin has commits we would destroy
+    out="$(git -C "$mirror" push --quiet "$target" \
+             'refs/heads/*:refs/heads/*' 'refs/tags/*:refs/tags/*' 2>&1)" || rc=$?
+
+    # second pass on purpose - git maps each local ref to a single destination
+    # per push, so the tracking refs are silently dropped if bundled above.
+    # Forced, otherwise the Orin's 'git status' reports a phantom divergence.
+    git -C "$mirror" push --quiet "$target" \
+        '+refs/heads/*:refs/remotes/origin/*' >/dev/null 2>&1 || true
+
+    if [ "$rc" = 0 ]; then
+      echo "ok ($branch)"
     else
-      echo "FAILED"
+      if [ "$tree" = dirty ]; then
+        echo "PARTIAL - $branch has uncommitted changes, working tree left alone"
+      else
+        echo "FAILED"
+      fi
+      printf '%s\n' "$out" | sed 's/^/      /'
+    fi
+
+    if [ "$subs" = 1 ] && [ "$name" = chimera-deploy ]; then
+      update_client_submodules "$ip" "$rdir"
     fi
   done
-  echo
-  echo "Orins can now pull. Note: branches pushed to this server by an Orin are"
-  echo "kept (no prune) but are not sent to GitHub - push those on from a mirror:"
-  echo "  git -C $SERVE_ROOT/<repo>.git push origin <branch>"
+  return 0
+}
+
+update_client_submodules() {
+  local ip="$1" rdir="$2"
+  printf '  %-18s ' "└ submodules"
+  # url rewrites installed by 'remote' point these at the laptop, so this
+  # resolves without wifi on the drone
+  if ssh -o BatchMode=yes -o ConnectTimeout=5 "$SERVER_USER@$ip" \
+       "git -C '$rdir' submodule update --init --recursive" >/dev/null 2>&1; then
+    echo "ok"
+  else
+    echo "FAILED - check manually on $ip"
+  fi
 }
 
 ###############################################################################
@@ -354,12 +492,13 @@ cmd_status() {
 
 case "${1:-}" in
   local)  cmd_local ;;
-  sync)   cmd_sync ;;
+  sync)   shift || true; cmd_sync "$@" ;;
+  push)   shift || true; cmd_push "$@" ;;
   remote) shift || true; cmd_remote "${1:-}" ;;
   deploy) cmd_deploy ;;
   status) cmd_status ;;
   *)
-    sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'
+    sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'
     exit 1
     ;;
 esac
