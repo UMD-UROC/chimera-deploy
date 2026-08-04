@@ -93,12 +93,15 @@ def list_capture_devices():
     return devices
 
 
-def find_device(card_match, pixelformat=None, env_var=None):
+def find_device(card_match, pixelformat=None, env_var=None, required=True):
     """Lowest-numbered capture node whose card name contains card_match.
 
     pixelformat ('H264', 'MJPG', ...) further narrows the match, which is how
     the C1 PRO's encoded node is picked over its raw one. Setting env_var
     pins the path by hand and skips the search entirely.
+
+    Missing camera raises RuntimeError; pass required=False to get None back
+    instead, for callers that would rather drop the stream than refuse to run.
     """
     if env_var:
         override = os.environ.get(env_var)
@@ -114,6 +117,9 @@ def find_device(card_match, pixelformat=None, env_var=None):
         if pixelformat is not None and pixelformat not in formats:
             continue
         return path
+
+    if not required:
+        return None
 
     detail = "\n".join(
         f"  {path}  card={card!r}  formats={','.join(formats) or '-'}"

@@ -59,12 +59,15 @@ THERMAL_LOWRES_BITRATE = 400000
 # ----------------------------------------
 # Resolved by card name so the two USB cameras can shuffle /dev/videoN between
 # boots without breaking anything. Set RGB_DEVICE / THERMAL_DEVICE to pin them.
+# A camera that is unplugged or still enumerating comes back as None: its
+# streams get pruned below so the server still serves whatever else is up.
 RGB_DEVICE = find_device(
     "C1 PRO",
     "H264" if RGB_SOURCE == "h264" else "MJPG",
     env_var="RGB_DEVICE",
+    required=False,
 )
-THERMAL_DEVICE = find_device("Boson", env_var="THERMAL_DEVICE")
+THERMAL_DEVICE = find_device("Boson", env_var="THERMAL_DEVICE", required=False)
 
 PILOT = "pilot"
 PILOT_DEEPSTREAM = "pilotds"
@@ -269,3 +272,17 @@ FACTORIES = {
         )
         """,
 }
+
+# Drop the pipelines that reference a camera that is not attached. SOCKETS is
+# left whole so the server still clears stale socket files for those streams.
+MISSING_CAMERAS = []
+
+if RGB_DEVICE is None:
+    MISSING_CAMERAS.append("C1 PRO")
+    del PRODUCERS["rgb-fork"]
+    del FACTORIES[RGB], FACTORIES[RGB_LOWRES]
+
+if THERMAL_DEVICE is None:
+    MISSING_CAMERAS.append("Boson")
+    del PRODUCERS["thermal-fork"]
+    del FACTORIES[THERMAL], FACTORIES[THERMAL_LOWRES]

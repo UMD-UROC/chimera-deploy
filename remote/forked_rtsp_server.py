@@ -109,6 +109,9 @@ def watch_producer(name, producer):
 def main():
     cleanup_sockets()
 
+    for card in conf.MISSING_CAMERAS:
+        print(f"[WARN] No {card} capture device found; its streams are disabled.")
+
     producers = []
     for name, pipe in conf.PRODUCERS.items():
         print(f"{name} producer starting...")
