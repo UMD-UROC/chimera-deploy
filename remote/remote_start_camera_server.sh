@@ -72,7 +72,6 @@ find_v4l2_device() {
     fi
   done < <(v4l2-ctl --list-devices 2>/dev/null |
     awk -v n="$name" 'index($0, n) { grab = 1; next } /^[^[:space:]]/ { grab = 0 } grab && /\/dev\/video/ { print $1 }')
-  echo "[ERROR] No V4L2 capture device matching '$name' ${fmt:+with format '$fmt'}" >&2
   return 1
 }
 
@@ -88,22 +87,36 @@ PIPES+=("( nvarguscamerasrc sensor-id=0 wbmode=1 ! queue max-size-buffers=1 leak
 #TAGS+=("pilot-hires")
 #PIPES+=("( nvarguscamerasrc sensor-id=0 wbmode=1 ! queue max-size-buffers=1 leaky=downstream ! video/x-raw(memory:NVMM),width=3840,height=2160,framerate=30/1 ! nvvidconv flip-method=2 ! video/x-raw(memory:NVMM) ! queue max-size-buffers=1 leaky=downstream ! nvv4l2h265enc control-rate=0 bitrate=5000000 iframeinterval=0 insert-sps-pps=true EnableTwopassCBR=false zerolatency=true ! h265parse ! rtph265pay config-interval=1 pt=96 name=pay0 )")
 
+# A camera that is unplugged or still enumerating is a warning, not a fatal
+# error: skip its streams and serve whatever else came up.
 # The C1 PRO only emits compressed video, so decode before handing off to $common.
-RGB_DEV=$(find_v4l2_device "C1 PRO" "H264")
-TAGS+=("rgb")
-PIPES+=("( v4l2src device=$RGB_DEV io-mode=2 ! video/x-h264,width=1920,height=1080 ! h264parse ! video/x-h264,stream-format=byte-stream,alignment=au ! nvv4l2decoder enable-max-performance=1 ! queue max-size-buffers=1 leaky=downstream ! nvvidconv ! $common")
+if RGB_DEV=$(find_v4l2_device "C1 PRO" "H264"); then
+  TAGS+=("rgb")
+  PIPES+=("( v4l2src device=$RGB_DEV io-mode=2 ! video/x-h264,width=1920,height=1080 ! h264parse ! video/x-h264,stream-format=byte-stream,alignment=au ! nvv4l2decoder enable-max-performance=1 ! queue max-size-buffers=1 leaky=downstream ! nvvidconv ! $common")
+else
+  echo "[WARN] No C1 PRO H264 capture device found; skipping 'rgb' stream."
+fi
 
-THERMAL_DEV=$(find_v4l2_device "Boson: FLIR Video")
-TAGS+=("thermal")
-PIPES+=("( v4l2src device=$THERMAL_DEV ! queue max-size-buffers=1 leaky=downstream ! video/x-raw,width=640,height=512,format=I420 ! nvvidconv ! $common")
+# The annotated feed is rendered from the Boson frames, so it goes with it.
+if THERMAL_DEV=$(find_v4l2_device "Boson: FLIR Video"); then
+  TAGS+=("thermal")
+  PIPES+=("( v4l2src device=$THERMAL_DEV ! queue max-size-buffers=1 leaky=downstream ! video/x-raw,width=640,height=512,format=I420 ! nvvidconv ! $common")
 
-TAGS+=("thermal/annotated")
-PIPES+=("appsrc name=thermal_annotated is-live=true format=3 ! nvvidconv ! $common")
+  TAGS+=("thermal/annotated")
+  PIPES+=("appsrc name=thermal_annotated is-live=true format=3 ! nvvidconv ! $common")
+else
+  echo "[WARN] No Boson capture device found; skipping 'thermal' and 'thermal/annotated' streams."
+fi
 
 # Validate matching lengths
 if [ "${#TAGS[@]}" -ne "${#PIPES[@]}" ]; then
   echo "[ERROR] TAGS and PIPES must have the same number of entries."
   exit 1
+fi
+
+if [ "${#TAGS[@]}" -eq 0 ]; then
+  echo "[WARN] No cameras available; nothing to serve. Exiting."
+  exit 0
 fi
 
 start_local_pipelines

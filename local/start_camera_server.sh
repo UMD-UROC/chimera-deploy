@@ -111,7 +111,6 @@ while read -r dev; do
   fi
 done < <(v4l2-ctl --list-devices 2>/dev/null |
   awk -v n="$name" 'index($0, n) { grab = 1; next } /^[^[:space:]]/ { grab = 0 } grab && /\/dev\/video/ { print $1 }')
-echo "[ERROR] No V4L2 capture device matching '$name' ${fmt:+with format '$fmt'}" >&2
 exit 1
 REMOTE_SCRIPT
 }
@@ -124,14 +123,22 @@ common="video/x-raw(memory:NVMM) ! queue max-size-buffers=1 leaky=downstream ! n
 TAGS+=("pilot")
 PIPES+=("( nvarguscamerasrc sensor-id=0 wbmode=1 ! queue max-size-buffers=1 leaky=downstream ! video/x-raw(memory:NVMM),width=1920,height=1080,framerate=30/1 ! nvvidconv flip-method=2 ! $common")
 
+# A camera that is unplugged or still enumerating is a warning, not a fatal
+# error: skip its stream and serve whatever else came up.
 # The C1 PRO only emits compressed video, so decode before handing off to $common.
-RGB_DEV=$(remote_find_v4l2_device "C1 PRO" "H264")
-TAGS+=("rgb")
-PIPES+=("( v4l2src device=$RGB_DEV io-mode=2 ! video/x-h264,width=1920,height=1080 ! h264parse ! video/x-h264,stream-format=byte-stream,alignment=au ! nvv4l2decoder enable-max-performance=1 ! queue max-size-buffers=1 leaky=downstream ! nvvidconv ! $common")
+if RGB_DEV=$(remote_find_v4l2_device "C1 PRO" "H264"); then
+  TAGS+=("rgb")
+  PIPES+=("( v4l2src device=$RGB_DEV io-mode=2 ! video/x-h264,width=1920,height=1080 ! h264parse ! video/x-h264,stream-format=byte-stream,alignment=au ! nvv4l2decoder enable-max-performance=1 ! queue max-size-buffers=1 leaky=downstream ! nvvidconv ! $common")
+else
+  echo "[WARN] No C1 PRO H264 capture device found on $REMOTE_IP; skipping 'rgb' stream."
+fi
 
-THERMAL_DEV=$(remote_find_v4l2_device "Boson: FLIR Video")
-TAGS+=("thermal")
-PIPES+=("( v4l2src device=$THERMAL_DEV ! queue max-size-buffers=1 leaky=downstream ! video/x-raw,width=640,height=512,format=I420 ! nvvidconv ! $common")
+if THERMAL_DEV=$(remote_find_v4l2_device "Boson: FLIR Video"); then
+  TAGS+=("thermal")
+  PIPES+=("( v4l2src device=$THERMAL_DEV ! queue max-size-buffers=1 leaky=downstream ! video/x-raw,width=640,height=512,format=I420 ! nvvidconv ! $common")
+else
+  echo "[WARN] No Boson capture device found on $REMOTE_IP; skipping 'thermal' stream."
+fi
 
 # Validate matching lengths
 if [ "${#TAGS[@]}" -ne "${#PIPES[@]}" ]; then
