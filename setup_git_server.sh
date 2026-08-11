@@ -6,12 +6,14 @@
 # needing to be on wifi with GitHub access.
 #
 #   local    run on the laptop  - build bare mirrors in /srv/git + git-daemon service
-#   sync     run on the laptop  - send commits the Orins pushed here on to GitHub,
-#                                 refresh the mirrors from GitHub (on wifi), then
-#                                 push them into every Orin. --no-push stops at the
-#                                 mirrors, --submodules also updates chimera-deploy's,
-#                                 --no-upstream skips the push to GitHub, --push-new
-#                                 also sends branches GitHub has never seen
+#   sync     run on the laptop  - make GitHub, this laptop and every Orin match:
+#                                 drone commits -> GitHub, laptop commits -> GitHub,
+#                                 GitHub -> laptop, GitHub -> mirrors -> Orins.
+#                                 --no-push stops at the mirrors, --submodules also
+#                                 updates chimera-deploy's, --no-upstream skips the
+#                                 push to GitHub, --no-local leaves the laptop's own
+#                                 working copies alone, --push-new also sends
+#                                 branches GitHub has never seen
 #   push     run on the laptop  - push the current mirrors into every Orin's
 #                                 working copy, no GitHub needed
 #   remote   run on an Orin     - point its repos at the laptop instead of GitHub
@@ -21,8 +23,11 @@
 # Fetch is anonymous over git:// (port 9418, read-only). Push goes back over ssh
 # to /srv/git, which is why 'deploy' also installs each Orin's key on the laptop.
 #
-# 'sync' is the one-command refresh: drone commits -> GitHub -> laptop mirrors ->
-# every drone. The drones never have to run 'git pull' themselves.
+# 'sync' is the one-command refresh. It moves commits in both directions, so
+# GitHub, this laptop and every reachable Orin end up on the same tip. Nothing
+# is ever force-pushed or merged over a dirty tree: anything that cannot be
+# fast-forwarded is reported and left for a human. The drones never have to run
+# 'git pull' themselves.
 
 set -euo pipefail
 
@@ -190,20 +195,28 @@ open_firewall() {
 # sync - send drone commits up to GitHub, refresh the mirrors, push to the Orins
 ###############################################################################
 cmd_sync() {
-  local do_push=1 subs=0 upstream=1 push_new=0 arg
+  local do_push=1 subs=0 upstream=1 push_new=0 do_local=1 arg
   for arg in "$@"; do
     case "$arg" in
       --no-push)     do_push=0 ;;
       --submodules)  subs=1 ;;
       --no-upstream) upstream=0 ;;
       --push-new)    push_new=1 ;;
+      --no-local)    do_local=0 ;;
       *) die "unknown option for sync: $arg" ;;
     esac
   done
 
+  # drone commits -> GitHub, laptop commits -> GitHub, GitHub -> laptop,
+  # GitHub -> mirrors, mirrors -> drones. Every step before the refresh has to
+  # land first, or the forced mirror fetch overwrites what it has not seen.
   if github_up; then
     if [ "$upstream" = 1 ]; then
       push_mirrors_upstream "$push_new"
+    fi
+
+    if [ "$do_local" = 1 ]; then
+      sync_local_worktrees 1 "$push_new"
     fi
 
     say "refreshing mirrors in $SERVE_ROOT"
@@ -220,6 +233,11 @@ cmd_sync() {
     done
   elif [ "$do_push" = 1 ]; then
     warn "GitHub unreachable - skipping the mirror refresh, pushing what we have"
+    # the mirrors still hold whatever the drones pushed over the LAN, so the
+    # laptop can pick those up without wifi
+    if [ "$do_local" = 1 ]; then
+      sync_local_worktrees 0 "$push_new"
+    fi
   else
     die "GitHub unreachable - connect to wifi first"
   fi
@@ -239,6 +257,102 @@ cmd_sync() {
     echo "  git -C $SERVE_ROOT/<repo>.git -c remote.origin.mirror=false \\"
     echo "      push origin <branch>"
   fi
+}
+
+###############################################################################
+# Bring the laptop's own working copies in line with GitHub: publish what they
+# have that GitHub does not, then fast-forward them onto everything else -
+# including the drone commits push_mirrors_upstream just sent up.
+#
+# Runs before the mirror refresh, so laptop commits reach the mirrors (and from
+# there the drones) in the same pass.
+#
+# Fast-forwards only, and never touches a dirty tree. The laptop is where the
+# real work happens; nothing here may cost an uncommitted edit.
+###############################################################################
+sync_local_worktrees() {
+  local online="$1" push_new="$2"
+  say "syncing the laptop working copies"
+
+  # chimera-deploy last: it holds this script. git replaces a file rather than
+  # rewriting it in place, so the running shell keeps reading the original
+  # inode and a mid-run merge is survivable - but there is no reason to lean on
+  # that any earlier in the run than necessary.
+  local order=() entry name
+  for entry in "${REPOS[@]}"; do
+    IFS='|' read -r name _ _ <<< "$entry"
+    [ "$name" = chimera-deploy ] || order+=("$name")
+  done
+  order+=(chimera-deploy)
+
+  local src_label="GitHub"
+  [ "$online" = 1 ] || src_label="the mirror"
+
+  local dir branch sha gh ahead behind out rc
+  for name in "${order[@]}"; do
+    dir="$(local_source_for "$name")"
+    printf '  %-16s ' "$name"
+
+    [ -d "$dir/.git" ] || { echo "no working copy at $dir - skipped"; continue; }
+
+    branch="$(git -C "$dir" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+    [ -n "$branch" ] || { echo "detached HEAD - skipped"; continue; }
+
+    if [ "$online" = 1 ]; then
+      git -C "$dir" fetch -q origin 2>/dev/null \
+        || { echo "$branch: fetch from GitHub failed"; continue; }
+      gh="$(git -C "$dir" rev-parse -q --verify "refs/remotes/origin/$branch" 2>/dev/null || true)"
+    else
+      git -C "$dir" fetch -q "$SERVE_ROOT/$name.git" "refs/heads/$branch" 2>/dev/null \
+        || { echo "$branch: not in the mirror - skipped"; continue; }
+      gh="$(git -C "$dir" rev-parse -q --verify FETCH_HEAD 2>/dev/null || true)"
+    fi
+
+    sha="$(git -C "$dir" rev-parse HEAD)"
+
+    if [ -z "$gh" ]; then
+      # branch exists only here
+      if [ "$online" != 1 ] || [ "$push_new" != 1 ]; then
+        echo "$branch: local only - use --push-new to publish it"
+        continue
+      fi
+    elif [ "$gh" = "$sha" ]; then
+      echo "$branch: up to date"
+      continue
+    elif git -C "$dir" merge-base --is-ancestor "$sha" "$gh"; then
+      behind="$(git -C "$dir" rev-list --count "$sha..$gh")"
+      if ! git -C "$dir" diff --quiet 2>/dev/null || ! git -C "$dir" diff --cached --quiet 2>/dev/null; then
+        echo "$branch: $behind behind, tree is dirty - left alone"
+        continue
+      fi
+      if git -C "$dir" merge --ff-only "$gh" >/dev/null 2>&1; then
+        echo "$branch: pulled $behind commit(s)"
+      else
+        echo "$branch: ff merge of $behind commit(s) FAILED"
+      fi
+      continue
+    elif ! git -C "$dir" merge-base --is-ancestor "$gh" "$sha"; then
+      ahead="$(git -C "$dir" rev-list --count "$gh..$sha")"
+      behind="$(git -C "$dir" rev-list --count "$sha..$gh")"
+      echo "$branch: DIVERGED ($ahead local, $behind on $src_label) - left alone"
+      continue
+    fi
+
+    # strictly ahead of GitHub (or brand new with --push-new): publish it
+    if [ "$online" != 1 ]; then
+      echo "$branch: ahead of the mirror - goes up on the next online sync"
+      continue
+    fi
+    rc=0
+    out="$(git -C "$dir" push origin "refs/heads/$branch:refs/heads/$branch" 2>&1)" || rc=$?
+    if [ "$rc" = 0 ]; then
+      echo "$branch: pushed to GitHub"
+    else
+      echo "$branch: push to GitHub FAILED"
+      printf '%s\n' "$out" | sed 's/^/      /'
+    fi
+  done
+  return 0
 }
 
 ###############################################################################
