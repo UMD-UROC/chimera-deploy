@@ -6,9 +6,12 @@
 # needing to be on wifi with GitHub access.
 #
 #   local    run on the laptop  - build bare mirrors in /srv/git + git-daemon service
-#   sync     run on the laptop  - refresh mirrors from GitHub (on wifi), then push
-#                                 them into every Orin. --no-push stops at the
-#                                 mirrors, --submodules also updates chimera-deploy's
+#   sync     run on the laptop  - send commits the Orins pushed here on to GitHub,
+#                                 refresh the mirrors from GitHub (on wifi), then
+#                                 push them into every Orin. --no-push stops at the
+#                                 mirrors, --submodules also updates chimera-deploy's,
+#                                 --no-upstream skips the push to GitHub, --push-new
+#                                 also sends branches GitHub has never seen
 #   push     run on the laptop  - push the current mirrors into every Orin's
 #                                 working copy, no GitHub needed
 #   remote   run on an Orin     - point its repos at the laptop instead of GitHub
@@ -18,8 +21,8 @@
 # Fetch is anonymous over git:// (port 9418, read-only). Push goes back over ssh
 # to /srv/git, which is why 'deploy' also installs each Orin's key on the laptop.
 #
-# 'sync' is the one-command refresh: GitHub -> laptop mirrors -> every drone.
-# The drones never have to run 'git pull' themselves.
+# 'sync' is the one-command refresh: drone commits -> GitHub -> laptop mirrors ->
+# every drone. The drones never have to run 'git pull' themselves.
 
 set -euo pipefail
 
@@ -184,19 +187,25 @@ open_firewall() {
 }
 
 ###############################################################################
-# sync - refresh the mirrors from GitHub, then push them out to the Orins
+# sync - send drone commits up to GitHub, refresh the mirrors, push to the Orins
 ###############################################################################
 cmd_sync() {
-  local do_push=1 subs=0 arg
+  local do_push=1 subs=0 upstream=1 push_new=0 arg
   for arg in "$@"; do
     case "$arg" in
-      --no-push)    do_push=0 ;;
-      --submodules) subs=1 ;;
+      --no-push)     do_push=0 ;;
+      --submodules)  subs=1 ;;
+      --no-upstream) upstream=0 ;;
+      --push-new)    push_new=1 ;;
       *) die "unknown option for sync: $arg" ;;
     esac
   done
 
   if github_up; then
+    if [ "$upstream" = 1 ]; then
+      push_mirrors_upstream "$push_new"
+    fi
+
     say "refreshing mirrors in $SERVE_ROOT"
     local d
     for d in "$SERVE_ROOT"/*.git; do
@@ -223,10 +232,113 @@ cmd_sync() {
     echo "  ./setup_git_server.sh push"
   fi
 
-  echo
-  echo "Note: branches pushed to this server by an Orin are kept (no prune) but"
-  echo "are not sent to GitHub - push those on from a mirror:"
-  echo "  git -C $SERVE_ROOT/<repo>.git push origin <branch>"
+  if [ "$upstream" = 0 ]; then
+    echo
+    echo "Note: --no-upstream was given, so branches the Orins pushed here have"
+    echo "not been sent to GitHub. Send one on with:"
+    echo "  git -C $SERVE_ROOT/<repo>.git -c remote.origin.mirror=false \\"
+    echo "      push origin <branch>"
+  fi
+}
+
+###############################################################################
+# Send commits the Orins pushed into the mirrors on up to GitHub.
+#
+# This MUST run before the fetch below. A mirror fetches +refs/*:refs/* - the
+# refspec is forced - so GitHub's tip overwrites the mirror's ref even when the
+# mirror is ahead. remote.origin.prune=false does not help: prune only spares
+# branches GitHub does not have at all, not ones it has an older version of.
+# A bare mirror also keeps no reflog, so anything lost that way is only
+# recoverable as a dangling object.
+#
+# Only fast-forwards are sent. Diverged branches would need --force, which is
+# not this script's call to make, so they are parked under refs/sync-backup/
+# and reported. Branches that exist only in a mirror are not pushed by default
+# either: with prune=false, a branch deleted on GitHub lives on here forever,
+# and auto-pushing would resurrect it on every sync. Use --push-new for those.
+###############################################################################
+push_mirrors_upstream() {
+  local push_new="$1"
+  say "sending drone commits on to GitHub"
+
+  local d name url remote_heads sha ref branch gh out rc pushed=0 held=0
+  for d in "$SERVE_ROOT"/*.git; do
+    [ -d "$d" ] || continue
+    [ -L "$d" ] && continue
+    name="$(basename "$d" .git)"
+
+    url="$(git -C "$d" config --get remote.origin.url 2>/dev/null || true)"
+    [ -n "$url" ] || continue
+
+    remote_heads="$(timeout 30 git ls-remote --heads "$url" 2>/dev/null)" || {
+      warn "  $name: cannot reach $url - skipped"
+      continue
+    }
+
+    while read -r sha ref; do
+      branch="${ref#refs/heads/}"
+      gh="$(printf '%s\n' "$remote_heads" | awk -v r="$ref" '$2 == r { print $1 }')"
+
+      if [ -z "$gh" ]; then
+        if [ "$push_new" != 1 ]; then
+          printf '  %-22s %-34s %s\n' "$name" "$branch" "mirror only - use --push-new"
+          held=$((held + 1))
+          continue
+        fi
+      else
+        [ "$gh" = "$sha" ] && continue      # already there
+
+        # The ancestry tests below need GitHub's tip in the object store, and
+        # we will not have it when GitHub has moved on. Fetch just that one
+        # ref: an explicit refspec replaces the configured +refs/*:refs/*, so
+        # this cannot overwrite refs/heads the way 'remote update' does.
+        if ! git -C "$d" cat-file -e "${gh}^{commit}" 2>/dev/null; then
+          if ! git -C "$d" fetch -q origin "refs/heads/$branch" 2>/dev/null; then
+            git -C "$d" update-ref "refs/sync-backup/$branch" "$sha"
+            printf '  %-22s %-34s %s\n' "$name" "$branch" "cannot compare with GitHub"
+            echo "      kept as refs/sync-backup/$branch (the refresh may drop it)"
+            held=$((held + 1))
+            continue
+          fi
+        fi
+
+        git -C "$d" merge-base --is-ancestor "$sha" "$gh" && continue  # behind
+
+        if ! git -C "$d" merge-base --is-ancestor "$gh" "$sha"; then
+          git -C "$d" update-ref "refs/sync-backup/$branch" "$sha"
+          printf '  %-22s %-34s %s\n' "$name" "$branch" "DIVERGED - not pushed"
+          echo "      kept as refs/sync-backup/$branch (the refresh would drop it)"
+          echo "      reconcile it by hand, then re-run sync"
+          held=$((held + 1))
+          continue
+        fi
+      fi
+
+      printf '  %-22s %-34s ' "$name" "$branch"
+      rc=0
+      # explicit refspec, so remote.origin.mirror=true does not turn this into
+      # a --mirror push (which would delete GitHub branches we do not carry)
+      out="$(git -C "$d" -c remote.origin.mirror=false push origin \
+               "refs/heads/$branch:refs/heads/$branch" 2>&1)" || rc=$?
+      if [ "$rc" = 0 ]; then
+        echo "-> GitHub"
+        pushed=$((pushed + 1))
+      else
+        echo "FAILED"
+        printf '%s\n' "$out" | sed 's/^/      /'
+        git -C "$d" update-ref "refs/sync-backup/$branch" "$sha"
+        echo "      kept as refs/sync-backup/$branch (the refresh would drop it)"
+        held=$((held + 1))
+      fi
+    done < <(git -C "$d" for-each-ref --format='%(objectname) %(refname)' refs/heads)
+  done
+
+  if [ "$pushed" = 0 ] && [ "$held" = 0 ]; then
+    echo "  nothing to send - GitHub already has every mirror branch"
+  else
+    echo "  sent $pushed branch(es) to GitHub, $held held back"
+  fi
+  return 0
 }
 
 ###############################################################################
@@ -309,10 +421,18 @@ push_to_client() {
     if [ "$rc" = 0 ]; then
       echo "ok ($branch)"
     else
-      if [ "$tree" = dirty ]; then
-        echo "PARTIAL - $branch has uncommitted changes, working tree left alone"
+      # report why git actually refused, not why we guess it refused - a dirty
+      # tree and a non-fast-forward need completely different fixes
+      if printf '%s' "$out" | grep -qiE 'non-fast-forward|fetch first|behind its remote'; then
+        echo "REJECTED - $branch: the Orin has commits the mirror does not"
+        echo "      nothing was lost; push them here from the Orin, then re-run sync:"
+        echo "      ssh $SERVER_USER@$ip 'git -C $rdir push origin $branch'"
+      elif printf '%s' "$out" | grep -qiE 'working (directory|tree)|uncommitted|untracked|updateInstead'; then
+        echo "PARTIAL - $branch has uncommitted changes on the Orin, tree left alone"
+      elif [ "$tree" = dirty ]; then
+        echo "FAILED - $branch (the Orin's tree is also dirty)"
       else
-        echo "FAILED"
+        echo "FAILED - $branch"
       fi
       printf '%s\n' "$out" | sed 's/^/      /'
     fi
