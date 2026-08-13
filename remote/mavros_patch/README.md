@@ -78,6 +78,31 @@ WP: Using MISSION_ITEM_INT
 `0x4e8ff` is the real capability word from the flight controller, and `1.1` is
 the autopilot. Replies logged as `1.154` come from the gimbal and do not count.
 
+The uas*-onboard launch files start MAVROS with `--log-level fatal`, so none of
+those lines reach the console. Ask the running node instead:
+
+```bash
+ros2 service call /uas1/vehicle_info_get mavros_msgs/srv/VehicleInfoGet \
+    "{sysid: 1, compid: 1, get_all: false}"
+```
+
+`capabilities=321791` is `0x4e8ff`, so the patch works. `capabilities=0` means
+MAVROS fell back, so the overlay is not in use.
+
+## One warning stays
+
+```
+[WARN] [uas1.cmd]: CMD: Unexpected command 512, result 0
+```
+
+MAVROS sends the first requests as broadcasts, and `send_command_long_and_wait()`
+sets `is_ack_required = ... && !broadcast`, so it registers no waiter for the
+reply. PX4 acknowledges anyway, and the unmatched ACK prints this line.
+
+The behaviour predates the patch. Stock MAVROS logs the same line as
+`Unexpected command 520, result 3`. `result 0` is `MAV_RESULT_ACCEPTED`, so this
+one reports success, and the capabilities do arrive on the first try.
+
 ## Removing it
 
 ```bash

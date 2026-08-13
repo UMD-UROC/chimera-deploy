@@ -70,10 +70,16 @@ grep -q "MAV_CMD::REQUEST_MESSAGE" "$WS/src/mavros/mavros/src/plugins/sys_status
     || die "patch applied but REQUEST_MESSAGE is not in sys_status.cpp"
 
 info "building (this takes a while on the Orin)"
+# ROS setup files read unset variables, so -u has to come off around them.
+set +u
 # shellcheck disable=SC1091
 source /opt/ros/humble/setup.bash
+set -u
 cd "$WS"
-colcon build --packages-select angles mavros \
+# Overriding the apt mavros is the point of this workspace. It stays ABI safe
+# because the submodule is pinned to the same release the apt package ships,
+# which the version check above enforces.
+colcon build --packages-select angles mavros --allow-overriding mavros \
     --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
 
 info "done. Overlay at $WS/install"
