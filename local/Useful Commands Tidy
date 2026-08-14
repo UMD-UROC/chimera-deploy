@@ -308,7 +308,16 @@ source helpers/exp_setup.sh 2
 ros2 run camera_calibration cameracalibrator --size 5x7 --square 0.03 --ros-args -r image:=/uav1/hires/image_raw -p camera:=/uav1/hires
 ros2 run camera_calibration cameracalibrator --size 5x7 --square 0.03 --ros-args -r image:=/uav2/hires/image_raw -p camera:=/uav2/hires
 
+## compressed cam cal
+# terminal 1
+source /opt/ros/humble/setup.bash
+PYTHONNOUSERSITE=1 python3 /home/user/ros2_ws/compressed_to_raw.py /uas1/image /uas1/image_raw
 
+# terminal 2
+source /opt/ros/humble/setup.bash
+PYTHONNOUSERSITE=1 ros2 run camera_calibration cameracalibrator \
+  --size 5x7 --square 0.03 --no-service-check \
+  --ros-args -r image:=/uas1/image_raw -r camera:=/uas1/camera
 
 /home/mav_ws/install/rb5_gstream_ros2/share/rb5_gstream_ros2/cfg/
 
