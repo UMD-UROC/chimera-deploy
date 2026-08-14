@@ -1,7 +1,9 @@
 #!/bin/bash
 
 alias rs='source /opt/ros/humble/setup.bash'
-alias ws='source install/setup.bash'
+# The mavros overlay is sourced last so it wins over the apt package.
+# See remote/mavros_patch/README.md. Harmless when the overlay is absent.
+alias ws='source install/setup.bash; if [ -f "$HOME/mavros_ws/install/setup.bash" ]; then source "$HOME/mavros_ws/install/setup.bash"; fi'
 alias cdr='cd ~/ros2_ws; rs; ws'
 alias cdv='cd ~/DTC/chimera-recording-visualization'
 alias cdd='cd ~/chimera-deploy'

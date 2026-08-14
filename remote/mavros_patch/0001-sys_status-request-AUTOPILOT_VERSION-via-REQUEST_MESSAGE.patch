@@ -1,0 +1,51 @@
+From b4fb1f026bae71a08a06a764ed0acf6c687f4d6e Mon Sep 17 00:00:00 2001
+From: Chimera <ctitus@umd.edu>
+Date: Thu, 13 Aug 2026 10:24:15 -0400
+Subject: [PATCH] sys_status: request AUTOPILOT_VERSION via REQUEST_MESSAGE
+
+PX4 v1.18 removed the legacy command shims from mavlink_receiver.cpp.
+MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES (520) now falls through to the
+default case, and the FCU answers MAV_RESULT_UNSUPPORTED (3).
+
+MAVROS therefore never receives AUTOPILOT_VERSION from the autopilot.
+The sys plugin retries five times and then gives up:
+
+  [WARN]  CMD: Unexpected command 520, result 3
+  [WARN]  VER: broadcast request timeout, retries left 4
+  [ERROR] VER: command plugin service call failed!
+  [WARN]  VER: your FCU don't support AUTOPILOT_VERSION,
+          switched to default capabilities
+
+The fallback capability set omits MAV_PROTOCOL_CAPABILITY_MISSION_INT,
+so the waypoint plugin stays on the deprecated MISSION_ITEM protocol.
+
+MAV_CMD_REQUEST_MESSAGE (512) is the generic replacement. PX4 v1.15,
+v1.16, v1.17 and v1.18 all handle it in handle_message_command_long().
+
+Verified on an EchoPilot AI running PX4 v1.18.0-beta1. The FCU answers
+MAV_RESULT_ACCEPTED and sends AUTOPILOT_VERSION with capabilities
+0x000000000004e8ff. The waypoint plugin then logs "Using MISSION_ITEM_INT".
+---
+ mavros/src/plugins/sys_status.cpp | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/mavros/src/plugins/sys_status.cpp b/mavros/src/plugins/sys_status.cpp
+index e36a96d..6d793d3 100644
+--- a/mavros/src/plugins/sys_status.cpp
++++ b/mavros/src/plugins/sys_status.cpp
+@@ -1311,9 +1311,13 @@ private:
+ 
+       auto cmdrq = std::make_shared<mavros_msgs::srv::CommandLong::Request>();
+       cmdrq->broadcast = do_broadcast;
+-      cmdrq->command = enum_value(MAV_CMD::REQUEST_AUTOPILOT_CAPABILITIES);
++      // PX4 v1.18 dropped the legacy REQUEST_AUTOPILOT_CAPABILITIES (520) shim and
++      // answers it MAV_RESULT_UNSUPPORTED, so the FCU never emits AUTOPILOT_VERSION
++      // and MAVROS falls back to default capabilities. REQUEST_MESSAGE (512) is the
++      // generic replacement; PX4 v1.15 through v1.18 all handle it.
++      cmdrq->command = enum_value(MAV_CMD::REQUEST_MESSAGE);
+       cmdrq->confirmation = false;
+-      cmdrq->param1 = 1.0;
++      cmdrq->param1 = mavlink::standard::msg::AUTOPILOT_VERSION::MSG_ID;
+ 
+       RCLCPP_DEBUG(
+         lg, "VER: Sending %s request.",
