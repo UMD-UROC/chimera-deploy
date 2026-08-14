@@ -163,6 +163,12 @@ wget https://raw.githubusercontent.com/mavlink/mavros/ros2/mavros/scripts/instal
 chmod +x install_geographiclib_datasets.sh
 sudo ./install_geographiclib_datasets.sh
 
+# mavros patch for PX4 v1.18: the stock package asks for autopilot capabilities
+# with a command v1.18 removed, and then falls back to no capabilities at all.
+# See remote/mavros_patch/README.md.
+git submodule update --init submodules/mavros submodules/angles
+./remote/mavros_patch/apply.sh
+
 # TODO
 ##ros domain id
 #echo 'export ROS_DOMAIN_ID=64' >> ~/.bashrc

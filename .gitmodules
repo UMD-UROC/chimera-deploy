@@ -14,3 +14,11 @@
 [submodule "submodules/echopilot_ai_bsp"]
 	path = submodules/echopilot_ai_bsp
 	url = https://github.com/EchoMAV/echopilot_ai_bsp
+[submodule "submodules/mavros"]
+	path = submodules/mavros
+	url = https://github.com/mavlink/mavros.git
+	branch = ros2
+[submodule "submodules/angles"]
+	path = submodules/angles
+	url = https://github.com/ros/angles.git
+	branch = humble-devel
