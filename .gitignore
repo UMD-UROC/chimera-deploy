@@ -12,3 +12,5 @@ ros2_ws/log/
 
 # Local ROS 2 workspace
 ros2_ws/
+
+__pycache__/
