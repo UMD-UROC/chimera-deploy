@@ -44,8 +44,9 @@ class KlvFeed:
     and a frame leaving it is what we emit that geolocation alongside, carrying its PTS.
     """
 
-    def __init__(self, appsrc, delay_queue, geolocation_address, frame_interval=1):
+    def __init__(self, appsrc, settle_queue, delay_queue, geolocation_address, frame_interval=1):
         self._appsrc = appsrc
+        self._settle_queue = settle_queue
         self._delay_queue = delay_queue
         self._geolocation_address = tuple(geolocation_address)
         self._frame_interval = max(1, frame_interval)
@@ -60,11 +61,11 @@ class KlvFeed:
         self._reader = threading.Thread(target=self._receive_replies, name="klv replies", daemon=True)
         self._reader.start()
 
-        self._request_probe = self._add_probe("sink", self._on_frame_encoded)
-        self._release_probe = self._add_probe("src", self._on_frame_released)
+        self._request_probe = self._add_probe(self._settle_queue, self._on_frame_settled)
+        self._release_probe = self._add_probe(self._delay_queue, self._on_frame_released)
 
-    def _add_probe(self, pad_name, handler):
-        pad = self._delay_queue.get_static_pad(pad_name)
+    def _add_probe(self, element, handler):
+        pad = element.get_static_pad("src")
         return pad, pad.add_probe(Gst.PadProbeType.BUFFER, handler)
 
     def _capture_unix_us(self, pad, buffer):
@@ -74,7 +75,7 @@ class KlvFeed:
         age_ns = clock.get_time() - (self._delay_queue.get_base_time() + _running_time(pad, buffer))
         return (time.time_ns() - age_ns) / 1000.0
 
-    def _on_frame_encoded(self, pad, info):
+    def _on_frame_settled(self, pad, info):
         self._encoded_frames += 1
         if self._encoded_frames % self._frame_interval:
             return Gst.PadProbeReturn.OK
