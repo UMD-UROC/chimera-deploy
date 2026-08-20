@@ -124,15 +124,10 @@ Adds an `rgblk` mount: the same low-res H.265, muxed into MPEG-TS with MISB ST 0
 telemetry localized by the 5g stack's `tf_loc` at each frame's own capture time. The
 existing `rgbl` mount is untouched and keeps its minimum latency.
 ```
-open remote/klv.service   # update paths for your machine
+open remote/klv.service   # update paths if the repo or ROS workspace is elsewhere
 ```
 ```
-sudo cp remote/klv.service /etc/systemd/system/klv.service
-sudo systemctl daemon-reload
-sudo systemctl enable klv.service
-sudo systemctl start klv.service
-sudo systemctl status klv.service
-sudo systemctl restart rcam.service   # picks up the new rgblk mount
+./remote/setup_klv.sh
 ```
 `klv.service` needs the onboard ROS stack running (`onboard`) for `tf_loc` to answer. Without
 it the video still streams, carrying timestamp-only KLV packets.
