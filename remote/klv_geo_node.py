@@ -9,6 +9,8 @@ import threading
 import time
 
 import rclpy
+from collections import Counter
+
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
@@ -58,6 +60,14 @@ def _degenerate_box(index, pixel):
 
 def _unix_us_to_stamp(unix_us):
     return TimeMsg(sec=int(unix_us // 1_000_000), nanosec=int(unix_us % 1_000_000) * 1000)
+
+
+def _failure_kind(message):
+    if "Cache does not contain" in message:
+        return "gps gap"
+    if "points backwards" in message:
+        return "ray misses ground"
+    return "localization failed"
 
 
 def _located(fix):
@@ -114,6 +124,8 @@ class GeolocationResponder(Node):
         )
 
         self._last_report = 0.0
+        self._outcomes = Counter()
+        self._last_detail = ""
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._socket.bind(conf.KLV_GEOLOCATION_ADDRESSES[conf.RGB_LOWRES_KLV])
         threading.Thread(target=self._serve_requests, name="klv requests", daemon=True).start()
@@ -122,11 +134,20 @@ class GeolocationResponder(Node):
             f"{conf.KLV_GEOLOCATION_ADDRESSES[conf.RGB_LOWRES_KLV]}"
         )
 
-    def _report_occasionally(self, reason):
+    def _record(self, outcome, detail=""):
+        """Counts are the useful signal here: how often a frame is actually localized."""
+        self._outcomes[outcome] += 1
+        if detail:
+            self._last_detail = detail
         now = time.monotonic()
-        if now - self._last_report >= REPORT_PERIOD_S:
-            self._last_report = now
-            self.get_logger().warn(f"answering timestamp-only KLV: {reason}")
+        if now - self._last_report < REPORT_PERIOD_S:
+            return
+        self._last_report = now
+        summary = ", ".join(f"{count} {name}" for name, count in self._outcomes.most_common())
+        failed = any(name != "localized" for name in self._outcomes)
+        self._outcomes.clear()
+        report = self.get_logger().warn if failed else self.get_logger().info
+        report(f"last {REPORT_PERIOD_S:.0f}s: {summary}" + (f" | {self._last_detail}" if failed else ""))
 
     def _on_camera_info(self, camera_info):
         self._camera_info = camera_info
@@ -138,10 +159,10 @@ class GeolocationResponder(Node):
                 continue
             frame_pts, capture_unix_us = struct.unpack(REQUEST_FORMAT, request)
             if self._camera_info is None:
-                self._report_occasionally("no camera_info received yet")
+                self._record("no camera_info")
                 continue
             if not self._localization.service_is_ready():
-                self._report_occasionally(f"{self._localization.srv_name} has no server")
+                self._record("no localization server", self._localization.srv_name)
                 continue
             future = self._localization.call_async(self._localization_request(capture_unix_us))
             future.add_done_callback(
@@ -161,11 +182,12 @@ class GeolocationResponder(Node):
     def _reply(self, future, frame_pts, capture_unix_us, requester):
         response = future.result()
         if response is None:
-            self._report_occasionally("localization call did not return")
+            self._record("call did not return")
             return
         if not response.success:
-            self._report_occasionally(f"localization failed: {response.message}")
+            self._record(_failure_kind(response.message), response.message[:110])
             return
+        self._record("localized")
         packet = self.encode(response.localized_boxes, capture_unix_us)
         self._socket.sendto(struct.pack(REPLY_HEADER_FORMAT, frame_pts) + packet, requester)
 
