@@ -1,0 +1,17 @@
+[Unit]
+Description=KLV Geolocation Responder
+After=network.target rcam.service
+Wants=rcam.service
+
+[Service]
+ExecStart=/bin/bash -c 'source /opt/ros/humble/setup.bash && source /home/user/ros2_ws/install/setup.bash && exec python3 /home/user/chimera-deploy/remote/klv_geo_node.py'
+WorkingDirectory=/home/user/chimera-deploy/remote
+EnvironmentFile=-/etc/environment
+User=user
+Group=user
+Restart=always
+RestartSec=5
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target

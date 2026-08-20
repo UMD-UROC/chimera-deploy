@@ -25,7 +25,7 @@ THERMAL_LOWRES_BITRATE = 400000
 RGB = "rgb"
 RGB_DEEPSTREAM = "rgbds"
 RGB_LOWRES = "rgbl"
-RGB_RAW = "rgbraw"
+RGB_LOWRES_KLV = "rgblk"
 THERMAL = "thermal"
 THERMAL_DEEPSTREAM = "thermalds"
 THERMAL_LOWRES = "thermall"
@@ -38,7 +38,7 @@ SOCKETS = {
     RGB: SOCKET(RGB),
     RGB_DEEPSTREAM: SOCKET(RGB_DEEPSTREAM),
     RGB_LOWRES: SOCKET(RGB_LOWRES),
-    RGB_RAW: SOCKET(RGB_RAW),
+    RGB_LOWRES_KLV: SOCKET(RGB_LOWRES_KLV),
     THERMAL: SOCKET(THERMAL),
     THERMAL_DEEPSTREAM: SOCKET(THERMAL_DEEPSTREAM),
     THERMAL_LOWRES: SOCKET(THERMAL_LOWRES),
@@ -75,7 +75,7 @@ PRODUCERS = {
         nvvidconv interpolation-method=1 !
         video/x-raw(memory:NVMM),width={RGB_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT},format=NV12 !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvunixfdsink socket-path={SOCKETS[RGB_RAW]} sync=false async=false
+        nvunixfdsink socket-path={SOCKETS[RGB_LOWRES_KLV]} sync=false async=false
         """,
     "thermal-fork": f"""
         v4l2src device=/dev/video1 io-mode=2 do-timestamp=true !
@@ -109,6 +109,13 @@ PRODUCERS = {
         nvunixfdsink socket-path={SOCKETS[THERMAL_RAW]} sync=false async=false
         """,
 }
+
+KLV_APPSRC_NAME = "klv"
+KLV_MUXER_NAME = "klvmux"
+KLV_DELAY_QUEUE_NAME = "klvdelay"
+KLV_LOCALIZATION_DELAY_NS = 500_000_000
+KLV_TABLE_INTERVAL_TICKS = 45000
+KLV_FRAME_INTERVAL = 1
 
 FACTORIES = {
     RGB: f"""
@@ -151,4 +158,24 @@ FACTORIES = {
         rtph265pay name=pay0 pt=96 config-interval=1
         )
         """,
+    RGB_LOWRES_KLV: f"""
+        (
+        nvunixfdsrc socket-path={SOCKETS[RGB_LOWRES_KLV]} num-extra-surfaces=4 do-timestamp=true !
+        video/x-raw(memory:NVMM),format=NV12,width={RGB_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT} !
+        queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
+        nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={RGB_LOWRES_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false !
+        h265parse config-interval=1 !
+        video/x-h265,stream-format=byte-stream,alignment=au !
+        queue name={KLV_DELAY_QUEUE_NAME} max-size-buffers=0 max-size-bytes=0 max-size-time=0 min-threshold-time={KLV_LOCALIZATION_DELAY_NS} !
+        mpegtsmux name={KLV_MUXER_NAME} alignment=7 pat-interval={KLV_TABLE_INTERVAL_TICKS} pmt-interval={KLV_TABLE_INTERVAL_TICKS} si-interval={KLV_TABLE_INTERVAL_TICKS} !
+        rtpmp2tpay name=pay0 pt=33
+
+        appsrc name={KLV_APPSRC_NAME} is-live=true format=time caps="meta/x-klv,parsed=true" !
+        {KLV_MUXER_NAME}.
+        )
+        """,
+}
+
+KLV_GEOLOCATION_ADDRESSES = {
+    RGB_LOWRES_KLV: ("127.0.0.1", 15010),
 }

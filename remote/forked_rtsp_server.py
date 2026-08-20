@@ -2,6 +2,7 @@
 
 import os
 import gi
+import klv_feed
 import rtsp_config as conf
 from typing import Dict, Any
 
@@ -79,6 +80,17 @@ def make_factory(launch):
     return factory
 
 
+def attach_klv_feed(_factory, media, geolocation_address):
+    element = media.get_element()
+    feed = klv_feed.KlvFeed(
+        appsrc=element.get_by_name(conf.KLV_APPSRC_NAME),
+        delay_queue=element.get_by_name(conf.KLV_DELAY_QUEUE_NAME),
+        geolocation_address=geolocation_address,
+        frame_interval=conf.KLV_FRAME_INTERVAL,
+    )
+    media.connect("unprepared", feed.stop)
+
+
 def cleanup_sockets():
     for name, path in conf.SOCKETS.items():
         try:
@@ -127,6 +139,9 @@ def main():
     for name, pipe in conf.FACTORIES.items():
         print(f"{name} factory starting...")
         factory = make_factory(pipe)
+        geolocation_address = conf.KLV_GEOLOCATION_ADDRESSES.get(name)
+        if geolocation_address is not None:
+            factory.connect("media-configure", attach_klv_feed, geolocation_address)
         mounts.add_factory(f"/{name}", factory)
         print(f"rtsp://127.0.0.1:8554/{name}")
         print(f"{name} factory started!")

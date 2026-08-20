@@ -87,6 +87,16 @@ PIPES+=("( rtspsrc location=rtsp://10.200.142.64:8554/rgbl $common")
 TAGS+=("thermall4")
 PIPES+=("( rtspsrc location=rtsp://10.200.142.64:8554/thermall $common")
 
+# MPEG-TS + MISB ST 0601 KLV, passed through untouched so the aircraft's frame-accurate
+# metadata survives the relay. ATAK connects to these.
+klv_common="protocols=udp latency=0 ! rtpmp2tdepay ! tsparse alignment=7 ! rtpmp2tpay pt=33 name=pay0 )"
+
+TAGS+=("rgblk3")
+PIPES+=("( rtspsrc location=rtsp://10.200.142.63:8554/rgblk $klv_common")
+
+TAGS+=("rgblk4")
+PIPES+=("( rtspsrc location=rtsp://10.200.142.64:8554/rgblk $klv_common")
+
 TAGS+=("thermalc")
 PIPES+=("( rtspsrc location=rtsp://192.168.79.165:8554/cairo_thermal $common")
 

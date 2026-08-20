@@ -118,6 +118,29 @@ Aliases
 cp local/.bash_aliases ~/.bash_aliases
 source ~/.bash_aliases
 ```
+ATAK KLV Server (on the drone)
+
+Adds an `rgblk` mount: the same low-res H.265, muxed into MPEG-TS with MISB ST 0601 KLV
+telemetry localized by the 5g stack's `tf_loc` at each frame's own capture time. The
+existing `rgbl` mount is untouched and keeps its minimum latency.
+```
+open remote/klv.service   # update paths for your machine
+```
+```
+sudo cp remote/klv.service /etc/systemd/system/klv.service
+sudo systemctl daemon-reload
+sudo systemctl enable klv.service
+sudo systemctl start klv.service
+sudo systemctl status klv.service
+sudo systemctl restart rcam.service   # picks up the new rgblk mount
+```
+`klv.service` needs the onboard ROS stack running (`onboard`) for `tf_loc` to answer. Without
+it the video still streams, carrying timestamp-only KLV packets.
+
+On the ground station the lcam relay re-serves it as `rgblk3` / `rgblk4`, so ATAK connects to
+`rtsp://<ground station ip>:8554/rgblk3`. Mount names follow
+`<camera><lowres?><klv?><uas#>` — `rgbl3` is low-res RGB from uas3, `rgblk3` adds KLV.
+
 MAVLink Router
 ```
 sudo cp local/main.conf /etc/mavlink-router/main.conf
