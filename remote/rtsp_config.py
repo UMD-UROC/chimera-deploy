@@ -114,6 +114,7 @@ KLV_APPSRC_NAME = "klv"
 KLV_MUXER_NAME = "klvmux"
 KLV_DELAY_QUEUE_NAME = "klvdelay"
 KLV_LOCALIZATION_DELAY_NS = 500_000_000
+KLV_DELAY_QUEUE_LIMIT_NS = 2 * KLV_LOCALIZATION_DELAY_NS
 KLV_TABLE_INTERVAL_TICKS = 45000
 KLV_FRAME_INTERVAL = 1
 
@@ -166,7 +167,7 @@ FACTORIES = {
         nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={RGB_LOWRES_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false !
         h265parse config-interval=1 !
         video/x-h265,stream-format=byte-stream,alignment=au !
-        queue name={KLV_DELAY_QUEUE_NAME} max-size-buffers=0 max-size-bytes=0 max-size-time=0 min-threshold-time={KLV_LOCALIZATION_DELAY_NS} !
+        queue name={KLV_DELAY_QUEUE_NAME} leaky=downstream max-size-buffers=0 max-size-bytes=0 max-size-time={KLV_DELAY_QUEUE_LIMIT_NS} min-threshold-time={KLV_LOCALIZATION_DELAY_NS} !
         mpegtsmux name={KLV_MUXER_NAME} alignment=7 pat-interval={KLV_TABLE_INTERVAL_TICKS} pmt-interval={KLV_TABLE_INTERVAL_TICKS} si-interval={KLV_TABLE_INTERVAL_TICKS} !
         rtpmp2tpay name=pay0 pt=33
 

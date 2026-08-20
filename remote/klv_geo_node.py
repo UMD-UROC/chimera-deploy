@@ -6,6 +6,7 @@ import os
 import socket
 import struct
 import threading
+import time
 
 import rclpy
 from rclpy.callback_groups import ReentrantCallbackGroup
@@ -28,8 +29,9 @@ import rtsp_config as conf
 REQUEST_FORMAT = ">QQ"
 REQUEST_SIZE = struct.calcsize(REQUEST_FORMAT)
 REPLY_HEADER_FORMAT = ">Q"
-SERVICE_READY_TIMEOUT_S = 1.0
-UNSET_DEGREES = 0.0
+# tf_loc registers this relative to its namespace, not under its node name
+LOCALIZATION_SERVICE = "tba_loczn"
+REPORT_PERIOD_S = 5.0
 
 FRAME_CENTRE_INDEX = 0
 CORNER_INDICES = (1, 2, 3, 4)
@@ -107,10 +109,11 @@ class GeolocationResponder(Node):
         self.create_subscription(CameraInfo, f"/{self.platform_designation}/camera/camera_info", self._on_camera_info, transient_local)
         self._localization = self.create_client(
             TBALocalization,
-            f"/{self.platform_designation}/tf_loc/tba_loczn",
+            f"/{self.platform_designation}/{LOCALIZATION_SERVICE}",
             callback_group=ReentrantCallbackGroup(),
         )
 
+        self._last_report = 0.0
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._socket.bind(conf.KLV_GEOLOCATION_ADDRESSES[conf.RGB_LOWRES_KLV])
         threading.Thread(target=self._serve_requests, name="klv requests", daemon=True).start()
@@ -118,6 +121,12 @@ class GeolocationResponder(Node):
             f"answering {self.platform_designation} {self.image_source_sensor} KLV requests on "
             f"{conf.KLV_GEOLOCATION_ADDRESSES[conf.RGB_LOWRES_KLV]}"
         )
+
+    def _report_occasionally(self, reason):
+        now = time.monotonic()
+        if now - self._last_report >= REPORT_PERIOD_S:
+            self._last_report = now
+            self.get_logger().warn(f"answering timestamp-only KLV: {reason}")
 
     def _on_camera_info(self, camera_info):
         self._camera_info = camera_info
@@ -128,7 +137,11 @@ class GeolocationResponder(Node):
             if len(request) != REQUEST_SIZE:
                 continue
             frame_pts, capture_unix_us = struct.unpack(REQUEST_FORMAT, request)
-            if self._camera_info is None or not self._localization.service_is_ready():
+            if self._camera_info is None:
+                self._report_occasionally("no camera_info received yet")
+                continue
+            if not self._localization.service_is_ready():
+                self._report_occasionally(f"{self._localization.srv_name} has no server")
                 continue
             future = self._localization.call_async(self._localization_request(capture_unix_us))
             future.add_done_callback(
@@ -147,7 +160,11 @@ class GeolocationResponder(Node):
 
     def _reply(self, future, frame_pts, capture_unix_us, requester):
         response = future.result()
-        if response is None or not response.success:
+        if response is None:
+            self._report_occasionally("localization call did not return")
+            return
+        if not response.success:
+            self._report_occasionally(f"localization failed: {response.message}")
             return
         packet = self.encode(response.localized_boxes, capture_unix_us)
         self._socket.sendto(struct.pack(REPLY_HEADER_FORMAT, frame_pts) + packet, requester)

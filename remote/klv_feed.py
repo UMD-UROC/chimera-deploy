@@ -30,9 +30,9 @@ def _running_time(pad, buffer):
     return segment_event.parse_segment().to_running_time(Gst.Format.TIME, buffer.pts)
 
 
-def _telemetry_free_packet():
+def _telemetry_free_packet(capture_unix_us):
     return misb.local_set(
-        (misb.UNIX_TIME_STAMP, time.time() * 1e6),
+        (misb.UNIX_TIME_STAMP, capture_unix_us),
         (misb.UAS_LDS_VERSION_NUMBER, misb.UAS_LDS_VERSION),
     )
 
@@ -92,17 +92,17 @@ class KlvFeed:
             return Gst.PadProbeReturn.OK
         buffer = info.get_buffer()
         release_time = _running_time(pad, buffer)
-        packet = Gst.Buffer.new_wrapped(self._take_packet(buffer.pts))
+        packet = Gst.Buffer.new_wrapped(self._take_packet(buffer.pts, self._capture_unix_us(pad, buffer)))
         packet.pts = release_time
         packet.dts = release_time
         packet.duration = buffer.duration
         self._appsrc.emit("push-buffer", packet)
         return Gst.PadProbeReturn.OK
 
-    def _take_packet(self, pts):
+    def _take_packet(self, pts, capture_unix_us):
         with self._lock:
             packet = self._packets_by_pts.pop(pts, None)
-        return packet if packet is not None else _telemetry_free_packet()
+        return packet if packet is not None else _telemetry_free_packet(capture_unix_us)
 
     def _receive_replies(self):
         while not self._stopping.is_set():
