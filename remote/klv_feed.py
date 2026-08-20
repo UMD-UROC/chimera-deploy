@@ -5,7 +5,7 @@ import socket
 import struct
 import threading
 import time
-from collections import OrderedDict
+from collections import OrderedDict, deque
 
 import gi
 
@@ -20,6 +20,7 @@ REPLY_HEADER_SIZE = struct.calcsize(REPLY_HEADER_FORMAT)
 MAX_REPLY_SIZE = 4096
 PENDING_FRAME_LIMIT = 240
 REPLY_POLL_TIMEOUT_S = 0.5
+REQUEST_DUE_POLL_S = 0.005
 
 
 def _running_time(pad, buffer):
@@ -44,10 +45,11 @@ class KlvFeed:
     and a frame leaving it is what we emit that geolocation alongside, carrying its PTS.
     """
 
-    def __init__(self, appsrc, settle_queue, delay_queue, geolocation_address, frame_interval=1):
+    def __init__(self, appsrc, delay_queue, geolocation_address, settle_seconds, frame_interval=1):
         self._appsrc = appsrc
-        self._settle_queue = settle_queue
         self._delay_queue = delay_queue
+        self._settle_seconds = settle_seconds
+        self._due_requests = deque()
         self._geolocation_address = tuple(geolocation_address)
         self._frame_interval = max(1, frame_interval)
         self._encoded_frames = 0
@@ -61,11 +63,14 @@ class KlvFeed:
         self._reader = threading.Thread(target=self._receive_replies, name="klv replies", daemon=True)
         self._reader.start()
 
-        self._request_probe = self._add_probe(self._settle_queue, self._on_frame_settled)
-        self._release_probe = self._add_probe(self._delay_queue, self._on_frame_released)
+        self._sender = threading.Thread(target=self._send_due_requests, name="klv requests", daemon=True)
+        self._sender.start()
 
-    def _add_probe(self, element, handler):
-        pad = element.get_static_pad("src")
+        self._request_probe = self._add_probe("sink", self._on_frame_encoded)
+        self._release_probe = self._add_probe("src", self._on_frame_released)
+
+    def _add_probe(self, pad_name, handler):
+        pad = self._delay_queue.get_static_pad(pad_name)
         return pad, pad.add_probe(Gst.PadProbeType.BUFFER, handler)
 
     def _capture_unix_us(self, pad, buffer):
@@ -75,17 +80,31 @@ class KlvFeed:
         age_ns = clock.get_time() - (self._delay_queue.get_base_time() + _running_time(pad, buffer))
         return (time.time_ns() - age_ns) / 1000.0
 
-    def _on_frame_settled(self, pad, info):
+    def _on_frame_encoded(self, pad, info):
+        """Queue the request rather than send it: tf_loc can only answer once telemetry
+        covering this frame has reached its caches."""
         self._encoded_frames += 1
         if self._encoded_frames % self._frame_interval:
             return Gst.PadProbeReturn.OK
         buffer = info.get_buffer()
         request = struct.pack(REQUEST_FORMAT, buffer.pts, int(self._capture_unix_us(pad, buffer)))
-        try:
-            self._socket.sendto(request, self._geolocation_address)
-        except OSError:
-            pass
+        with self._lock:
+            self._due_requests.append((time.monotonic() + self._settle_seconds, request))
         return Gst.PadProbeReturn.OK
+
+    def _send_due_requests(self):
+        while not self._stopping.is_set():
+            now = time.monotonic()
+            while True:
+                with self._lock:
+                    if not self._due_requests or self._due_requests[0][0] > now:
+                        break
+                    _, request = self._due_requests.popleft()
+                try:
+                    self._socket.sendto(request, self._geolocation_address)
+                except OSError:
+                    return
+            self._stopping.wait(REQUEST_DUE_POLL_S)
 
     def _on_frame_released(self, pad, info):
         self._released_frames += 1

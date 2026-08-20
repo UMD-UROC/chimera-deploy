@@ -84,9 +84,9 @@ def attach_klv_feed(_factory, media, geolocation_address):
     element = media.get_element()
     feed = klv_feed.KlvFeed(
         appsrc=element.get_by_name(conf.KLV_APPSRC_NAME),
-        settle_queue=element.get_by_name(conf.KLV_SETTLE_QUEUE_NAME),
         delay_queue=element.get_by_name(conf.KLV_DELAY_QUEUE_NAME),
         geolocation_address=geolocation_address,
+        settle_seconds=conf.KLV_TELEMETRY_SETTLE_NS / 1e9,
         frame_interval=conf.KLV_FRAME_INTERVAL,
     )
     media.connect("unprepared", feed.stop)
