@@ -125,6 +125,7 @@ class GeolocationResponder(Node):
 
         self._last_report = 0.0
         self._outcomes = Counter()
+        self._round_trips_ms = []
         self._last_detail = ""
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._socket.bind(conf.KLV_GEOLOCATION_ADDRESSES[conf.RGB_LOWRES_KLV])
@@ -144,6 +145,11 @@ class GeolocationResponder(Node):
             return
         self._last_report = now
         summary = ", ".join(f"{count} {name}" for name, count in self._outcomes.most_common())
+        if self._round_trips_ms:
+            ordered = sorted(self._round_trips_ms)
+            summary += (f" | round trip median {ordered[len(ordered) // 2]:.0f} ms,"
+                        f" max {ordered[-1]:.0f} ms (budget {conf.KLV_ROUNDTRIP_NS / 1e6:.0f} ms)")
+            self._round_trips_ms.clear()
         failed = any(name != "localized" for name in self._outcomes)
         self._outcomes.clear()
         report = self.get_logger().warn if failed else self.get_logger().info
@@ -164,9 +170,10 @@ class GeolocationResponder(Node):
             if not self._localization.service_is_ready():
                 self._record("no localization server", self._localization.srv_name)
                 continue
+            asked_at = time.monotonic()
             future = self._localization.call_async(self._localization_request(capture_unix_us))
             future.add_done_callback(
-                lambda done, pts=frame_pts, us=capture_unix_us, to=requester: self._reply(done, pts, us, to)
+                lambda done, pts=frame_pts, us=capture_unix_us, to=requester, at=asked_at: self._reply(done, pts, us, to, at)
             )
 
     def _localization_request(self, capture_unix_us):
@@ -179,7 +186,8 @@ class GeolocationResponder(Node):
             image_height=self.stream_height,
         )
 
-    def _reply(self, future, frame_pts, capture_unix_us, requester):
+    def _reply(self, future, frame_pts, capture_unix_us, requester, asked_at):
+        self._round_trips_ms.append((time.monotonic() - asked_at) * 1000.0)
         response = future.result()
         if response is None:
             self._record("call did not return")
