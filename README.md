@@ -124,3 +124,29 @@ sudo cp local/main.conf /etc/mavlink-router/main.conf
 sudo systemctl restart mavlink-router
 sudo systemctl status mavlink-router
 ```
+
+# QGroundControl
+
+```
+./local/qgc/quickstart.sh
+```
+
+One command from a clean machine to a launchable app: it downloads and
+checksums a pinned release, installs the runtime packages, grants serial
+access, seeds the flight-tested settings from `local/qgc/QGroundControl.ini` if
+you have none of your own, and registers a desktop entry named `QGC <version>`.
+Re-running it is safe and never overwrites settings you already have.
+
+On Ubuntu 22.04 it installs a containerised runtime automatically: the v5.1
+AppImages are built on Ubuntu 24.04 and need glibc 2.38, which 22.04 does not
+have. The container holds no state, so settings, logs, map tiles, the network
+stack and `/dev` stay on the host either way.
+
+Nothing is precious: `--uninstall` removes the app, icon, entry, image and
+download in one go, and re-running the script rebuilds all of it. The container
+image can also be built on its own with plain `docker build` - it fetches the
+release from GitHub Releases and verifies the checksum itself, so no binary
+lives in this repo.
+
+See [`local/qgc/README.md`](local/qgc/README.md) for the options, rebuilding,
+and how to bump the pinned version.

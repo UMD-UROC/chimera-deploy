@@ -63,11 +63,17 @@ PIPES=()
 
 common="protocols=udp latency=0 drop-on-late=true ! rtph265depay ! queue2 leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 ! h265parse ! video/x-h265,stream-format=byte-stream,alignment=au ! rtph265pay pt=96 config-interval=1 name=pay0 )"
 
+TAGS+=("pilotl1")
+PIPES+=("( rtspsrc location=rtsp://10.200.142.61:8554/pilotl $common")
+
 TAGS+=("rgbl1")
 PIPES+=("( rtspsrc location=rtsp://10.200.142.61:8554/rgbl $common")
 
 TAGS+=("thermall1")
 PIPES+=("( rtspsrc location=rtsp://10.200.142.61:8554/thermall $common")
+
+TAGS+=("pilotl2")
+PIPES+=("( rtspsrc location=rtsp://10.200.142.62:8554/pilotl $common")
 
 TAGS+=("rgbl2")
 PIPES+=("( rtspsrc location=rtsp://10.200.142.62:8554/rgbl $common")
@@ -75,11 +81,17 @@ PIPES+=("( rtspsrc location=rtsp://10.200.142.62:8554/rgbl $common")
 TAGS+=("thermall2")
 PIPES+=("( rtspsrc location=rtsp://10.200.142.62:8554/thermall $common")
 
+TAGS+=("pilotl3")
+PIPES+=("( rtspsrc location=rtsp://10.200.142.63:8554/pilotl $common")
+
 TAGS+=("rgbl3")
 PIPES+=("( rtspsrc location=rtsp://10.200.142.63:8554/rgbl $common")
 
 TAGS+=("thermall3")
 PIPES+=("( rtspsrc location=rtsp://10.200.142.63:8554/thermall $common")
+
+TAGS+=("pilotl4")
+PIPES+=("( rtspsrc location=rtsp://10.200.142.64:8554/pilotl $common")
 
 TAGS+=("rgbl4")
 PIPES+=("( rtspsrc location=rtsp://10.200.142.64:8554/rgbl $common")

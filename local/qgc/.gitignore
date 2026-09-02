@@ -1,0 +1,3 @@
+.cache/
+appimage/*
+!appimage/.gitkeep

@@ -18,7 +18,7 @@ while [ ! -d "$BAG_DIR" ]; do
 done
 
 cd "$BAG_DIR" || exit 1
-"$HOME/chimera-deploy/remote/record_rtsp_streams.sh" rgbl4 thermall4 &
+"$HOME/chimera-deploy/remote/record_rtsp_streams.sh" pilotl4 rgbl4 thermall4 &
 p2=$!
 
 stop() {

@@ -3,6 +3,7 @@
 BAG_ROOT="$HOME/ros2_ws"
 BAG_NAME="rosbag2_$(date +%Y_%m_%d-%H_%M_%S)"
 BAG_DIR="$BAG_ROOT/$BAG_NAME"
+PILOT_SOCKET="/tmp/pilot_nv.sock"
 RGB_SOCKET="/tmp/rgb_nv.sock"
 THERMAL_SOCKET="/tmp/thermal_nv.sock"
 PIDS=()
@@ -14,14 +15,11 @@ source install/setup.bash
 
 BAG_REGEX=$(paste -sd '|' "$HOME/ros2_ws/src/umd_uas/resource/rosbag_topics.txt")
 
-echo "[INFO] Waiting for NVMM socket at $RGB_SOCKET..."
-while [ ! -S "$RGB_SOCKET" ]; do
-    sleep 0.1
-done
-
-echo "[INFO] Waiting for NVMM socket at $THERMAL_SOCKET..."
-while [ ! -S "$THERMAL_SOCKET" ]; do
-    sleep 0.1
+for socket in "$PILOT_SOCKET" "$RGB_SOCKET" "$THERMAL_SOCKET"; do
+    echo "[INFO] Waiting for NVMM socket at $socket..."
+    while [ ! -S "$socket" ]; do
+        sleep 0.1
+    done
 done
 
 ros2 bag record -s mcap --storage-preset-profile zstd_fast -e "$BAG_REGEX" -o "$BAG_NAME" &
