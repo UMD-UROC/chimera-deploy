@@ -80,76 +80,14 @@ sudo systemctl restart mavlink-router
 
 
 ## install qgc
-# QGC runtime deps: serial access, video support, AppImage support, Qt/X11 deps
-sudo apt update
-sudo apt install -y \
-  curl \
-  gstreamer1.0-plugins-bad \
-  gstreamer1.0-libav \
-  gstreamer1.0-gl \
-  python3-gi \
-  python3-gst-1.0 \
-  libfuse2 \
-  libxcb-xinerama0 \
-  libxkbcommon-x11-0 \
-  libxcb-cursor-dev
-
-# Allow your user to access USB serial devices
-sudo usermod -aG dialout "$(id -un)"
-
-# Prevent ModemManager from grabbing Pixhawk / USB serial devices
-sudo systemctl mask --now ModemManager.service
-
-# Install QGC into your local app directory
-mkdir -p "$HOME/Applications"
-
-# Pick the correct official Linux AppImage for this CPU architecture
-ARCH="$(uname -m)"
-case "$ARCH" in
-  x86_64)
-    QGC_URL="https://d176tv9ibo4jno.cloudfront.net/latest/QGroundControl-x86_64.AppImage"
-    QGC_FILE="$HOME/Applications/QGroundControl-x86_64.AppImage"
-    ;;
-  aarch64|arm64)
-    QGC_URL="https://d176tv9ibo4jno.cloudfront.net/latest/QGroundControl-aarch64.AppImage"
-    QGC_FILE="$HOME/Applications/QGroundControl-aarch64.AppImage"
-    ;;
-  *)
-    echo "Unsupported architecture: $ARCH"
-    exit 1
-    ;;
-esac
-
-curl -L "$QGC_URL" -o "$QGC_FILE"
-chmod +x "$QGC_FILE"
-
-# Make a stable symlink so launchers/scripts do not care about architecture
-ln -sf "$QGC_FILE" "$HOME/Applications/QGroundControl.AppImage"
-
-# Use QGC's own repo icon asset
-mkdir -p "$HOME/.local/share/icons"
-
-curl -L \
-  "https://raw.githubusercontent.com/mavlink/qgroundcontrol/master/resources/QGCLogoFull.svg" \
-  -o "$HOME/.local/share/icons/qgroundcontrol.svg"
-  
-# Add QGroundControl to your app launcher
-mkdir -p "$HOME/.local/share/applications"
-
-cat > "$HOME/.local/share/applications/qgroundcontrol.desktop" <<EOF
-[Desktop Entry]
-Type=Application
-Name=QGroundControl
-Comment=Ground control station for MAVLink drones
-Exec=$HOME/Applications/QGroundControl.AppImage
-Icon=$HOME/.local/share/icons/qgroundcontrol.svg
-Terminal=false
-Categories=Utility;Robotics;
-StartupNotify=true
-EOF
-
-chmod +x "$HOME/.local/share/applications/qgroundcontrol.desktop"
-update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
+# Everything QGroundControl needs - the release itself, the runtime packages,
+# serial access, the flight-tested settings and the desktop entry - is one
+# command. See local/qgc/README.md.
+#
+# It picks a native or containerised install by reading the glibc the release
+# actually requires: the v5.1 AppImages are built on Ubuntu 24.04 and will not
+# start on 22.04.
+./local/qgc/quickstart.sh
 
 
 ## install vah
