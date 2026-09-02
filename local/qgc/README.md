@@ -11,8 +11,9 @@ have unless you ask it to.
 
 ## What it does
 
-1. Downloads the pinned QGroundControl release and checks it against a recorded
-   SHA-256.
+1. Downloads the pinned QGroundControl release from GitHub Releases and checks
+   it against a recorded SHA-256. No binary is committed to this repo; the
+   download is cached in `.cache/` so it happens once.
 2. Works out whether this host can run that build directly, and installs it
    either natively or inside a minimal container (see below).
 3. Installs the host packages QGroundControl needs, adds you to `dialout` for
@@ -51,6 +52,43 @@ map, video, alert tones and spoken warnings behave as they do natively.
 
 Force either path with `--mode native` or `--mode container`.
 
+## Rebuilding
+
+Nothing here is precious. Any of it can be thrown away and remade.
+
+| Want | Command |
+| --- | --- |
+| Rebuild the container image | `./local/qgc/quickstart.sh --rebuild` |
+| Re-download the release | `./local/qgc/quickstart.sh --refetch` |
+| Remove app, icon, entry, image and download | `./local/qgc/quickstart.sh --uninstall` |
+| Rebuild everything from nothing | `./local/qgc/quickstart.sh --uninstall && ./local/qgc/quickstart.sh` |
+
+`--rebuild` passes `--pull --no-cache`, so the base image is re-pulled and every
+layer is rebuilt. `--uninstall` never touches your settings.
+
+The image can also be built entirely on its own - no cached download, nothing
+from this script, no binary in the repo. The Dockerfile fetches the release
+from GitHub Releases and verifies it:
+
+```bash
+docker build -f local/qgc/Dockerfile -t qgc:5.1.4 local/qgc
+```
+
+It takes the release as build arguments, so it can build any version without
+editing anything:
+
+```bash
+docker build -f local/qgc/Dockerfile -t qgc:5.1.5 local/qgc \
+  --build-arg QGC_VERSION=5.1.5 \
+  --build-arg QGC_SHA256=<sha256 of the release asset>
+```
+
+Pass an empty `QGC_SHA256` to skip the check. `quickstart.sh` hands the build a
+copy it already downloaded, when it has one, so the same 190MB is not fetched
+twice; with an empty `appimage/` directory the Dockerfile fetches it instead.
+The AppImage is downloaded, unpacked and deleted inside a single layer, so it
+does not sit in the image adding 190MB to it.
+
 ## Settings
 
 [`QGroundControl.ini`](QGroundControl.ini) is the flight-tested configuration:
@@ -81,7 +119,8 @@ curl -s https://api.github.com/repos/mavlink/qgroundcontrol/releases/tags/vX.Y.Z
 ```
 
 Update `QGC_VERSION`, `SHA256_x86_64` and `SHA256_aarch64` at the top of
-`quickstart.sh` and re-run it. Each version installs as its own binary, icon and
+`quickstart.sh` and the `QGC_VERSION`/`QGC_SHA256` defaults in the `Dockerfile`,
+then re-run the script. Each version installs as its own binary, icon and
 desktop entry, so the previous one stays where it is and you can fall back by
 launching it from the app grid.
 
@@ -100,7 +139,9 @@ recorded one will not match:
 | `--mode native\|container` | override the glibc autodetection |
 | `--force-settings` | replace your ini with this repo's defaults (backs up first) |
 | `--no-apt` | skip the host package step, the only part needing sudo |
-| `--rebuild` | rebuild the container image even if it exists |
+| `--rebuild` | rebuild the container image from scratch (`--pull --no-cache`) |
+| `--refetch` | discard the cached download and fetch the release again |
+| `--uninstall` | remove this version's app, icon, entry, image and download |
 
 ## Layout
 
@@ -108,7 +149,9 @@ recorded one will not match:
 | --- | --- |
 | `quickstart.sh` | the one command |
 | `QGroundControl.ini` | default settings, `@HOME@`-templated |
-| `Dockerfile` | 24.04 runtime, built only when the host is too old |
+| `Dockerfile` | 24.04 runtime, built only when the host is too old; fetches the release itself |
+| `appimage/` | optional build-context drop point; empty means "fetch it" |
 | `launcher.sh` | installed in place of the AppImage in container mode |
 | `qgroundcontrol.png` | icon fallback for a build shipping neither SVG nor PNG |
 | `.cache/` | downloaded AppImages, git-ignored |
+| `.dockerignore` | keeps the cache out of a hand-run build context |

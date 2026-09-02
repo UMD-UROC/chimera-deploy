@@ -142,5 +142,11 @@ AppImages are built on Ubuntu 24.04 and need glibc 2.38, which 22.04 does not
 have. The container holds no state, so settings, logs, map tiles, the network
 stack and `/dev` stay on the host either way.
 
-See [`local/qgc/README.md`](local/qgc/README.md) for the options, and for how to
-bump the pinned version.
+Nothing is precious: `--uninstall` removes the app, icon, entry, image and
+download in one go, and re-running the script rebuilds all of it. The container
+image can also be built on its own with plain `docker build` - it fetches the
+release from GitHub Releases and verifies the checksum itself, so no binary
+lives in this repo.
+
+See [`local/qgc/README.md`](local/qgc/README.md) for the options, rebuilding,
+and how to bump the pinned version.

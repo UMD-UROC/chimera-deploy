@@ -31,6 +31,8 @@ MODE=auto
 FORCE_SETTINGS=0
 DO_APT=1
 REBUILD=0
+REFETCH=0
+UNINSTALL=0
 
 usage() {
     cat <<EOF
@@ -42,8 +44,19 @@ Usage: ${0##*/} [options]
   --force-settings    overwrite ~/.config/QGroundControl/QGroundControl.ini
                       with this repo's defaults
   --no-apt            skip the apt step, which is the only part needing sudo
-  --rebuild           rebuild the container image even if it already exists
+  --rebuild           rebuild the container image from scratch
+  --refetch           discard the cached download and fetch the release again
+  --uninstall         remove this version's app, icon, entry and image, then stop
   -h, --help          this text
+
+Rebuilding everything from nothing:
+
+  ${0##*/} --uninstall && ${0##*/}
+
+The image can also be built on its own, with no cached download and nothing
+from this script - it fetches the release itself:
+
+  docker build -f local/qgc/Dockerfile -t qgc:$QGC_VERSION local/qgc
 EOF
 }
 
@@ -54,6 +67,8 @@ while [[ $# -gt 0 ]]; do
         --force-settings) FORCE_SETTINGS=1; shift ;;
         --no-apt) DO_APT=0; shift ;;
         --rebuild) REBUILD=1; shift ;;
+        --refetch) REFETCH=1; shift ;;
+        --uninstall) UNINSTALL=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
     esac
@@ -79,7 +94,27 @@ IMAGE="qgc:${QGC_VERSION}"
 
 mkdir -p "$CACHE" "$BIN_DIR" "$ICON_DIR" "$DESKTOP_DIR"
 
+# ----------------------------------------------------------------- 0. uninstall
+if (( UNINSTALL )); then
+    say "Removing QGroundControl $QGC_VERSION"
+    for f in "$TARGET_BIN" "$DESKTOP_FILE" "$ICON_DIR/qgroundcontrol-v${QGC_VERSION}".{png,svg}; do
+        [[ -e "$f" ]] && { rm -f "$f"; note "removed $f"; }
+    done
+    # Only drop the shared symlink if it pointed at the version being removed.
+    [[ "$(readlink -f "$BIN_DIR/qgroundcontrol" 2>/dev/null)" == "$TARGET_BIN" ]] \
+        && { rm -f "$BIN_DIR/qgroundcontrol"; note "removed $BIN_DIR/qgroundcontrol"; }
+    if command -v docker >/dev/null && docker image inspect "$IMAGE" >/dev/null 2>&1; then
+        docker rmi -f "$IMAGE" >/dev/null && note "removed image $IMAGE"
+    fi
+    rm -f "$APPIMAGE" && note "removed the cached download"
+    update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
+    note "Settings in $CONFIG_DIR were left alone."
+    say "Done"
+    exit 0
+fi
+
 # ------------------------------------------------------------------ 1. download
+(( REFETCH )) && rm -f "$APPIMAGE"
 say "QGroundControl $QGC_VERSION ($ARCH_TAG)"
 
 if [[ -f "$APPIMAGE" ]] && [[ -z "$EXPECT_SHA" || "$(sha256sum "$APPIMAGE" | cut -d' ' -f1)" == "$EXPECT_SHA" ]]; then
@@ -184,16 +219,25 @@ else
         note "First build pulls ubuntu:24.04 and takes a few minutes."
         # Build context is a directory holding exactly one AppImage, so a
         # cache with several versions in it does not get sent to the daemon.
+        # Hand the Dockerfile the copy already downloaded, so the image build
+        # does not fetch the same 190MB a second time. Built without it - by
+        # hand, or on a machine that has never run this script - the Dockerfile
+        # fetches the release itself.
         CTX="$CACHE/ctx-${QGC_VERSION}-${ARCH_TAG}"
-        rm -rf "$CTX" && mkdir -p "$CTX"
-        ln -f "$APPIMAGE" "$CTX/$APPIMAGE_NAME" 2>/dev/null \
-            || cp "$APPIMAGE" "$CTX/$APPIMAGE_NAME"
+        rm -rf "$CTX" && mkdir -p "$CTX/appimage"
+        ln -f "$APPIMAGE" "$CTX/appimage/$APPIMAGE_NAME" 2>/dev/null \
+            || cp "$APPIMAGE" "$CTX/appimage/$APPIMAGE_NAME"
+        BUILD_OPTS=()
+        (( REBUILD )) && BUILD_OPTS+=( --pull --no-cache )
         docker build \
             -f "$HERE/Dockerfile" \
+            "${BUILD_OPTS[@]}" \
             --build-arg HOST_UID="$(id -u)" \
             --build-arg HOST_GID="$(id -g)" \
             --build-arg HOST_USER="$(id -un)" \
-            --build-arg APPIMAGE="$APPIMAGE_NAME" \
+            --build-arg QGC_VERSION="$QGC_VERSION" \
+            --build-arg QGC_ARCH="$ARCH_TAG" \
+            --build-arg QGC_SHA256="$EXPECT_SHA" \
             -t "$IMAGE" "$CTX"
         rm -rf "$CTX"
     else

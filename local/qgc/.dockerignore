@@ -1,0 +1,5 @@
+# The build context is this directory when you run docker build by hand. Keep
+# the 190MB download cache and the docs out of it; appimage/ is the one thing
+# the Dockerfile wants, and it is usually empty.
+.cache/
+*.md

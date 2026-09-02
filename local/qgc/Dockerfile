@@ -16,7 +16,14 @@ FROM ubuntu:24.04
 ARG HOST_UID=1000
 ARG HOST_GID=1000
 ARG HOST_USER=user
-ARG APPIMAGE=QGroundControl-x86_64.AppImage
+
+# The release to install. The image fetches it from GitHub Releases itself, so
+# `docker build` alone rebuilds everything from nothing - no binary in the repo
+# and no prior download needed. quickstart.sh passes a copy it already has in
+# the build context to save the round trip; either way the checksum is checked.
+ARG QGC_VERSION=5.1.4
+ARG QGC_ARCH=x86_64
+ARG QGC_SHA256=1c4ac089abfaac6c6fcd75c7b477ea18da1bc3592cddca5ab1a19c1a13410e65
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8
@@ -40,13 +47,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       gstreamer1.0-x gstreamer1.0-gl \
       libdrm2 \
       fonts-dejavu-core \
+      curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY ${APPIMAGE} /tmp/qgc.AppImage
-RUN chmod +x /tmp/qgc.AppImage \
-    && cd /opt && /tmp/qgc.AppImage --appimage-extract >/dev/null \
-    && mv /opt/squashfs-root /opt/qgc \
-    && rm -f /tmp/qgc.AppImage
+# An empty directory in the context is normal and means "fetch it". Docker has
+# no conditional COPY, so the choice is made in the RUN below rather than here.
+COPY appimage/ /tmp/appimage/
+
+RUN set -eux; \
+    f="/tmp/appimage/QGroundControl-${QGC_ARCH}.AppImage"; \
+    if [ ! -f "$f" ]; then \
+        echo "Fetching QGroundControl ${QGC_VERSION} (${QGC_ARCH}) from GitHub Releases"; \
+        curl -fL --retry 3 -o "$f" \
+          "https://github.com/mavlink/qgroundcontrol/releases/download/v${QGC_VERSION}/QGroundControl-${QGC_ARCH}.AppImage"; \
+    else \
+        echo "Using the copy supplied in the build context"; \
+    fi; \
+    if [ -n "${QGC_SHA256}" ]; then echo "${QGC_SHA256}  $f" | sha256sum -c -; fi; \
+    chmod +x "$f"; \
+    cd /opt && "$f" --appimage-extract >/dev/null; \
+    mv /opt/squashfs-root /opt/qgc; \
+    rm -rf /tmp/appimage
 
 # The in-container user must match the host UID/GID, or the bind-mounted
 # settings directory is unwritable and QGroundControl silently loses every
