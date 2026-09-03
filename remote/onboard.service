@@ -1,0 +1,28 @@
+[Unit]
+Description=Onboard stack, the px4-sim-stack aircraft profile
+# rcam and the router are native. They hold their sockets and ports first.
+# The clock reads 1970 until chrony reaches the laptop. A stack that starts
+# before the step stamps every message in 1970.
+After=docker.service rcam.service mavlink-router.service time-sync.target
+Wants=rcam.service mavlink-router.service time-sync.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=user
+Group=user
+Environment=HOME=/home/user
+# UAS_NUM and ROS_DOMAIN_ID, as deploy.sh wrote them.
+EnvironmentFile=/etc/environment
+WorkingDirectory=/home/user/px4-sim-stack
+# Up to three minutes for a clock step under one second. The leading dash
+# starts the stack anyway when the laptop is absent.
+ExecStartPre=-/usr/bin/chronyc waitsync 18 1.0 0 10
+ExecStart=/home/user/px4-sim-stack/px4sim start
+ExecStop=/home/user/px4-sim-stack/px4sim stop
+TimeoutStartSec=400
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

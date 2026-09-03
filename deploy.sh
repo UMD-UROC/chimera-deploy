@@ -8,15 +8,13 @@ if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
     exit 1
 fi
 
-# set as environment variable
+# set as environment variables, once. onboard.service reads this file too.
 export UAS_NUM
-echo "UAS_NUM=${UAS_NUM}" | sudo tee -a /etc/environment
-source /etc/environment
-
-# set as rdom variable
-export ROS_DOMAIN_ID
-echo "ROS_DOMAIN_ID=6${UAS_NUM}" | sudo tee -a /etc/environment
-source /etc/environment
+grep -qxF "UAS_NUM=${UAS_NUM}" /etc/environment \
+  || echo "UAS_NUM=${UAS_NUM}" | sudo tee -a /etc/environment
+export ROS_DOMAIN_ID=$((60 + UAS_NUM))
+grep -qxF "ROS_DOMAIN_ID=${ROS_DOMAIN_ID}" /etc/environment \
+  || echo "ROS_DOMAIN_ID=${ROS_DOMAIN_ID}" | sudo tee -a /etc/environment
 
 # git repo
 if [[ "$PWD" != *chimera-deploy* ]]; then
@@ -78,7 +76,7 @@ cd submodules/echopilot_deploy/
 cd ../..
 
 # mavlink router
-envsubst < ./remote/main.conf.template | sudo tee /etc/mavlink-router/main.conf > /dev/null
+GCS_PORT=$((14550 + UAS_NUM)) envsubst < ./remote/main.conf.template | sudo tee /etc/mavlink-router/main.conf > /dev/null
 
 sudo systemctl enable mavlink-router.service
 sudo systemctl restart mavlink-router.service
@@ -89,6 +87,9 @@ sudo apt install chrony -y
 grep -qxF "server 10.200.142.60 iburst" /etc/chrony/chrony.conf || echo "server 10.200.142.60 iburst" | sudo tee -a /etc/chrony/chrony.conf # add 10.200.142.60 as chrony server
 sudo systemctl restart chrony
 date # verify
+
+# the onboard container: docker access, px4-sim-stack, its .env, the boot unit
+./remote/deploy_onboard.sh
 
 # quit before wip stuff
 exit 0

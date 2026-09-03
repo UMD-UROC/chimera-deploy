@@ -42,11 +42,11 @@ CLIENTS=(${CLIENTS:-10.200.142.61 10.200.142.62 10.200.142.63 10.200.142.64})
 WS_SRC="$HOME/ros2_ws/src"
 
 # repos to serve: <mirror name>|<upstream url>|<checkout dir on the Orin>
-# the Orin calls 5g_drone "umd_uas", so the mirror is symlinked under both names
+# the Orin's 5g_drone checkout carries its own name now. umd_uas.git stays a symlink to the same mirror for a clone that still asks by the old name
 REPOS=(
   "cdcl_umd_msgs|git@github.com:UMD-CDCL/cdcl_umd_msgs.git|$WS_SRC/cdcl_umd_msgs"
   "MAVInsight|git@github.com:UMD-UROC/MAVInsight.git|$WS_SRC/MAVInsight"
-  "5g_drone|git@github.com:UMD-CDCL/5g_drone.git|$WS_SRC/umd_uas"
+  "5g_drone|git@github.com:UMD-CDCL/5g_drone.git|$WS_SRC/5g_drone"
   "px4_msgs|git@github.com:PX4/px4_msgs.git|$WS_SRC/px4_msgs"
   "px4-sim-stack|git@github.com:UMD-CDCL/px4-sim-stack.git|$HOME/px4-sim-stack"
   "chimera-deploy|git@github.com:UMD-UROC/chimera-deploy.git|$HOME/chimera-deploy"
@@ -103,7 +103,7 @@ cmd_local() {
     mirror_repo "$name" "$url" "$online"
   done
 
-  # the Orins check this out as umd_uas
+  # a clone made before the rename still asks by this name
   ln -sfn "$SERVE_ROOT/5g_drone.git" "$SERVE_ROOT/umd_uas.git"
   echo "  linked umd_uas.git -> 5g_drone.git"
 

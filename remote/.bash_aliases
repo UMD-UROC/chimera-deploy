@@ -7,7 +7,7 @@ alias ws='source install/setup.bash; if [ -f "$HOME/mavros_ws/install/setup.bash
 alias cdr='cd ~/ros2_ws; rs; ws'
 alias cdv='cd ~/DTC/chimera-recording-visualization'
 alias cdd='cd ~/chimera-deploy'
-alias cd5='cdr; cd src/umd_uas'
+alias cd5='cdr; cd src/5g_drone'
 alias cdc='cdr; cd src/cdcl_umd_msgs'
 alias orin-usb='picocom /dev/ttyUSB? -b 115200 # login is j1 and pass oelinux123'
 #alias fgb='cdr && cd - && ros2 launch foxglove_bridge foxglove_bridge_launch.xml # launch foxglove ros bridge'
@@ -34,7 +34,7 @@ alias uspi4-assess-no-gps='ccb && cdr && ros2 launch umd_uas uas4_assess_no_gps.
 alias uspi4-assess-no-gps-thermal='ccb && cdr && ros2 launch umd_uas uas4_assess_no_gps_thermal.launch.py && cd -'
 alias netbridge='cdr && ros2 launch umd_uas netbridge.launch.py && cd -'
 #alias bag='cdr; ros2 bag record -a -x "^(/uas1/image|/uas2/image|/uas3/image|/uas4/image)$"'
-export BAG_REGEX=$(paste -sd '|' ~/ros2_ws/src/umd_uas/resource/rosbag_topics.txt)
+export BAG_REGEX=$(paste -sd '|' ~/ros2_ws/src/5g_drone/resource/rosbag_topics.txt)
 alias bag='cdr && ros2 bag record -s mcap --storage-preset-profile zstd_fast -e "$BAG_REGEX"'
 alias bgc='cd ~/Basecam/SimpleBGC_GUI_2_73_3; ./run.sh'
 alias forward3='gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:8554/rgb3 latency=0 ! rtph265depay ! h265parse ! rtph265pay config-interval=1 pt=96 ! udpsink host=10.200.142.41 port=5000 sync=false'
@@ -92,4 +92,9 @@ rdom () {
         echo "Argument Error: Too many arguments. rdom takes 0 or 1 arguments"
     fi
 }
-alias onboard='ccb && ros2 launch umd_uas uas3-onboard.launch.py'
+# The onboard stack, in its container. UAS_NUM comes from /etc/environment.
+alias onboard='(cd ~/px4-sim-stack && ./px4sim start)'
+alias onboard-logs='(cd ~/px4-sim-stack && ./px4sim logs onboard)'
+# The same launch without the container, for a machine that has no image yet.
+# Never both: one MAVROS can bind 14402 and one node can hold the SCF4.
+alias onboard-native='ccb && ros2 launch umd_uas onboard.launch.py uas:=${UAS_NUM:?}'
