@@ -47,6 +47,8 @@ REPOS=(
   "cdcl_umd_msgs|git@github.com:UMD-CDCL/cdcl_umd_msgs.git|$WS_SRC/cdcl_umd_msgs"
   "MAVInsight|git@github.com:UMD-UROC/MAVInsight.git|$WS_SRC/MAVInsight"
   "5g_drone|git@github.com:UMD-CDCL/5g_drone.git|$WS_SRC/umd_uas"
+  "px4_msgs|git@github.com:PX4/px4_msgs.git|$WS_SRC/px4_msgs"
+  "px4-sim-stack|git@github.com:UMD-CDCL/px4-sim-stack.git|$HOME/px4-sim-stack"
   "chimera-deploy|git@github.com:UMD-UROC/chimera-deploy.git|$HOME/chimera-deploy"
 )
 
@@ -57,6 +59,8 @@ SUBMODULES=(
   "echopilot_deploy|https://github.com/echomav/echopilot_deploy.git"
   "Camera_Modules|git@github.com:EchoMAV/Camera_Modules.git"
   "echopilot_ai_bsp|https://github.com/EchoMAV/echopilot_ai_bsp"
+  "mavros|https://github.com/mavlink/mavros.git"
+  "angles|https://github.com/ros/angles.git"
 )
 
 say()  { echo -e "\n\033[1;36m==> $*\033[0m"; }
@@ -69,6 +73,7 @@ local_source_for() {
   case "$name" in
     chimera-deploy) echo "$SCRIPT_DIR" ;;
     5g_drone)       echo "$WS_SRC/5g_drone" ;;
+    px4-sim-stack)  echo "$HOME/px4-sim-stack" ;;
     *)              echo "$WS_SRC/$name" ;;
   esac
 }
