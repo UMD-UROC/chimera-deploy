@@ -42,7 +42,6 @@ CLIENTS=(${CLIENTS:-10.200.142.61 10.200.142.62 10.200.142.63 10.200.142.64})
 WS_SRC="$HOME/ros2_ws/src"
 
 # repos to serve: <mirror name>|<upstream url>|<checkout dir on the Orin>
-# the Orin's 5g_drone checkout carries its own name now. umd_uas.git stays a symlink to the same mirror for a clone that still asks by the old name
 REPOS=(
   "cdcl_umd_msgs|git@github.com:UMD-CDCL/cdcl_umd_msgs.git|$WS_SRC/cdcl_umd_msgs"
   "MAVInsight|git@github.com:UMD-UROC/MAVInsight.git|$WS_SRC/MAVInsight"
@@ -75,6 +74,13 @@ local_source_for() {
     5g_drone)       echo "$WS_SRC/5g_drone" ;;
     px4-sim-stack)  echo "$HOME/px4-sim-stack" ;;
     *)              echo "$WS_SRC/$name" ;;
+  esac
+}
+
+# the name an Orin checked this repo out under before the rename
+old_checkout_for() {
+  case "$1" in
+    5g_drone) echo "$WS_SRC/umd_uas" ;;
   esac
 }
 
@@ -591,7 +597,7 @@ cmd_remote() {
       || die "cannot reach git://$SERVER_IP:$GIT_PORT - run 'local' mode on the laptop first"
   fi
 
-  local entry name url dir
+  local entry name url dir old
   for entry in "${REPOS[@]}"; do
     IFS='|' read -r name url dir <<< "$entry"
 
@@ -601,6 +607,16 @@ cmd_remote() {
       git -C "$dir" config --unset remote.origin.pushurl || true
       echo "  $(basename "$dir") -> $url"
       continue
+    fi
+
+    # move the old checkout, do not clone a second one.
+    # two directories of the same ROS package stop the colcon build
+    old="$(old_checkout_for "$name")"
+    if [ -n "$old" ] && [ -d "$old/.git" ] && [ ! -e "$dir" ]; then
+      mv "$old" "$dir"
+      echo "  renamed $(basename "$old") to $(basename "$dir")"
+    elif [ -n "$old" ] && [ -d "$old/.git" ]; then
+      warn "$old and $dir are both there - delete the one you do not build"
     fi
 
     if [ ! -d "$dir/.git" ]; then

@@ -11,7 +11,8 @@ set -euo pipefail
 DEPLOY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVER_IP=${SERVER_IP:-10.200.142.60}
 GIT_PORT=${GIT_PORT:-9418}
-STACK=${STACK:-$HOME/px4-sim-stack}
+# onboard.service holds this path. One place names it.
+STACK=$HOME/px4-sim-stack
 STACK_BRANCH=${STACK_BRANCH:-feature/real-drone-port}
 WS=${WS:-$HOME/ros2_ws}
 
@@ -45,12 +46,25 @@ if [ -d "$WS/src/umd_uas" ] && [ ! -e "$WS/src/5g_drone" ]; then
   mv "$WS/src/umd_uas" "$WS/src/5g_drone"
   echo "  renamed umd_uas to 5g_drone"
 fi
-[ -d "$WS/src/5g_drone" ] || die "$WS/src/5g_drone is missing. Clone it from git://$SERVER_IP:$GIT_PORT/5g_drone.git"
+[ -d "$WS/src/5g_drone" ] || die "$WS/src/5g_drone is missing. Run ./setup_git_server.sh remote on this machine
+  (from the laptop: ./setup_git_server.sh deploy). It also brings cdcl_umd_msgs, MAVInsight and px4_msgs,
+  which the container build needs."
 
 say "px4-sim-stack at $STACK"
 if [ ! -d "$STACK/.git" ]; then
-  git clone --branch "$STACK_BRANCH" "git://$SERVER_IP:$GIT_PORT/px4-sim-stack.git" "$STACK"
+  stack_url="git://$SERVER_IP:$GIT_PORT/px4-sim-stack.git"
+  # The named branch while the mirror carries it, its default branch after
+  # the merge deletes it.
+  if git ls-remote --exit-code --heads "$stack_url" "$STACK_BRANCH" >/dev/null 2>&1; then
+    git clone --branch "$STACK_BRANCH" "$stack_url" "$STACK"
+  else
+    echo "  the mirror has no $STACK_BRANCH. Cloning its default branch."
+    git clone "$stack_url" "$STACK"
+  fi
 fi
+# The log volumes bind here. Docker makes a missing one root-owned, and the
+# uid 1000 container then writes nothing into it.
+mkdir -p "$STACK"/logs/{onboard,offboard,px4,qgc}
 
 say ".env"
 lens=
@@ -67,6 +81,14 @@ if [ ! -f "$STACK/.env" ]; then
   set_env_key "$STACK/.env" SCENARIO ''
   set_env_key "$STACK/.env" SIMNET_PREFIX 172.28.0
   set_env_key "$STACK/.env" ONBOARD_LENS_DEVICE "$lens"
+  # The host's own ids. The boot unit runs `px4sim start`, which does not
+  # read the host the way `px4sim doctor` does.
+  set_env_key "$STACK/.env" HOST_UID "$(id -u)"
+  set_env_key "$STACK/.env" HOST_GID "$(id -g)"
+  render_gid=$(getent group render | cut -d: -f3 || true)
+  if [ -n "$render_gid" ]; then
+    set_env_key "$STACK/.env" RENDER_GID "$render_gid"
+  fi
   echo "  wrote $STACK/.env for uas$UAS_NUM"
 else
   echo "  $STACK/.env exists, left as it is"
@@ -76,7 +98,8 @@ if [ -n "$lens" ] && ! grep -qxF "ONBOARD_LENS_DEVICE=$lens" "$STACK/.env"; then
 fi
 
 say "model links"
-"$WS/src/5g_drone/scripts/fetch_models.py" resolve --link
+"$WS/src/5g_drone/scripts/fetch_models.py" resolve --link ||
+  die "fetch_models.py knows no engine group for this machine. Add a rule for it to $WS/src/5g_drone/perception_models/manifest.json, then run this again."
 "$WS/src/5g_drone/scripts/fetch_models.py" check --role onboard || true
 
 say "boot unit"

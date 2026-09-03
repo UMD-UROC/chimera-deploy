@@ -88,8 +88,10 @@ grep -qxF "server 10.200.142.60 iburst" /etc/chrony/chrony.conf || echo "server 
 sudo systemctl restart chrony
 date # verify
 
-# the onboard container: docker access, px4-sim-stack, its .env, the boot unit
-./remote/deploy_onboard.sh
+# the onboard container: docker access, px4-sim-stack, its .env, the boot unit.
+# The flight repos must be on the machine first. ./setup_git_server.sh remote
+# clones them from the laptop git daemon.
+./remote/deploy_onboard.sh || exit 1
 
 # quit before wip stuff
 exit 0

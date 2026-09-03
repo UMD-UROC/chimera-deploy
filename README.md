@@ -76,7 +76,7 @@ next
 connection: ethernet
 ip address: ipv4 192.168.1.XXX # check recorded ip from wifi setup step
 username: user
-password: Talon240
+password: # the drone password, from the team password store
 target proxy settings: do not set proxy
 install
 
