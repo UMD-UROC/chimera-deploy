@@ -12,6 +12,9 @@ Type=oneshot
 RemainAfterExit=yes
 User=user
 Group=user
+# The docker socket is group-owned. This line gives the unit its access,
+# whether or not the login user is in the group.
+SupplementaryGroups=docker
 Environment=HOME=/home/user
 # UAS_NUM and ROS_DOMAIN_ID, as deploy.sh wrote them.
 EnvironmentFile=/etc/environment
