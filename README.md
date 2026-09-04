@@ -180,10 +180,11 @@ onboard-logs    # cd ~/px4-sim-stack && ./px4sim logs onboard
 onboard-native  # the same launch with no container, for a machine with no image
 ```
 
-The container is the path this aircraft flies. `onboard-native` and the older
-`uspi<N>` aliases start the same launch natively, and they are for a machine
-that has no image yet. Never run a native launch and the container at once: one
-MAVROS can bind 14402, and one node can hold the SCF4 lens.
+The container is the path this aircraft flies. `onboard-native` starts the same
+launch with no container. The older `uspi<N>` aliases start the per-vehicle
+launch files that came before it. Both are for a machine that has no image yet.
+Never run a native launch and the container at once: one MAVROS can bind 14402,
+and one node can hold the SCF4 lens.
 
 Everything after the deploy goes through the px4-sim-stack front door, and
 `px4-sim-stack/docs/front-doors.md` is the guide to it. It carries the command
