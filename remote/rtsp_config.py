@@ -273,16 +273,43 @@ FACTORIES = {
         """,
 }
 
+# What each producer owns, so a camera that is not there takes exactly its own
+# streams with it and nothing else. The server reads this at runtime too: a
+# camera that dies mid flight has to be taken off the air the same way one that
+# never arrived is kept off it.
+CAMERA_GROUPS = {
+    "pilot-fork": {
+        "card": "CSI",
+        "factories": [PILOT, PILOT_LOWRES],
+        "sockets": [PILOT, PILOT_DEEPSTREAM, PILOT_LOWRES, PILOT_RAW],
+    },
+    "rgb-fork": {
+        "card": "C1 PRO",
+        "factories": [RGB, RGB_LOWRES],
+        "sockets": [RGB, RGB_DEEPSTREAM, RGB_LOWRES, RGB_RAW],
+    },
+    "thermal-fork": {
+        "card": "Boson",
+        "factories": [THERMAL, THERMAL_LOWRES],
+        "sockets": [THERMAL, THERMAL_DEEPSTREAM, THERMAL_LOWRES, THERMAL_RAW],
+    },
+}
+
 # Drop the pipelines that reference a camera that is not attached. SOCKETS is
 # left whole so the server still clears stale socket files for those streams.
 MISSING_CAMERAS = []
 
+
+def _prune(producer):
+    group = CAMERA_GROUPS[producer]
+    MISSING_CAMERAS.append(group["card"])
+    del PRODUCERS[producer]
+    for factory in group["factories"]:
+        FACTORIES.pop(factory, None)
+
+
 if RGB_DEVICE is None:
-    MISSING_CAMERAS.append("C1 PRO")
-    del PRODUCERS["rgb-fork"]
-    del FACTORIES[RGB], FACTORIES[RGB_LOWRES]
+    _prune("rgb-fork")
 
 if THERMAL_DEVICE is None:
-    MISSING_CAMERAS.append("Boson")
-    del PRODUCERS["thermal-fork"]
-    del FACTORIES[THERMAL], FACTORIES[THERMAL_LOWRES]
+    _prune("thermal-fork")
