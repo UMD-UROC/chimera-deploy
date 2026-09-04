@@ -16,6 +16,11 @@
 #                                 branches GitHub has never seen
 #   push     run on the laptop  - push the current mirrors into every Orin's
 #                                 working copy, no GitHub needed
+#   scenes   run on the laptop  - copy the built scenes into every Orin. The
+#                                 ground station builds them with
+#                                 `./px4sim genscene` and holds the only copy;
+#                                 they are build product, so git does not carry
+#                                 them and this does
 #   remote   run on an Orin     - point its repos at the laptop instead of GitHub
 #   deploy   run on the laptop  - copy this script to each Orin and run 'remote' there
 #   status   run anywhere       - show what is being served / what is reachable
@@ -744,16 +749,80 @@ cmd_status() {
 }
 
 ###############################################################################
+# scenes - from the laptop, copy the built scenes into every Orin
+#
+# A scene is map data: a terrain surface, the buildings, a satellite texture
+# and a scenario naming where the targets stand. The ground station builds it
+# with `./px4sim genscene` and is the single source, because building needs
+# map downloads and a generator image no Orin carries.
+#
+# It is build product, so px4-sim-stack does not track it and no mirror can
+# carry it. The aircraft needs the same surface the ground has: both sides cast
+# the camera ray at one ground, and a vehicle left on the flat plane reports
+# targets that fall outside the outline the ground station draws.
+#
+# Only the built files move. modules/scenegen/data holds the sources and git
+# already carries those.
+###############################################################################
+SCENES_REL=${SCENES_REL:-px4-sim-stack/modules/sim/scenes}
+
+cmd_scenes() {
+  local src="$HOME/$SCENES_REL"
+  [ -d "$src/worlds" ] || die "no scenes at $src. Build one on this machine:
+  cd ~/px4-sim-stack && ./px4sim genscene --help"
+  command -v rsync >/dev/null || die "rsync is not installed on this machine"
+
+  local ip ok=0
+  for ip in "${CLIENTS[@]}"; do
+    say "$ip"
+    if ! ping -c1 -W1 "$ip" >/dev/null 2>&1; then
+      warn "unreachable - skipped"
+      continue
+    fi
+    scenes_to_client "$ip" && ok=$((ok + 1))
+  done
+
+  say "sent the scenes to $ok of ${#CLIENTS[@]} clients"
+}
+
+scenes_to_client() {
+  local ip="$1" count
+  local src="$HOME/$SCENES_REL"
+  local ssh_opts=(-o BatchMode=yes -o ConnectTimeout=5)
+
+  if ! ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" "[ -d ~/$SCENES_REL ]" 2>/dev/null; then
+    warn "no ~/$SCENES_REL there - run deploy_onboard.sh on it first"
+    return 1
+  fi
+
+  # The generated directories only. The vehicle models and spawn_scenario.py
+  # are tracked, so they arrive with the checkout and must survive this.
+  # --delete drops what a rebuilt scene no longer writes.
+  rsync -a --delete -e "ssh ${ssh_opts[*]}" \
+      "$src/worlds/" "$SERVER_USER@$ip:$SCENES_REL/worlds/" || { warn "worlds failed"; return 1; }
+  rsync -a --delete -e "ssh ${ssh_opts[*]}" \
+      "$src/scenarios/" "$SERVER_USER@$ip:$SCENES_REL/scenarios/" || { warn "scenarios failed"; return 1; }
+  rsync -a -e "ssh ${ssh_opts[*]}" \
+      --include='*_terrain/***' --include='*_buildings/***' --exclude='*' \
+      "$src/models/" "$SERVER_USER@$ip:$SCENES_REL/models/" || { warn "models failed"; return 1; }
+
+  count=$(ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
+    "ls ~/$SCENES_REL/worlds/*_surface.json 2>/dev/null | wc -l")
+  echo "  $count scenes"
+}
+
+###############################################################################
 
 case "${1:-}" in
   local)  cmd_local ;;
+  scenes) cmd_scenes ;;
   sync)   shift || true; cmd_sync "$@" ;;
   push)   shift || true; cmd_push "$@" ;;
   remote) shift || true; cmd_remote "${1:-}" ;;
   deploy) cmd_deploy ;;
   status) cmd_status ;;
   *)
-    sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'
+    sed -n '2,28p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'
     exit 1
     ;;
 esac
