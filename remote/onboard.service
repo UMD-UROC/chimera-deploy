@@ -3,7 +3,12 @@ Description=Onboard stack, the px4-sim-stack aircraft profile
 # rcam and the router are native. They hold their sockets and ports first.
 # The clock reads 1970 until chrony reaches the laptop. A stack that starts
 # before the step stamps every message in 1970.
-After=docker.service rcam.service mavlink-router.service time-sync.target
+# multi-user.target is first for one reason. The aircraft's own
+# mavlink-router.service carries After=multi-user.target. Without the line
+# below, systemd adds the opposite order, multi-user.target after this unit,
+# and the three make a cycle. systemd breaks a cycle by deleting a start job,
+# and the job it deletes is this one, so the stack never starts at boot.
+After=multi-user.target docker.service rcam.service mavlink-router.service time-sync.target
 Wants=rcam.service mavlink-router.service time-sync.target
 Requires=docker.service
 
