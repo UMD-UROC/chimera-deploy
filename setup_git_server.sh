@@ -18,9 +18,9 @@
 #                                 working copy, no GitHub needed
 #   scenes   run on the laptop  - copy the built scenes into every Orin. The
 #                                 ground station builds them with
-#                                 `./px4sim genscene` and holds the only copy;
-#                                 they are build product, so git does not carry
-#                                 them and this does
+#                                 `./px4sim genscene` and holds the only copy.
+#                                 They are build product, so git does not carry
+#                                 them, and this does
 #   remote   run on an Orin     - point its repos at the laptop instead of GitHub
 #   deploy   run on the laptop  - copy this script to each Orin and run 'remote' there
 #   status   run anywhere       - show what is being served / what is reachable
