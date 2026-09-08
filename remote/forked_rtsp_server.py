@@ -152,8 +152,8 @@ def watch_producer(name, producer, mounts, retired):
 def main():
     cleanup_sockets()
 
-    for card in conf.MISSING_CAMERAS:
-        print(f"[WARN] No {card} capture device found; its streams are disabled.")
+    for card, reason in conf.PRUNED_CAMERAS:
+        print(f"[WARN] {card} is not being served: {reason}.")
 
     # The server first, because a producer that dies has to be able to take its
     # own mounts down with it, and it can only do that against mounts that

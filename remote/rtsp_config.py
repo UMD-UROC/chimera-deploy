@@ -48,6 +48,13 @@ THERMAL_WIDTH = 640
 THERMAL_HEIGHT = 512
 THERMAL_BITRATE = 8000000 # nv recording bitrate set in record_nv_streams.sh
 
+# The Boson offers 60 and 30 fps and hands out whichever the caps ask for. It
+# is the only USB camera here with a BULK endpoint, so unlike the C1 PRO it
+# reserves no bus bandwidth and takes only what the isochronous streams leave.
+# At 640x512 I420 60 fps is 29.5 MB/s of that leftover, which is most of what a
+# high speed bus can carry. Leave this empty to take the camera default.
+THERMAL_FRAMERATE = os.environ.get("THERMAL_FRAMERATE", "")
+
 # THERMAL_LOWRES_WIDTH = 640
 # THERMAL_LOWRES_HEIGHT = 512
 THERMAL_LOWRES_WIDTH = THERMAL_WIDTH
@@ -114,6 +121,8 @@ else:
         nvv4l2decoder mjpeg=1 enable-max-performance=1 !
         """
 
+THERMAL_CAPS_RATE = f",framerate={THERMAL_FRAMERATE}" if THERMAL_FRAMERATE else ""
+
 PRODUCERS = {
     "pilot-fork": f"""
         nvarguscamerasrc sensor-id=0 wbmode=1 do-timestamp=true !
@@ -179,7 +188,7 @@ PRODUCERS = {
         """,
     "thermal-fork": f"""
         v4l2src device={THERMAL_DEVICE} io-mode=2 do-timestamp=true !
-        video/x-raw,width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=I420 !
+        video/x-raw,width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=I420{THERMAL_CAPS_RATE} !
         nvvidconv !
         video/x-raw(memory:NVMM),format=NV12 !
         tee name=t
@@ -295,21 +304,50 @@ CAMERA_GROUPS = {
     },
 }
 
-# Drop the pipelines that reference a camera that is not attached. SOCKETS is
+# Drop the pipelines that reference a camera we are not going to run. SOCKETS is
 # left whole so the server still clears stale socket files for those streams.
-MISSING_CAMERAS = []
+# Each entry is (card, reason), because a camera that was left out on purpose
+# and one that never showed up are different things to read in a journal.
+PRUNED_CAMERAS = []
+
+# Short name for each producer, for RCAM_CAMERAS below.
+CAMERA_KEYS = {
+    "pilot": "pilot-fork",
+    "rgb": "rgb-fork",
+    "thermal": "thermal-fork",
+}
 
 
-def _prune(producer):
+def _prune(producer, reason):
     group = CAMERA_GROUPS[producer]
-    MISSING_CAMERAS.append(group["card"])
+    PRUNED_CAMERAS.append((group["card"], reason))
     del PRODUCERS[producer]
     for factory in group["factories"]:
         FACTORIES.pop(factory, None)
 
 
 if RGB_DEVICE is None:
-    _prune("rgb-fork")
+    _prune("rgb-fork", "no capture device found")
 
 if THERMAL_DEVICE is None:
-    _prune("thermal-fork")
+    _prune("thermal-fork", "no capture device found")
+
+# Run only the named cameras. The USB cameras share one bus powered hub, so a
+# camera can be healthy on its own and still fail next to another one. Naming a
+# subset takes the others off the bus without touching a cable, which is how
+# that kind of fault gets narrowed down on an aircraft nobody can reach.
+#
+#   RCAM_CAMERAS=thermal          only the Boson
+#   RCAM_CAMERAS=thermal,rgb      the Boson and the C1 PRO, no CSI
+_wanted = os.environ.get("RCAM_CAMERAS", "")
+if _wanted.strip():
+    _keep = {name.strip().lower() for name in _wanted.split(",") if name.strip()}
+    _unknown = _keep - set(CAMERA_KEYS)
+    if _unknown:
+        raise RuntimeError(
+            f"RCAM_CAMERAS names {sorted(_unknown)}, which are not cameras. "
+            f"Pick from {sorted(CAMERA_KEYS)}."
+        )
+    for _name, _producer in CAMERA_KEYS.items():
+        if _name not in _keep and _producer in PRODUCERS:
+            _prune(_producer, f"not in RCAM_CAMERAS={_wanted}")
