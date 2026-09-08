@@ -11,6 +11,8 @@ from gi.repository import Gst, GLib, GstRtspServer
 
 Gst.init(None)
 
+SESSION_CLEANUP_INTERVAL_SECONDS = 5
+
 
 def set_property_if_present(element, name, value):
     if element is not None and element.find_property(name):
@@ -63,6 +65,7 @@ def make_factory(name, launch):
 
     factory = GstRtspServer.RTSPMediaFactory()
     factory.set_shared(True)
+    factory.set_stop_on_disconnect(True)
     factory.set_launch(launch)
     factory.connect("media-configure", configure_media)
 
@@ -82,6 +85,13 @@ def make_factory(name, launch):
         factory.set_latency(0)
 
     return factory
+
+
+def clean_expired_sessions(session_pool):
+    removed = session_pool.cleanup()
+    if removed:
+        print(f"Removed {removed} expired RTSP session{'s' if removed != 1 else ''}.")
+    return GLib.SOURCE_CONTINUE
 
 
 def cleanup_sockets():
@@ -165,6 +175,12 @@ def main():
     # already exist.
     server = GstRtspServer.RTSPServer()
     server.set_service("8554")
+    session_pool = server.get_session_pool()
+    GLib.timeout_add_seconds(
+        SESSION_CLEANUP_INTERVAL_SECONDS,
+        clean_expired_sessions,
+        session_pool,
+    )
     mounts = server.get_mount_points()
     retired = set()
 
