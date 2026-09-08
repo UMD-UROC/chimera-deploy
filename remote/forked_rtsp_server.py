@@ -55,7 +55,12 @@ def configure_media(_factory, media):
     print("RTSP rtpbin configured for NTP/RTCP timing.")
 
 
-def make_factory(launch):
+def make_factory(name, launch):
+    try:
+        Gst.parse_launch(launch)
+    except GLib.Error as error:
+        raise RuntimeError(f"{name} factory pipeline is invalid: {error}") from error
+
     factory = GstRtspServer.RTSPMediaFactory()
     factory.set_shared(True)
     factory.set_launch(launch)
@@ -165,7 +170,7 @@ def main():
 
     for name, pipe in conf.FACTORIES.items():
         print(f"{name} factory starting...")
-        factory = make_factory(pipe)
+        factory = make_factory(name, pipe)
         mounts.add_factory(f"/{name}", factory)
         print(f"rtsp://127.0.0.1:8554/{name}")
         print(f"{name} factory started!")

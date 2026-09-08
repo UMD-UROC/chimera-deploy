@@ -251,7 +251,7 @@ PRODUCERS = {
 FACTORIES = {
     PILOT: f"""
         (
-        nvunixfdsrc socket-path={SOCKETS[PILOT]} num-extra-surfaces=4 do-timestamp=true !
+        nvunixfdsrc socket-path={SOCKETS[PILOT]} do-timestamp=true !
         video/x-raw(memory:NVMM),format=NV12,width={PILOT_WIDTH},height={PILOT_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={PILOT_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false !
@@ -261,7 +261,7 @@ FACTORIES = {
         """,
     PILOT_LOWRES: f"""
         (
-        nvunixfdsrc socket-path={SOCKETS[PILOT_LOWRES]} num-extra-surfaces=4 do-timestamp=true !
+        nvunixfdsrc socket-path={SOCKETS[PILOT_LOWRES]} do-timestamp=true !
         video/x-raw(memory:NVMM),format=NV12,width={PILOT_LOWRES_WIDTH},height={PILOT_LOWRES_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={PILOT_LOWRES_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false !
@@ -271,7 +271,7 @@ FACTORIES = {
         """,
     RGB: f"""
         (
-        nvunixfdsrc socket-path={SOCKETS[RGB]} num-extra-surfaces=4 do-timestamp=true !
+        nvunixfdsrc socket-path={SOCKETS[RGB]} do-timestamp=true !
         video/x-raw(memory:NVMM),format=NV12,width={RGB_WIDTH},height={RGB_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={RGB_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false !
@@ -281,7 +281,7 @@ FACTORIES = {
         """,
     RGB_LOWRES: f"""
         (
-        nvunixfdsrc socket-path={SOCKETS[RGB_LOWRES]} num-extra-surfaces=4 do-timestamp=true !
+        nvunixfdsrc socket-path={SOCKETS[RGB_LOWRES]} do-timestamp=true !
         video/x-raw(memory:NVMM),format=NV12,width={RGB_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={RGB_LOWRES_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false !
@@ -291,7 +291,7 @@ FACTORIES = {
         """,
     THERMAL: f"""
         (
-        nvunixfdsrc socket-path={SOCKETS[THERMAL]} num-extra-surfaces=4 do-timestamp=true !
+        nvunixfdsrc socket-path={SOCKETS[THERMAL]} do-timestamp=true !
         video/x-raw(memory:NVMM),format=NV12,width={THERMAL_WIDTH},height={THERMAL_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={THERMAL_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false !
@@ -301,7 +301,7 @@ FACTORIES = {
         """,
     THERMAL_LOWRES: f"""
         (
-        nvunixfdsrc socket-path={SOCKETS[THERMAL_LOWRES]} num-extra-surfaces=4 do-timestamp=true !
+        nvunixfdsrc socket-path={SOCKETS[THERMAL_LOWRES]} do-timestamp=true !
         video/x-raw(memory:NVMM),format=NV12,width={THERMAL_LOWRES_WIDTH},height={THERMAL_LOWRES_HEIGHT} !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate={THERMAL_LOWRES_BITRATE} iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false !
