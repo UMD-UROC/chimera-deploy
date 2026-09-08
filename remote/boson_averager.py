@@ -53,7 +53,10 @@ def frame_rate(camera):
 def report(camera):
     rate = frame_rate(camera)
     averager = camera.get_averager()
-    print(f"part number : {camera.get_part_number().strip()}")
+    # FLIR pads these strings with NULs, which turn the output into a "binary
+    # file" as far as grep is concerned.
+    part = camera.get_part_number().replace("\x00", "").strip()
+    print(f"part number : {part}")
     print(f"serial      : {camera.get_camera_serial()}")
     print(f"firmware    : {camera.get_firmware_revision()}")
     print(f"FPA temp C  : {camera.get_fpa_temperature()}")
