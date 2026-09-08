@@ -48,12 +48,20 @@ THERMAL_WIDTH = 640
 THERMAL_HEIGHT = 512
 THERMAL_BITRATE = 8000000 # nv recording bitrate set in record_nv_streams.sh
 
-# The Boson offers 60 and 30 fps and hands out whichever the caps ask for. It
-# is the only USB camera here with a BULK endpoint, so unlike the C1 PRO it
-# reserves no bus bandwidth and takes only what the isochronous streams leave.
-# At 640x512 I420 60 fps is 29.5 MB/s of that leftover, which is most of what a
-# high speed bus can carry. Leave this empty to take the camera default.
-THERMAL_FRAMERATE = os.environ.get("THERMAL_FRAMERATE", "")
+# 30, not the 60 the camera would give us, because 60 takes the Boson off the
+# USB bus within a minute or two whenever the C1 PRO streams next to it.
+#
+# The Boson is the only camera here with a BULK endpoint. Bulk reserves no bus
+# bandwidth, so it gets whatever the isochronous traffic leaves. The C1 PRO
+# streams isochronous and reserves its share first: measured on d1 at interface
+# 2 alt 5, 2400 bytes per 125 us microframe, which is 19.2 MB/s. 640x512 I420
+# at 60 fps asks for 29.5 MB/s on top of that, and one high speed bus carries
+# about 40. The Boson loses, its FIFO overruns, and five EPROTO (-71) errors
+# inside a millisecond drop it off the bus.
+#
+# 30 fps halves the Boson to 14.7 MB/s and the pair fits. Nothing downstream
+# reads thermal faster than 30. Set this empty to take the camera default.
+THERMAL_FRAMERATE = os.environ.get("THERMAL_FRAMERATE", "30/1")
 
 # THERMAL_LOWRES_WIDTH = 640
 # THERMAL_LOWRES_HEIGHT = 512
