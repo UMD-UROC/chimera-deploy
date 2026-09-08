@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import time
 import gi
 import rtsp_config as conf
 from typing import Dict, Any
@@ -12,6 +13,8 @@ from gi.repository import Gst, GLib, GstRtspServer
 Gst.init(None)
 
 SESSION_CLEANUP_INTERVAL_SECONDS = 5
+PRODUCER_STALL_TIMEOUT_SECONDS = 15
+PRODUCER_WATCHDOG_INTERVAL_SECONDS = 2
 
 
 def set_property_if_present(element, name, value):
@@ -94,6 +97,47 @@ def clean_expired_sessions(session_pool):
     return GLib.SOURCE_CONTINUE
 
 
+class ProducerFrameWatchdog:
+    def __init__(self, loop, clock=time.monotonic):
+        self.loop = loop
+        self.clock = clock
+        self.last_frame_times = {}
+        self.failure = None
+
+    def watch(self, name, producer):
+        tee = producer.get_by_name("t")
+        if tee is None:
+            raise RuntimeError(f"{name} producer has no tee to monitor")
+        tee.get_static_pad("sink").add_probe(
+            Gst.PadProbeType.BUFFER | Gst.PadProbeType.BUFFER_LIST,
+            self.note_frame,
+            name,
+        )
+        self.last_frame_times[name] = self.clock()
+
+    def note_frame(self, _pad, _probe_info, name):
+        self.last_frame_times[name] = self.clock()
+        return Gst.PadProbeReturn.OK
+
+    def check(self):
+        now = self.clock()
+        stalled = sorted(
+            name
+            for name, last_frame_time in self.last_frame_times.items()
+            if now - last_frame_time >= PRODUCER_STALL_TIMEOUT_SECONDS
+        )
+        if not stalled:
+            return GLib.SOURCE_CONTINUE
+
+        self.failure = (
+            f"No frames from {', '.join(stalled)} for "
+            f"{PRODUCER_STALL_TIMEOUT_SECONDS} seconds; restarting rcam"
+        )
+        print(self.failure, flush=True)
+        self.loop.quit()
+        return GLib.SOURCE_REMOVE
+
+
 def cleanup_sockets():
     for name, path in conf.SOCKETS.items():
         try:
@@ -166,6 +210,8 @@ def watch_producer(name, producer, mounts, retired):
 
 def main():
     cleanup_sockets()
+    loop = GLib.MainLoop()
+    producer_watchdog = ProducerFrameWatchdog(loop)
 
     for card, reason in conf.PRUNED_CAMERAS:
         print(f"[WARN] {card} is not being served: {reason}.")
@@ -196,6 +242,7 @@ def main():
         print(f"{name} producer starting...")
         producer = Gst.parse_launch(pipe)
         watch_producer(name, producer, mounts, retired)
+        producer_watchdog.watch(name, producer)
         result = producer.set_state(Gst.State.PLAYING)
         if result == Gst.StateChangeReturn.FAILURE:
             raise RuntimeError(f"{name} producer failed to start")
@@ -203,8 +250,11 @@ def main():
         print(f"{name} producer started!")
 
     server.attach(None)
+    GLib.timeout_add_seconds(
+        PRODUCER_WATCHDOG_INTERVAL_SECONDS,
+        producer_watchdog.check,
+    )
 
-    loop = GLib.MainLoop()
     try:
         loop.run()
     finally:
@@ -212,6 +262,8 @@ def main():
             print(f"{name} producer stopping...")
             producer.set_state(Gst.State.NULL)
         cleanup_sockets()
+    if producer_watchdog.failure:
+        raise RuntimeError(producer_watchdog.failure)
 
 
 if __name__ == "__main__":
