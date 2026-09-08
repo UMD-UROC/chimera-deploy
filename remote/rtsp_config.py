@@ -138,14 +138,14 @@ SOCKETS = {
 
 if RGB_SOURCE == "h264":
     RGB_DECODE = f"""
-        video/x-h264,width={RGB_WIDTH},height={RGB_HEIGHT} !
+        video/x-h264,width={RGB_WIDTH},height={RGB_HEIGHT},framerate={RGB_FRAMERATE} !
         h264parse !
         video/x-h264,stream-format=byte-stream,alignment=au !
         nvv4l2decoder enable-max-performance=1 !
         """
 else:
     RGB_DECODE = f"""
-        image/jpeg,width={RGB_WIDTH},height={RGB_HEIGHT} !
+        image/jpeg,width={RGB_WIDTH},height={RGB_HEIGHT},framerate={RGB_FRAMERATE} !
         jpegparse !
         nvv4l2decoder mjpeg=1 enable-max-performance=1 !
         """
