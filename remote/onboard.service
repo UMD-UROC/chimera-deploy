@@ -24,10 +24,6 @@ Environment=HOME=/home/user
 # UAS_NUM and ROS_DOMAIN_ID, as deploy.sh wrote them.
 EnvironmentFile=/etc/environment
 WorkingDirectory=/home/user/px4-sim-stack
-# A power cut leaves the container with exit code 255. Docker starts an
-# on-failure container again at that code, before the clock step and before
-# rcam. Remove it first. `px4sim start` makes a new one after the wait.
-ExecStartPre=-/home/user/px4-sim-stack/px4sim stop
 # Up to three minutes for a clock step under one second. The leading dash
 # starts the stack anyway when the laptop is absent.
 ExecStartPre=-/usr/bin/chronyc waitsync 18 1.0 0 10

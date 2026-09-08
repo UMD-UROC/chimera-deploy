@@ -13,7 +13,8 @@ SERVER_IP=${SERVER_IP:-10.200.142.60}
 GIT_PORT=${GIT_PORT:-9418}
 # onboard.service holds this path. One place names it.
 STACK=$HOME/px4-sim-stack
-STACK_BRANCH=${STACK_BRANCH:-feature/real-drone-port}
+DEPLOY_BRANCH=$(git -C "$DEPLOY_ROOT" branch --show-current)
+STACK_BRANCH=${STACK_BRANCH:-${DEPLOY_BRANCH:-flight_testing}}
 WS=${WS:-$HOME/ros2_ws}
 
 say() { echo -e "\n\033[1;36m==> $*\033[0m"; }
