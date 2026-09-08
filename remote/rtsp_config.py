@@ -51,20 +51,19 @@ THERMAL_WIDTH = 640
 THERMAL_HEIGHT = 512
 THERMAL_BITRATE = 8000000 # nv recording bitrate set in record_nv_streams.sh
 
-# 30, not the 60 the camera would give us, because 60 takes the Boson off the
-# USB bus within a minute or two whenever the C1 PRO streams next to it.
+# Empty, which takes the camera default of 60. 30 was tried here as a fix and
+# measured as no fix at all, on d1, 2026-09-08:
 #
-# The Boson is the only camera here with a BULK endpoint. Bulk reserves no bus
-# bandwidth, so it gets whatever the isochronous traffic leaves. The C1 PRO
-# streams isochronous and reserves its share first: measured on d1 at interface
-# 2 alt 5, 2400 bytes per 125 us microframe, which is 19.2 MB/s. 640x512 I420
-# at 60 fps asks for 29.5 MB/s on top of that, and one high speed bus carries
-# about 40. The Boson loses, its FIFO overruns, and five EPROTO (-71) errors
-# inside a millisecond drop it off the bus.
+#   thermal alone, 60 fps          survived 90 s, no error
+#   thermal + C1 PRO, 60 fps       died at 83 s
+#   thermal + C1 PRO, at 30 fps    died at 68 s
 #
-# 30 fps halves the Boson to 14.7 MB/s and the pair fits. Nothing downstream
-# reads thermal faster than 30. Set this empty to take the camera default.
-THERMAL_FRAMERATE = os.environ.get("THERMAL_FRAMERATE", "30/1")
+# The Boson took the setting: v4l2-ctl reported 30.000 fps on the node. Its URB
+# rate did not move, about 2000/s in both runs, so the camera very likely keeps
+# sending 60 Hz on the wire and the frames get dropped above the driver. Do not
+# reach for this knob again to buy USB bandwidth without measuring the wire
+# first.
+THERMAL_FRAMERATE = os.environ.get("THERMAL_FRAMERATE", "")
 
 # THERMAL_LOWRES_WIDTH = 640
 # THERMAL_LOWRES_HEIGHT = 512
