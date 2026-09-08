@@ -31,30 +31,28 @@ PILOT_LOWRES_BITRATE = 1000000
 RGB_SOURCE = os.environ.get("RGB_SOURCE", "h264").lower()
 if RGB_SOURCE not in ("h264", "mjpeg"):
     raise RuntimeError(f"RGB_SOURCE must be 'h264' or 'mjpeg', got {RGB_SOURCE!r}")
-# 720x576, not 1080p, because 1080p takes the Boson off the USB bus.
+# Full 1080p30. This is only safe because the Boson now runs at 30 Hz.
 #
-# Both USB cameras sit on one hub and share one high speed bus. The C1 PRO is
-# isochronous, so it reserves its bandwidth before anything else runs. The
-# Boson is bulk, so it reserves nothing and lives on what is left. The mode
-# picked here decides the C1 PRO alternate setting, and that decides whether
-# the thermal camera keeps running. Measured on d1, 2026-09-08:
+# Both USB cameras share one high speed bus. The C1 PRO is isochronous and
+# reserves its share before anything else runs, and the resolution picks the
+# alternate setting that decides how much. The Boson is bulk and lives on the
+# remainder. Measured on d1, 2026-09-08:
 #
-#   C1 PRO mode   alt   reserved     Boson beside it
-#   1920x1080     5     19.2 MB/s    died at 83 s
-#   1280x1024     ?     not measured not measured
-#   1280x720      4     12.8 MB/s    not measured
-#   720x576       3     6.4 MB/s     survived 150 s, no error
-#   640x480       3     6.4 MB/s     survived 120 s, no error
+#   C1 PRO mode    alt   reserved     with a 60 Hz Boson   with a 30 Hz Boson
+#   1920x1080@30   5     19.2 MB/s    died at 83 s         survived 180 s
+#   1920x1080@15   5     19.2 MB/s    not measured         not measured
+#   1920x1080@10   3     6.4 MB/s     survived 150 s       not measured
+#   720x576@30     3     6.4 MB/s     survived 150 s       not measured
+#   640x480@30     3     6.4 MB/s     survived 120 s       not measured
 #
-# The Boson wants 29.5 MB/s of the roughly 40 the bus carries, and it cannot be
-# made to want less. 60 fps is all it really sends whatever the caps ask for,
-# so the only lever left is this one. 720x576 and 640x480 cost the same
-# reservation, so take the larger picture.
+# Frame rate moves the reservation only between 15 and 10 fps, so there is no
+# point trimming it above that. Resolution is the lever.
 #
-# Raise this only with the thermal camera watched. 1280x720 is the next rung
-# and it is untested.
-RGB_WIDTH = int(os.environ.get("RGB_WIDTH", 720))
-RGB_HEIGHT = int(os.environ.get("RGB_HEIGHT", 576))
+# WARNING: if the Boson's averager is off, this setting kills the thermal
+# camera in about 90 seconds. A replacement camera arrives with it off. Check
+# with `./boson_averager.py` before flying a camera this machine has not seen.
+RGB_WIDTH = int(os.environ.get("RGB_WIDTH", 1920))
+RGB_HEIGHT = int(os.environ.get("RGB_HEIGHT", 1080))
 RGB_FRAMERATE = os.environ.get("RGB_FRAMERATE", "30/1")
 RGB_BITRATE = 20000000 # nv recording bitrate set in record_nv_streams.sh
 RGB_FLIP_METHOD = 0
@@ -70,19 +68,21 @@ THERMAL_WIDTH = 640
 THERMAL_HEIGHT = 512
 THERMAL_BITRATE = 8000000 # nv recording bitrate set in record_nv_streams.sh
 
-# Empty, which takes the camera default of 60. 30 was tried here as a fix and
-# measured as no fix at all, on d1, 2026-09-08:
+# 30, to match what the camera really sends once its smart averager is on.
 #
-#   thermal alone, 60 fps          survived 90 s, no error
-#   thermal + C1 PRO, 60 fps       died at 83 s
-#   thermal + C1 PRO, at 30 fps    died at 68 s
+# This buys no bandwidth on its own. The Boson ignores the UVC frame interval:
+# ask for 30 and VIDIOC_G_PARM reports 30 while 59 fps keeps arriving. What
+# makes the camera slow down is `boson_averager.py --on`, which is a setting in
+# the camera flash, not here. Measured on d1, 2026-09-08:
 #
-# The Boson took the setting: v4l2-ctl reported 30.000 fps on the node. Its URB
-# rate did not move, about 2000/s in both runs, so the camera very likely keeps
-# sending 60 Hz on the wire and the frames get dropped above the driver. Do not
-# reach for this knob again to buy USB bandwidth without measuring the wire
-# first.
-THERMAL_FRAMERATE = os.environ.get("THERMAL_FRAMERATE", "")
+#   averager off, no caps rate    59.1 fps    29.0 MB/s
+#   averager off, caps say 30/1   59.1 fps    29.0 MB/s   <- the knob does nothing
+#   averager on,  no caps rate    29.7 fps    14.6 MB/s   G_PARM lies, says 60
+#   averager on,  caps say 30/1   29.9 fps    14.6 MB/s   G_PARM agrees, says 30
+#
+# So this line exists to stop the pipeline believing in frames that never come.
+# Without it the encoders time 30 Hz video against a 60 Hz clock.
+THERMAL_FRAMERATE = os.environ.get("THERMAL_FRAMERATE", "30/1")
 
 # THERMAL_LOWRES_WIDTH = 640
 # THERMAL_LOWRES_HEIGHT = 512
