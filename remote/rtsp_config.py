@@ -31,9 +31,12 @@ PILOT_LOWRES_BITRATE = 1000000
 RGB_SOURCE = os.environ.get("RGB_SOURCE", "h264").lower()
 if RGB_SOURCE not in ("h264", "mjpeg"):
     raise RuntimeError(f"RGB_SOURCE must be 'h264' or 'mjpeg', got {RGB_SOURCE!r}")
-RGB_WIDTH = 1920
-RGB_HEIGHT = 1080
-RGB_FRAMERATE = "30/1"
+# Env overridable, because the C1 PRO reserves isochronous bus bandwidth up
+# front and the Boson, which is bulk, only gets what is left. Lowering the C1
+# PRO is one of the few ways to give the thermal camera more room.
+RGB_WIDTH = int(os.environ.get("RGB_WIDTH", 1920))
+RGB_HEIGHT = int(os.environ.get("RGB_HEIGHT", 1080))
+RGB_FRAMERATE = os.environ.get("RGB_FRAMERATE", "30/1")
 RGB_BITRATE = 20000000 # nv recording bitrate set in record_nv_streams.sh
 RGB_FLIP_METHOD = 0
 
