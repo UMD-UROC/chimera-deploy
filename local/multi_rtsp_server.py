@@ -8,17 +8,37 @@ from gi.repository import Gst, GstRtspServer, GLib
 
 Gst.init(None)
 
+SESSION_CLEANUP_INTERVAL_SECONDS = 5
+
+
+def clean_expired_sessions(session_pool):
+    removed_sessions = session_pool.cleanup()
+    if removed_sessions:
+        print(f"Removed {removed_sessions} expired RTSP session{'s' if removed_sessions != 1 else ''}.")
+    return GLib.SOURCE_CONTINUE
+
+
+def make_media_factory(pipeline):
+    factory = GstRtspServer.RTSPMediaFactory()
+    factory.set_launch(pipeline)
+    factory.set_shared(False)
+    factory.set_stop_on_disconnect(True)
+    return factory
+
+
 class MultiRTSPServer:
     def __init__(self, remote_ip, tags, pipes):
         self.server = GstRtspServer.RTSPServer()
         self.server.set_service("8554")
+        GLib.timeout_add_seconds(
+            SESSION_CLEANUP_INTERVAL_SECONDS,
+            clean_expired_sessions,
+            self.server.get_session_pool(),
+        )
         mounts = self.server.get_mount_points()
 
         for tag, pipeline in zip(tags, pipes):
-            factory = GstRtspServer.RTSPMediaFactory()
-            factory.set_launch(pipeline)
-            factory.set_shared(False)
-            mounts.add_factory(f"/{tag}", factory)
+            mounts.add_factory(f"/{tag}", make_media_factory(pipeline))
 
         source_id = self.server.attach(None)
         if source_id == 0:
@@ -64,4 +84,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
