@@ -53,6 +53,12 @@ ARGS=(
     # udev's database goes with it so Qt can enumerate them.
     -v /dev:/dev
     -v /run/udev:/run/udev:ro
+    # The /dev bind makes hotplugged nodes visible, but Docker's device cgroup
+    # still blocks access unless their character-device majors are allowed.
+    # 166 = ttyACM, 188 = ttyUSB, 189 = raw USB (/dev/bus/usb).
+    --device-cgroup-rule "c 166:* rwm"
+    --device-cgroup-rule "c 188:* rwm"
+    --device-cgroup-rule "c 189:* rwm"
     --device /dev/dri
 )
 
