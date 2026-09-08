@@ -31,11 +31,30 @@ PILOT_LOWRES_BITRATE = 1000000
 RGB_SOURCE = os.environ.get("RGB_SOURCE", "h264").lower()
 if RGB_SOURCE not in ("h264", "mjpeg"):
     raise RuntimeError(f"RGB_SOURCE must be 'h264' or 'mjpeg', got {RGB_SOURCE!r}")
-# Env overridable, because the C1 PRO reserves isochronous bus bandwidth up
-# front and the Boson, which is bulk, only gets what is left. Lowering the C1
-# PRO is one of the few ways to give the thermal camera more room.
-RGB_WIDTH = int(os.environ.get("RGB_WIDTH", 1920))
-RGB_HEIGHT = int(os.environ.get("RGB_HEIGHT", 1080))
+# 720x576, not 1080p, because 1080p takes the Boson off the USB bus.
+#
+# Both USB cameras sit on one hub and share one high speed bus. The C1 PRO is
+# isochronous, so it reserves its bandwidth before anything else runs. The
+# Boson is bulk, so it reserves nothing and lives on what is left. The mode
+# picked here decides the C1 PRO alternate setting, and that decides whether
+# the thermal camera keeps running. Measured on d1, 2026-09-08:
+#
+#   C1 PRO mode   alt   reserved     Boson beside it
+#   1920x1080     5     19.2 MB/s    died at 83 s
+#   1280x1024     ?     not measured not measured
+#   1280x720      4     12.8 MB/s    not measured
+#   720x576       3     6.4 MB/s     survived 150 s, no error
+#   640x480       3     6.4 MB/s     survived 120 s, no error
+#
+# The Boson wants 29.5 MB/s of the roughly 40 the bus carries, and it cannot be
+# made to want less. 60 fps is all it really sends whatever the caps ask for,
+# so the only lever left is this one. 720x576 and 640x480 cost the same
+# reservation, so take the larger picture.
+#
+# Raise this only with the thermal camera watched. 1280x720 is the next rung
+# and it is untested.
+RGB_WIDTH = int(os.environ.get("RGB_WIDTH", 720))
+RGB_HEIGHT = int(os.environ.get("RGB_HEIGHT", 576))
 RGB_FRAMERATE = os.environ.get("RGB_FRAMERATE", "30/1")
 RGB_BITRATE = 20000000 # nv recording bitrate set in record_nv_streams.sh
 RGB_FLIP_METHOD = 0
