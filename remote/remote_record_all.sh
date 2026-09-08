@@ -13,7 +13,7 @@ cd "$BAG_ROOT" || exit 1
 source /opt/ros/humble/setup.bash
 source install/setup.bash
 
-BAG_REGEX=$(paste -sd '|' "$HOME/ros2_ws/src/umd_uas/resource/rosbag_topics.txt")
+BAG_REGEX=$(paste -sd '|' "$HOME/ros2_ws/src/5g_drone/resource/rosbag_topics.txt")
 
 for socket in "$PILOT_SOCKET" "$RGB_SOCKET" "$THERMAL_SOCKET"; do
     echo "[INFO] Waiting for NVMM socket at $socket..."

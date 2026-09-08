@@ -87,45 +87,81 @@ def cleanup_sockets():
             pass
 
 
-def on_producer_message(_bus, message, name):
+def retire_producer(name, producer, mounts, retired):
+    """Take a dead camera off the air, the way a missing one never goes on it.
+
+    A producer fails when its camera has gone, and leaving it up costs far more
+    than the stream it can no longer carry. Its socket files stay on disk, so a
+    client still mounts the path and asks for media. That media is built on the
+    same main loop every other camera is served from, and it waits there on a
+    socket nobody writes to, holding the healthy streams up behind it. One dead
+    sensor takes the whole server down with it, which is how a thermal camera
+    dropping off the USB bus blinded the visible light picture as well.
+
+    Unmounting answers that client instead of parking it, and the cameras that
+    are still attached go on serving. This is what rtsp_config does at startup
+    for a camera that never appeared, done at the moment one leaves.
+    """
+    if name in retired:
+        return
+    retired.add(name)
+    producer.set_state(Gst.State.NULL)
+
+    group = conf.CAMERA_GROUPS.get(name)
+    if group is None:
+        print(f"{name} producer retired, but it owns no streams this file knows")
+        return
+
+    for factory in group["factories"]:
+        mounts.remove_factory(f"/{factory}")
+        print(f"{name} producer gone: unmounted /{factory}")
+    for socket in group["sockets"]:
+        try:
+            os.unlink(conf.SOCKETS[socket])
+        except FileNotFoundError:
+            pass
+    print(f"{name} producer retired: {group['card']} is off the air and the "
+          f"other cameras are untouched. It comes back with rcam, because the "
+          f"device is resolved once at startup.")
+
+
+def on_producer_message(_bus, message, data):
+    name, producer, mounts, retired = data
     if message.type == Gst.MessageType.ERROR:
         err, debug = message.parse_error()
         print(f"{name} producer ERROR: {err}")
         print(f"{name} producer DEBUG: {debug}")
+        retire_producer(name, producer, mounts, retired)
     elif message.type == Gst.MessageType.WARNING:
         warn, debug = message.parse_warning()
         print(f"{name} producer WARNING: {warn}")
         print(f"{name} producer DEBUG: {debug}")
     elif message.type == Gst.MessageType.EOS:
+        # A camera is a live source. It does not reach the end of anything, so
+        # an EOS here means the device stopped being there.
         print(f"{name} producer EOS")
+        retire_producer(name, producer, mounts, retired)
 
 
-def watch_producer(name, producer):
+def watch_producer(name, producer, mounts, retired):
     bus = producer.get_bus()
     bus.add_signal_watch()
-    bus.connect("message", on_producer_message, name)
+    bus.connect("message", on_producer_message, (name, producer, mounts, retired))
 
 
 def main():
     cleanup_sockets()
 
-    for card in conf.MISSING_CAMERAS:
-        print(f"[WARN] No {card} capture device found; its streams are disabled.")
+    for card, reason in conf.PRUNED_CAMERAS:
+        print(f"[WARN] {card} is not being served: {reason}.")
 
-    producers = []
-    for name, pipe in conf.PRODUCERS.items():
-        print(f"{name} producer starting...")
-        producer = Gst.parse_launch(pipe)
-        watch_producer(name, producer)
-        result = producer.set_state(Gst.State.PLAYING)
-        if result == Gst.StateChangeReturn.FAILURE:
-            raise RuntimeError(f"{name} producer failed to start")
-        producers.append((name, producer))
-        print(f"{name} producer started!")
-
+    # The server first, because a producer that dies has to be able to take its
+    # own mounts down with it, and it can only do that against mounts that
+    # already exist.
     server = GstRtspServer.RTSPServer()
     server.set_service("8554")
     mounts = server.get_mount_points()
+    retired = set()
 
     for name, pipe in conf.FACTORIES.items():
         print(f"{name} factory starting...")
@@ -133,6 +169,17 @@ def main():
         mounts.add_factory(f"/{name}", factory)
         print(f"rtsp://127.0.0.1:8554/{name}")
         print(f"{name} factory started!")
+
+    producers = []
+    for name, pipe in conf.PRODUCERS.items():
+        print(f"{name} producer starting...")
+        producer = Gst.parse_launch(pipe)
+        watch_producer(name, producer, mounts, retired)
+        result = producer.set_state(Gst.State.PLAYING)
+        if result == Gst.StateChangeReturn.FAILURE:
+            raise RuntimeError(f"{name} producer failed to start")
+        producers.append((name, producer))
+        print(f"{name} producer started!")
 
     server.attach(None)
 

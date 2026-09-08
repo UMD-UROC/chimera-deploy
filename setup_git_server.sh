@@ -16,6 +16,11 @@
 #                                 branches GitHub has never seen
 #   push     run on the laptop  - push the current mirrors into every Orin's
 #                                 working copy, no GitHub needed
+#   scenes   run on the laptop  - copy the built scenes into every Orin. The
+#                                 ground station builds them with
+#                                 `./px4sim genscene` and holds the only copy.
+#                                 They are build product, so git does not carry
+#                                 them, and this does
 #   remote   run on an Orin     - point its repos at the laptop instead of GitHub
 #   deploy   run on the laptop  - copy this script to each Orin and run 'remote' there
 #   status   run anywhere       - show what is being served / what is reachable
@@ -42,11 +47,12 @@ CLIENTS=(${CLIENTS:-10.200.142.61 10.200.142.62 10.200.142.63 10.200.142.64})
 WS_SRC="$HOME/ros2_ws/src"
 
 # repos to serve: <mirror name>|<upstream url>|<checkout dir on the Orin>
-# the Orin calls 5g_drone "umd_uas", so the mirror is symlinked under both names
 REPOS=(
   "cdcl_umd_msgs|git@github.com:UMD-CDCL/cdcl_umd_msgs.git|$WS_SRC/cdcl_umd_msgs"
   "MAVInsight|git@github.com:UMD-UROC/MAVInsight.git|$WS_SRC/MAVInsight"
-  "5g_drone|git@github.com:UMD-CDCL/5g_drone.git|$WS_SRC/umd_uas"
+  "5g_drone|git@github.com:UMD-CDCL/5g_drone.git|$WS_SRC/5g_drone"
+  "px4_msgs|git@github.com:PX4/px4_msgs.git|$WS_SRC/px4_msgs"
+  "px4-sim-stack|git@github.com:UMD-CDCL/px4-sim-stack.git|$HOME/px4-sim-stack"
   "chimera-deploy|git@github.com:UMD-UROC/chimera-deploy.git|$HOME/chimera-deploy"
 )
 
@@ -57,6 +63,8 @@ SUBMODULES=(
   "echopilot_deploy|https://github.com/echomav/echopilot_deploy.git"
   "Camera_Modules|git@github.com:EchoMAV/Camera_Modules.git"
   "echopilot_ai_bsp|https://github.com/EchoMAV/echopilot_ai_bsp"
+  "mavros|https://github.com/mavlink/mavros.git"
+  "angles|https://github.com/ros/angles.git"
 )
 
 say()  { echo -e "\n\033[1;36m==> $*\033[0m"; }
@@ -69,7 +77,15 @@ local_source_for() {
   case "$name" in
     chimera-deploy) echo "$SCRIPT_DIR" ;;
     5g_drone)       echo "$WS_SRC/5g_drone" ;;
+    px4-sim-stack)  echo "$HOME/px4-sim-stack" ;;
     *)              echo "$WS_SRC/$name" ;;
+  esac
+}
+
+# the name an Orin checked this repo out under before the rename
+old_checkout_for() {
+  case "$1" in
+    5g_drone) echo "$WS_SRC/umd_uas" ;;
   esac
 }
 
@@ -98,7 +114,7 @@ cmd_local() {
     mirror_repo "$name" "$url" "$online"
   done
 
-  # the Orins check this out as umd_uas
+  # a clone made before the rename still asks by this name
   ln -sfn "$SERVE_ROOT/5g_drone.git" "$SERVE_ROOT/umd_uas.git"
   echo "  linked umd_uas.git -> 5g_drone.git"
 
@@ -586,7 +602,7 @@ cmd_remote() {
       || die "cannot reach git://$SERVER_IP:$GIT_PORT - run 'local' mode on the laptop first"
   fi
 
-  local entry name url dir
+  local entry name url dir old
   for entry in "${REPOS[@]}"; do
     IFS='|' read -r name url dir <<< "$entry"
 
@@ -596,6 +612,16 @@ cmd_remote() {
       git -C "$dir" config --unset remote.origin.pushurl || true
       echo "  $(basename "$dir") -> $url"
       continue
+    fi
+
+    # move the old checkout, do not clone a second one.
+    # two directories of the same ROS package stop the colcon build
+    old="$(old_checkout_for "$name")"
+    if [ -n "$old" ] && [ -d "$old/.git" ] && [ ! -e "$dir" ]; then
+      mv "$old" "$dir"
+      echo "  renamed $(basename "$old") to $(basename "$dir")"
+    elif [ -n "$old" ] && [ -d "$old/.git" ]; then
+      warn "$old and $dir are both there - delete the one you do not build"
     fi
 
     if [ ! -d "$dir/.git" ]; then
@@ -723,16 +749,80 @@ cmd_status() {
 }
 
 ###############################################################################
+# scenes - from the laptop, copy the built scenes into every Orin
+#
+# A scene is map data: a terrain surface, the buildings, a satellite texture
+# and a scenario naming where the targets stand. The ground station builds it
+# with `./px4sim genscene` and is the single source, because building needs
+# map downloads and a generator image no Orin carries.
+#
+# It is build product, so px4-sim-stack does not track it and no mirror can
+# carry it. The aircraft needs the same surface the ground has: both sides cast
+# the camera ray at one ground, and a vehicle left on the flat plane reports
+# targets that fall outside the outline the ground station draws.
+#
+# Only the built files move. modules/scenegen/data holds the sources and git
+# already carries those.
+###############################################################################
+SCENES_REL=${SCENES_REL:-px4-sim-stack/modules/sim/scenes}
+
+cmd_scenes() {
+  local src="$HOME/$SCENES_REL"
+  [ -d "$src/worlds" ] || die "no scenes at $src. Build one on this machine:
+  cd ~/px4-sim-stack && ./px4sim genscene --help"
+  command -v rsync >/dev/null || die "rsync is not installed on this machine"
+
+  local ip ok=0
+  for ip in "${CLIENTS[@]}"; do
+    say "$ip"
+    if ! ping -c1 -W1 "$ip" >/dev/null 2>&1; then
+      warn "unreachable - skipped"
+      continue
+    fi
+    scenes_to_client "$ip" && ok=$((ok + 1))
+  done
+
+  say "sent the scenes to $ok of ${#CLIENTS[@]} clients"
+}
+
+scenes_to_client() {
+  local ip="$1" count
+  local src="$HOME/$SCENES_REL"
+  local ssh_opts=(-o BatchMode=yes -o ConnectTimeout=5)
+
+  if ! ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" "[ -d ~/$SCENES_REL ]" 2>/dev/null; then
+    warn "no ~/$SCENES_REL there - run deploy_onboard.sh on it first"
+    return 1
+  fi
+
+  # The generated directories only. The vehicle models and spawn_scenario.py
+  # are tracked, so they arrive with the checkout and must survive this.
+  # --delete drops what a rebuilt scene no longer writes.
+  rsync -a --delete -e "ssh ${ssh_opts[*]}" \
+      "$src/worlds/" "$SERVER_USER@$ip:$SCENES_REL/worlds/" || { warn "worlds failed"; return 1; }
+  rsync -a --delete -e "ssh ${ssh_opts[*]}" \
+      "$src/scenarios/" "$SERVER_USER@$ip:$SCENES_REL/scenarios/" || { warn "scenarios failed"; return 1; }
+  rsync -a -e "ssh ${ssh_opts[*]}" \
+      --include='*_terrain/***' --include='*_buildings/***' --exclude='*' \
+      "$src/models/" "$SERVER_USER@$ip:$SCENES_REL/models/" || { warn "models failed"; return 1; }
+
+  count=$(ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
+    "ls ~/$SCENES_REL/worlds/*_surface.json 2>/dev/null | wc -l")
+  echo "  $count scenes"
+}
+
+###############################################################################
 
 case "${1:-}" in
   local)  cmd_local ;;
+  scenes) cmd_scenes ;;
   sync)   shift || true; cmd_sync "$@" ;;
   push)   shift || true; cmd_push "$@" ;;
   remote) shift || true; cmd_remote "${1:-}" ;;
   deploy) cmd_deploy ;;
   status) cmd_status ;;
   *)
-    sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'
+    sed -n '2,28p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'
     exit 1
     ;;
 esac

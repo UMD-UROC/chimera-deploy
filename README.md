@@ -6,7 +6,7 @@ Note: there may be untracked packages on the host machine not captured in this s
 
 # Setup/Flashing Instructions
 
-Download this repo onto your machine and navigate to it. Then execute ```./setup.sh``` to download the necessary files from nvidia and apply the custom echopilot board support package. This prepares the files required for flashing the Orin.
+Download this repo onto your machine and navigate to it. Then execute ```DRONE_PASSWORD=<the drone password> ./setup.sh``` to download the necessary files from nvidia and apply the custom echopilot board support package. This prepares the files required for flashing the Orin. The password is in the team password store and this repository does not carry it. The script sets the drone's `user` account to it and refuses to run without it.
 
 UAS number should correspond to the mavlink system ID of the intended drone. If you have one drone, setting to 1 is a safe bet. If you're using multiple drones, you should set different mavlink system IDs for each aircraft. Use the same number for the deploy script later for each drone.
 
@@ -76,7 +76,7 @@ next
 connection: ethernet
 ip address: ipv4 192.168.1.XXX # check recorded ip from wifi setup step
 username: user
-password: Talon240
+password: # the drone password, from the team password store
 target proxy settings: do not set proxy
 install
 
@@ -92,6 +92,11 @@ Now all that's left is to install the chimera SDK. Since we have the git repo cl
 ### orin
 ```cd chimera-deploy; ./deploy.sh```
 Be sure to use the correct UAS number from earlier
+
+`deploy.sh` writes `UAS_NUM` and `ROS_DOMAIN_ID` into `/etc/environment`,
+installs the native services, and then calls `remote/deploy_onboard.sh`, which
+puts the onboard container on the aircraft. The next section says what that
+step does.
 
 Finally, I recommend using ```sudo nmtui``` to configure the network connections. You will need to reboot or unplug and replug the wifi adapter after flashing to initialize it. You will also likely need to redo the ssh key to allow your host to connect to the Orin if you don't always use the ethernet hardwired to your router.
 
@@ -124,6 +129,69 @@ sudo cp local/main.conf /etc/mavlink-router/main.conf
 sudo systemctl restart mavlink-router
 sudo systemctl status mavlink-router
 ```
+
+# Onboard container on the aircraft
+
+The flight code runs on the aircraft in a container, from the px4-sim-stack
+`aircraft` profile. One image carries MAVROS, `ds_node`, the gimbal and zoom
+nodes and the MAVInsight frame tree, and the native `rcam.service` and
+`mavlink-router.service` keep serving the cameras and the autopilot beside it.
+
+`remote/deploy_onboard.sh` puts it in place. Run it on the Orin as `user`, from
+this directory, after `deploy.sh` or on its own:
+
+```
+./remote/deploy_onboard.sh                     # install the boot unit, do not enable it
+ENABLE_BOOT_UNIT=1 ./remote/deploy_onboard.sh  # and enable it
+```
+
+Each step examines the machine before it acts, so a second run changes nothing.
+It adds `user` to group `docker`, renames `~/ros2_ws/src/umd_uas` to
+`~/ros2_ws/src/5g_drone`, clones px4-sim-stack from the laptop's git daemon,
+writes its `.env` with the aircraft keys and the SCF4 lens path, links this
+machine's TensorRT engines with `fetch_models.py resolve --link`, and installs
+`remote/onboard.service`.
+
+**The flight code directory is `5g_drone`, not `umd_uas`.** The container build
+and `fetch_models.py` both read that name. `setup_git_server.sh remote` and
+`remote/deploy_onboard.sh` each move an old checkout rather than clone a second
+one, because two directories of one ROS package stop the colcon build.
+
+`remote/onboard.service` starts the stack at boot:
+
+```
+sudo systemctl enable --now onboard
+sudo systemctl restart onboard        # after a rebuild
+journalctl -u onboard -n 40
+```
+
+It is a `oneshot` unit, ordered after `docker.service`, `rcam.service`,
+`mavlink-router.service` and `time-sync.target`. It removes any container a
+power cut left, waits up to three minutes for a clock step with
+`chronyc waitsync`, then runs `px4sim start`. `SupplementaryGroups=docker`
+gives it the docker socket whether or not the login user is in that group.
+
+`remote/.bash_aliases` holds the hand versions. Copy it to `~/.bash_aliases` on
+the Orin:
+
+```
+onboard         # cd ~/px4-sim-stack && ./px4sim start
+onboard-logs    # cd ~/px4-sim-stack && ./px4sim logs onboard
+onboard-native  # the same launch with no container, for a machine with no image
+```
+
+The container is the path this aircraft flies. `onboard-native` starts the same
+launch with no container. The older `uspi<N>` aliases start the per-vehicle
+launch files that came before it. Both are for a machine that has no image yet.
+Never run a native launch and the container at once: one MAVROS can bind 14402,
+and one node can hold the SCF4 lens.
+
+Everything after the deploy goes through the px4-sim-stack front door, and
+`px4-sim-stack/docs/front-doors.md` is the guide to it. It carries the command
+line for the aircraft, for the ground station on the base station laptop and
+for the simulator, and it says what each door reads and what it refuses. It
+also covers `setup_git_server.sh`, which is how code reaches a drone that
+cannot reach GitHub.
 
 # QGroundControl
 

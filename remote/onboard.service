@@ -1,0 +1,40 @@
+[Unit]
+Description=Onboard stack, the px4-sim-stack aircraft profile
+# rcam and the router are native. They hold their sockets and ports first.
+# The clock reads 1970 until chrony reaches the laptop. A stack that starts
+# before the step stamps every message in 1970.
+# multi-user.target is first for one reason. The aircraft's own
+# mavlink-router.service carries After=multi-user.target. Without the line
+# below, systemd adds the opposite order, multi-user.target after this unit,
+# and the three make a cycle. systemd breaks a cycle by deleting a start job,
+# and the job it deletes is this one, so the stack never starts at boot.
+After=multi-user.target docker.service rcam.service mavlink-router.service time-sync.target
+Wants=rcam.service mavlink-router.service time-sync.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=user
+Group=user
+# The docker socket is group-owned. This line gives the unit its access,
+# whether or not the login user is in the group.
+SupplementaryGroups=docker
+Environment=HOME=/home/user
+# UAS_NUM and ROS_DOMAIN_ID, as deploy.sh wrote them.
+EnvironmentFile=/etc/environment
+WorkingDirectory=/home/user/px4-sim-stack
+# A power cut leaves the container with exit code 255. Docker starts an
+# on-failure container again at that code, before the clock step and before
+# rcam. Remove it first. `px4sim start` makes a new one after the wait.
+ExecStartPre=-/home/user/px4-sim-stack/px4sim stop
+# Up to three minutes for a clock step under one second. The leading dash
+# starts the stack anyway when the laptop is absent.
+ExecStartPre=-/usr/bin/chronyc waitsync 18 1.0 0 10
+ExecStart=/home/user/px4-sim-stack/px4sim start
+ExecStop=/home/user/px4-sim-stack/px4sim stop
+TimeoutStartSec=400
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

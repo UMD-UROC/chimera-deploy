@@ -31,9 +31,29 @@ PILOT_LOWRES_BITRATE = 1000000
 RGB_SOURCE = os.environ.get("RGB_SOURCE", "h264").lower()
 if RGB_SOURCE not in ("h264", "mjpeg"):
     raise RuntimeError(f"RGB_SOURCE must be 'h264' or 'mjpeg', got {RGB_SOURCE!r}")
-RGB_WIDTH = 1920
-RGB_HEIGHT = 1080
-RGB_FRAMERATE = "30/1"
+# Full 1080p30. This is only safe because the Boson now runs at 30 Hz.
+#
+# Both USB cameras share one high speed bus. The C1 PRO is isochronous and
+# reserves its share before anything else runs, and the resolution picks the
+# alternate setting that decides how much. The Boson is bulk and lives on the
+# remainder. Measured on d1, 2026-09-08:
+#
+#   C1 PRO mode    alt   reserved     with a 60 Hz Boson   with a 30 Hz Boson
+#   1920x1080@30   5     19.2 MB/s    died at 83 s         survived 180 s
+#   1920x1080@15   5     19.2 MB/s    not measured         not measured
+#   1920x1080@10   3     6.4 MB/s     survived 150 s       not measured
+#   720x576@30     3     6.4 MB/s     survived 150 s       not measured
+#   640x480@30     3     6.4 MB/s     survived 120 s       not measured
+#
+# Frame rate moves the reservation only between 15 and 10 fps, so there is no
+# point trimming it above that. Resolution is the lever.
+#
+# WARNING: if the Boson's averager is off, this setting kills the thermal
+# camera in about 90 seconds. A replacement camera arrives with it off. Check
+# with `./boson_averager.py` before flying a camera this machine has not seen.
+RGB_WIDTH = int(os.environ.get("RGB_WIDTH", 1920))
+RGB_HEIGHT = int(os.environ.get("RGB_HEIGHT", 1080))
+RGB_FRAMERATE = os.environ.get("RGB_FRAMERATE", "30/1")
 RGB_BITRATE = 20000000 # nv recording bitrate set in record_nv_streams.sh
 RGB_FLIP_METHOD = 0
 
@@ -47,6 +67,22 @@ RGB_LOWRES_BITRATE = 1000000
 THERMAL_WIDTH = 640
 THERMAL_HEIGHT = 512
 THERMAL_BITRATE = 8000000 # nv recording bitrate set in record_nv_streams.sh
+
+# 30, to match what the camera really sends once its smart averager is on.
+#
+# This buys no bandwidth on its own. The Boson ignores the UVC frame interval:
+# ask for 30 and VIDIOC_G_PARM reports 30 while 59 fps keeps arriving. What
+# makes the camera slow down is `boson_averager.py --on`, which is a setting in
+# the camera flash, not here. Measured on d1, 2026-09-08:
+#
+#   averager off, no caps rate    59.1 fps    29.0 MB/s
+#   averager off, caps say 30/1   59.1 fps    29.0 MB/s   <- the knob does nothing
+#   averager on,  no caps rate    29.7 fps    14.6 MB/s   G_PARM lies, says 60
+#   averager on,  caps say 30/1   29.9 fps    14.6 MB/s   G_PARM agrees, says 30
+#
+# So this line exists to stop the pipeline believing in frames that never come.
+# Without it the encoders time 30 Hz video against a 60 Hz clock.
+THERMAL_FRAMERATE = os.environ.get("THERMAL_FRAMERATE", "30/1")
 
 # THERMAL_LOWRES_WIDTH = 640
 # THERMAL_LOWRES_HEIGHT = 512
@@ -102,17 +138,19 @@ SOCKETS = {
 
 if RGB_SOURCE == "h264":
     RGB_DECODE = f"""
-        video/x-h264,width={RGB_WIDTH},height={RGB_HEIGHT} !
+        video/x-h264,width={RGB_WIDTH},height={RGB_HEIGHT},framerate={RGB_FRAMERATE} !
         h264parse !
         video/x-h264,stream-format=byte-stream,alignment=au !
         nvv4l2decoder enable-max-performance=1 !
         """
 else:
     RGB_DECODE = f"""
-        image/jpeg,width={RGB_WIDTH},height={RGB_HEIGHT} !
+        image/jpeg,width={RGB_WIDTH},height={RGB_HEIGHT},framerate={RGB_FRAMERATE} !
         jpegparse !
         nvv4l2decoder mjpeg=1 enable-max-performance=1 !
         """
+
+THERMAL_CAPS_RATE = f",framerate={THERMAL_FRAMERATE}" if THERMAL_FRAMERATE else ""
 
 PRODUCERS = {
     "pilot-fork": f"""
@@ -179,7 +217,7 @@ PRODUCERS = {
         """,
     "thermal-fork": f"""
         v4l2src device={THERMAL_DEVICE} io-mode=2 do-timestamp=true !
-        video/x-raw,width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=I420 !
+        video/x-raw,width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=I420{THERMAL_CAPS_RATE} !
         nvvidconv !
         video/x-raw(memory:NVMM),format=NV12 !
         tee name=t
@@ -273,16 +311,72 @@ FACTORIES = {
         """,
 }
 
-# Drop the pipelines that reference a camera that is not attached. SOCKETS is
+# What each producer owns, so a camera that is not there takes exactly its own
+# streams with it and nothing else. The server reads this at runtime too: a
+# camera that dies mid flight has to be taken off the air the same way one that
+# never arrived is kept off it.
+CAMERA_GROUPS = {
+    "pilot-fork": {
+        "card": "CSI",
+        "factories": [PILOT, PILOT_LOWRES],
+        "sockets": [PILOT, PILOT_DEEPSTREAM, PILOT_LOWRES, PILOT_RAW],
+    },
+    "rgb-fork": {
+        "card": "C1 PRO",
+        "factories": [RGB, RGB_LOWRES],
+        "sockets": [RGB, RGB_DEEPSTREAM, RGB_LOWRES, RGB_RAW],
+    },
+    "thermal-fork": {
+        "card": "Boson",
+        "factories": [THERMAL, THERMAL_LOWRES],
+        "sockets": [THERMAL, THERMAL_DEEPSTREAM, THERMAL_LOWRES, THERMAL_RAW],
+    },
+}
+
+# Drop the pipelines that reference a camera we are not going to run. SOCKETS is
 # left whole so the server still clears stale socket files for those streams.
-MISSING_CAMERAS = []
+# Each entry is (card, reason), because a camera that was left out on purpose
+# and one that never showed up are different things to read in a journal.
+PRUNED_CAMERAS = []
+
+# Short name for each producer, for RCAM_CAMERAS below.
+CAMERA_KEYS = {
+    "pilot": "pilot-fork",
+    "rgb": "rgb-fork",
+    "thermal": "thermal-fork",
+}
+
+
+def _prune(producer, reason):
+    group = CAMERA_GROUPS[producer]
+    PRUNED_CAMERAS.append((group["card"], reason))
+    del PRODUCERS[producer]
+    for factory in group["factories"]:
+        FACTORIES.pop(factory, None)
+
 
 if RGB_DEVICE is None:
-    MISSING_CAMERAS.append("C1 PRO")
-    del PRODUCERS["rgb-fork"]
-    del FACTORIES[RGB], FACTORIES[RGB_LOWRES]
+    _prune("rgb-fork", "no capture device found")
 
 if THERMAL_DEVICE is None:
-    MISSING_CAMERAS.append("Boson")
-    del PRODUCERS["thermal-fork"]
-    del FACTORIES[THERMAL], FACTORIES[THERMAL_LOWRES]
+    _prune("thermal-fork", "no capture device found")
+
+# Run only the named cameras. The USB cameras share one bus powered hub, so a
+# camera can be healthy on its own and still fail next to another one. Naming a
+# subset takes the others off the bus without touching a cable, which is how
+# that kind of fault gets narrowed down on an aircraft nobody can reach.
+#
+#   RCAM_CAMERAS=thermal          only the Boson
+#   RCAM_CAMERAS=thermal,rgb      the Boson and the C1 PRO, no CSI
+_wanted = os.environ.get("RCAM_CAMERAS", "")
+if _wanted.strip():
+    _keep = {name.strip().lower() for name in _wanted.split(",") if name.strip()}
+    _unknown = _keep - set(CAMERA_KEYS)
+    if _unknown:
+        raise RuntimeError(
+            f"RCAM_CAMERAS names {sorted(_unknown)}, which are not cameras. "
+            f"Pick from {sorted(CAMERA_KEYS)}."
+        )
+    for _name, _producer in CAMERA_KEYS.items():
+        if _name not in _keep and _producer in PRODUCERS:
+            _prune(_producer, f"not in RCAM_CAMERAS={_wanted}")

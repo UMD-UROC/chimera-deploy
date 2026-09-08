@@ -44,7 +44,8 @@ sudo chroot "$ROOTFS" bash -c 'userdel -r user 2>/dev/null || true'
 # create desired user
 cd $ORIN/Linux_for_Tegra
 # TODO: this fails when username is user, l4t_create_default_user.sh doesn't get to updating hostname
-sudo tools/l4t_create_default_user.sh -u user -p Talon240 -n d$UAS_NUM -a --accept-license
+: "${DRONE_PASSWORD:?set DRONE_PASSWORD to the drone password from the team password store}"
+sudo tools/l4t_create_default_user.sh -u user -p "$DRONE_PASSWORD" -n d$UAS_NUM -a --accept-license
 
 echo "installing 'echopilot_ai_bsp'..."
 cd $SCRIPT_DIR/submodules/echopilot_ai_bsp
