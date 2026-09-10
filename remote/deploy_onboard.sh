@@ -115,4 +115,4 @@ else
 fi
 
 say "next"
-echo "  log in again, then:  cd $STACK && ./px4sim doctor && ./px4sim build && ./px4sim start"
+echo "  log in again, then:  cd $STACK && ./px4sim doctor && ./px4sim start"
