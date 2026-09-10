@@ -13,7 +13,9 @@
 #                                 updates chimera-deploy's, --no-upstream skips the
 #                                 push to GitHub, --no-local leaves the laptop's own
 #                                 working copies alone, --push-new also sends
-#                                 branches GitHub has never seen
+#                                 branches GitHub has never seen, and
+#                                 --clean-dependabot drops obsolete mirror-only
+#                                 Dependabot branches
 #   push     run on the laptop  - push the current mirrors into every Orin's
 #                                 working copy and rebuild/restart changed clients
 #   scenes   run on the laptop  - copy the built scenes into every Orin. The
@@ -211,7 +213,7 @@ open_firewall() {
 # sync - send drone commits up to GitHub, refresh the mirrors, push to the Orins
 ###############################################################################
 cmd_sync() {
-  local do_push=1 subs=0 upstream=1 push_new=0 do_local=1 arg
+  local do_push=1 subs=0 upstream=1 push_new=0 do_local=1 clean_dependabot=0 arg
   for arg in "$@"; do
     case "$arg" in
       --no-push)     do_push=0 ;;
@@ -219,6 +221,7 @@ cmd_sync() {
       --no-upstream) upstream=0 ;;
       --push-new)    push_new=1 ;;
       --no-local)    do_local=0 ;;
+      --clean-dependabot) clean_dependabot=1 ;;
       *) die "unknown option for sync: $arg" ;;
     esac
   done
@@ -228,7 +231,7 @@ cmd_sync() {
   # land first, or the forced mirror fetch overwrites what it has not seen.
   if github_up; then
     if [ "$upstream" = 1 ]; then
-      push_mirrors_upstream "$push_new"
+      push_mirrors_upstream "$push_new" "$clean_dependabot"
     fi
 
     if [ "$do_local" = 1 ]; then
@@ -390,12 +393,14 @@ sync_local_worktrees() {
 # and reported. Branches that exist only in a mirror are not pushed by default
 # either: with prune=false, a branch deleted on GitHub lives on here forever,
 # and auto-pushing would resurrect it on every sync. Use --push-new for those.
+# --clean-dependabot is deliberately narrower: it removes only mirror-only
+# dependabot/* heads that GitHub confirms no longer has.
 ###############################################################################
 push_mirrors_upstream() {
-  local push_new="$1"
+  local push_new="$1" clean_dependabot="$2"
   say "sending drone commits on to GitHub"
 
-  local d name url remote_heads sha ref branch gh out rc pushed=0 held=0
+  local d name url remote_heads sha ref branch gh out rc pushed=0 held=0 cleaned=0
   for d in "$SERVE_ROOT"/*.git; do
     [ -d "$d" ] || continue
     [ -L "$d" ] && continue
@@ -414,6 +419,16 @@ push_mirrors_upstream() {
       gh="$(printf '%s\n' "$remote_heads" | awk -v r="$ref" '$2 == r { print $1 }')"
 
       if [ -z "$gh" ]; then
+        if [ "$clean_dependabot" = 1 ] && [[ "$branch" == dependabot/* ]]; then
+          if git -C "$d" update-ref -d "$ref" "$sha"; then
+            printf '  %-22s %-34s %s\n' "$name" "$branch" "removed obsolete Dependabot branch"
+            cleaned=$((cleaned + 1))
+          else
+            printf '  %-22s %-34s %s\n' "$name" "$branch" "FAILED to remove obsolete Dependabot branch"
+            held=$((held + 1))
+          fi
+          continue
+        fi
         if [ "$push_new" != 1 ]; then
           printf '  %-22s %-34s %s\n' "$name" "$branch" "mirror only - use --push-new"
           held=$((held + 1))
@@ -467,10 +482,10 @@ push_mirrors_upstream() {
     done < <(git -C "$d" for-each-ref --format='%(objectname) %(refname)' refs/heads)
   done
 
-  if [ "$pushed" = 0 ] && [ "$held" = 0 ]; then
+  if [ "$pushed" = 0 ] && [ "$held" = 0 ] && [ "$cleaned" = 0 ]; then
     echo "  nothing to send - GitHub already has every mirror branch"
   else
-    echo "  sent $pushed branch(es) to GitHub, $held held back"
+    echo "  sent $pushed branch(es) to GitHub, $held held back, $cleaned obsolete Dependabot branch(es) removed"
   fi
   return 0
 }
