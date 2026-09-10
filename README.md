@@ -152,6 +152,10 @@ writes its `.env` with the aircraft keys and the SCF4 lens path, links this
 machine's TensorRT engines with `fetch_models.py resolve --link`, and installs
 `remote/onboard.service`.
 
+The stack clone follows the current `chimera-deploy` branch. Set
+`STACK_BRANCH` to override it; a detached checkout falls back to
+`flight_testing`.
+
 **The flight code directory is `5g_drone`, not `umd_uas`.** The container build
 and `fetch_models.py` both read that name. `setup_git_server.sh remote` and
 `remote/deploy_onboard.sh` each move an old checkout rather than clone a second
@@ -166,10 +170,17 @@ journalctl -u onboard -n 40
 ```
 
 It is a `oneshot` unit, ordered after `docker.service`, `rcam.service`,
-`mavlink-router.service` and `time-sync.target`. It removes any container a
-power cut left, waits up to three minutes for a clock step with
-`chronyc waitsync`, then runs `px4sim start`. `SupplementaryGroups=docker`
-gives it the docker socket whether or not the login user is in that group.
+`mavlink-router.service` and `time-sync.target`. The aircraft Compose service
+does not carry a Docker restart policy because this systemd unit owns its boot
+lifecycle. The unit waits up to three minutes for a clock step with `chronyc
+waitsync`, then runs `px4sim start` once. `SupplementaryGroups=docker` gives it
+the docker socket whether or not the login user is in that group.
+
+`setup_git_server.sh sync` is the deployment front door. After uploading
+repository updates, it invokes `./px4sim start` on the ground station and every
+reachable Orin. `px4sim start` always performs stop, build, and start, so a
+checkout cannot run with an older image. Cached builds are expected on every
+sync; dirty or diverged worktrees are left untouched and reported.
 
 `remote/.bash_aliases` holds the hand versions. Copy it to `~/.bash_aliases` on
 the Orin:

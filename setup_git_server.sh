@@ -15,7 +15,7 @@
 #                                 working copies alone, --push-new also sends
 #                                 branches GitHub has never seen
 #   push     run on the laptop  - push the current mirrors into every Orin's
-#                                 working copy, no GitHub needed
+#                                 working copy and rebuild/restart changed clients
 #   scenes   run on the laptop  - copy the built scenes into every Orin. The
 #                                 ground station builds them with
 #                                 `./px4sim genscene` and holds the only copy.
@@ -29,10 +29,10 @@
 # to /srv/git, which is why 'deploy' also installs each Orin's key on the laptop.
 #
 # 'sync' is the one-command refresh. It moves commits in both directions, so
-# GitHub, this laptop and every reachable Orin end up on the same tip. Nothing
-# is ever force-pushed or merged over a dirty tree: anything that cannot be
-# fast-forwarded is reported and left for a human. The drones never have to run
-# 'git pull' themselves.
+# GitHub, this laptop and every reachable Orin end up on the same tip, then
+# rebuilds and restarts each stack through its px4sim front door. Nothing is
+# ever force-pushed or merged over a dirty tree: anything that cannot be
+# fast-forwarded is reported and left for a human.
 
 set -euo pipefail
 
@@ -264,6 +264,10 @@ cmd_sync() {
     echo
     echo "Mirrors updated. Send them to the Orins with:"
     echo "  ./setup_git_server.sh push"
+  fi
+
+  if [ "$do_local" = 1 ]; then
+    refresh_local_stack
   fi
 
   if [ "$upstream" = 0 ]; then
@@ -500,6 +504,13 @@ cmd_push() {
   say "pushed to $ok of ${#CLIENTS[@]} clients"
 }
 
+refresh_local_stack() {
+  local stack="$HOME/px4-sim-stack"
+  [ -x "$stack/px4sim" ] || { warn "local px4-sim-stack is missing - skipped build"; return 1; }
+  say "building and restarting the local stack"
+  (cd "$stack" && ./px4sim start)
+}
+
 push_to_client() {
   local ip="$1" subs="$2"
   local ssh_opts=(-o BatchMode=yes -o ConnectTimeout=5)
@@ -510,7 +521,7 @@ push_to_client() {
     return 1
   }
 
-  local entry name url dir rdir mirror state branch tree out
+  local entry name url dir rdir mirror state branch tree out changed=0
   for entry in "${REPOS[@]}"; do
     IFS='|' read -r name url dir <<< "$entry"
     # REPOS paths are laptop-side; the Orin's home may sit elsewhere
@@ -550,6 +561,7 @@ push_to_client() {
 
     if [ "$rc" = 0 ]; then
       echo "ok ($branch)"
+      changed=1
     else
       # report why git actually refused, not why we guess it refused - a dirty
       # tree and a non-fast-forward need completely different fixes
@@ -571,6 +583,17 @@ push_to_client() {
       update_client_submodules "$ip" "$rdir"
     fi
   done
+
+  if [ "$changed" = 1 ]; then
+    say "$ip: rebuilding and restarting through px4sim"
+    if ! ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
+         "cd '$rhome/px4-sim-stack' && ./px4sim start"; then
+      warn "$ip: px4sim start failed after sync"
+      return 1
+    fi
+  else
+    echo "  no repository updates; stack left running"
+  fi
   return 0
 }
 
