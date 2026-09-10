@@ -18,7 +18,8 @@
 #                                 Dependabot branches
 #   push     run on the laptop  - push the current mirrors into every Orin's
 #                                 working copy and rebuild/restart changed clients
-#   scenes   run on the laptop  - copy the built scenes into every Orin. The
+#   scenes   run on the laptop  - copy the built scenes into every Orin and
+#                                 restart clients whose scene files changed. The
 #                                 ground station builds them with
 #                                 `./px4sim genscene` and holds the only copy.
 #                                 They are build product, so git does not carry
@@ -523,7 +524,10 @@ refresh_local_stack() {
   local stack="$HOME/px4-sim-stack"
   [ -x "$stack/px4sim" ] || { warn "local px4-sim-stack is missing - skipped build"; return 1; }
   say "building and restarting the local stack"
-  (cd "$stack" && ./px4sim start)
+  # A sync can change a Docker build context, configuration, or a bind-mounted
+  # runtime input outside the set of files Git reports as updated. Always use
+  # the disruptive front door here; `start` deliberately no-ops when running.
+  (cd "$stack" && ./px4sim restart)
 }
 
 push_to_client() {
@@ -536,7 +540,11 @@ push_to_client() {
     return 1
   }
 
-  local entry name url dir rdir mirror state branch tree out changed=0
+  # A successful push is deliberately sufficient to restart. Git may say a
+  # ref is up to date while a generated input, image context, or a previous
+  # partial deployment still warrants recreating the runtime stack. Err toward
+  # a safe restart; dirty/rejected trees are still left untouched.
+  local entry name url dir rdir mirror state branch tree out restart_required=0
   for entry in "${REPOS[@]}"; do
     IFS='|' read -r name url dir <<< "$entry"
     # REPOS paths are laptop-side; the Orin's home may sit elsewhere
@@ -576,7 +584,7 @@ push_to_client() {
 
     if [ "$rc" = 0 ]; then
       echo "ok ($branch)"
-      changed=1
+      restart_required=1
     else
       # report why git actually refused, not why we guess it refused - a dirty
       # tree and a non-fast-forward need completely different fixes
@@ -599,11 +607,11 @@ push_to_client() {
     fi
   done
 
-  if [ "$changed" = 1 ]; then
+  if [ "$restart_required" = 1 ]; then
     say "$ip: rebuilding and restarting through px4sim"
     if ! ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
-         "cd '$rhome/px4-sim-stack' && ./px4sim start"; then
-      warn "$ip: px4sim start failed after sync"
+         "cd '$rhome/px4-sim-stack' && ./px4sim restart"; then
+      warn "$ip: px4sim restart failed after sync"
       return 1
     fi
   else
@@ -787,7 +795,8 @@ cmd_status() {
 }
 
 ###############################################################################
-# scenes - from the laptop, copy the built scenes into every Orin
+# scenes - from the laptop, copy the built scenes into every Orin and restart
+# any client whose runtime scene files changed
 #
 # A scene is map data: a terrain surface, the buildings, a satellite texture
 # and a scenario naming where the targets stand. The ground station builds it
@@ -824,7 +833,7 @@ cmd_scenes() {
 }
 
 scenes_to_client() {
-  local ip="$1" count
+  local ip="$1" count out changed=0
   local src="$HOME/$SCENES_REL"
   local ssh_opts=(-o BatchMode=yes -o ConnectTimeout=5)
 
@@ -836,17 +845,28 @@ scenes_to_client() {
   # The generated directories only. The vehicle models and spawn_scenario.py
   # are tracked, so they arrive with the checkout and must survive this.
   # --delete drops what a rebuilt scene no longer writes.
-  rsync -a --delete -e "ssh ${ssh_opts[*]}" \
-      "$src/worlds/" "$SERVER_USER@$ip:$SCENES_REL/worlds/" || { warn "worlds failed"; return 1; }
-  rsync -a --delete -e "ssh ${ssh_opts[*]}" \
-      "$src/scenarios/" "$SERVER_USER@$ip:$SCENES_REL/scenarios/" || { warn "scenarios failed"; return 1; }
-  rsync -a -e "ssh ${ssh_opts[*]}" \
+  out="$(rsync -ai --delete -e "ssh ${ssh_opts[*]}" \
+      "$src/worlds/" "$SERVER_USER@$ip:$SCENES_REL/worlds/")" || { warn "worlds failed"; return 1; }
+  [ -z "$out" ] || changed=1
+  out="$(rsync -ai --delete -e "ssh ${ssh_opts[*]}" \
+      "$src/scenarios/" "$SERVER_USER@$ip:$SCENES_REL/scenarios/")" || { warn "scenarios failed"; return 1; }
+  [ -z "$out" ] || changed=1
+  out="$(rsync -ai -e "ssh ${ssh_opts[*]}" \
       --include='*_terrain/***' --include='*_buildings/***' --exclude='*' \
-      "$src/models/" "$SERVER_USER@$ip:$SCENES_REL/models/" || { warn "models failed"; return 1; }
+      "$src/models/" "$SERVER_USER@$ip:$SCENES_REL/models/")" || { warn "models failed"; return 1; }
+  [ -z "$out" ] || changed=1
 
   count=$(ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
     "ls ~/$SCENES_REL/worlds/*_surface.json 2>/dev/null | wc -l")
   echo "  $count scenes"
+
+  if [ "$changed" = 1 ]; then
+    say "$ip: scene files changed; rebuilding and restarting through px4sim"
+    ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
+      "cd ~/px4-sim-stack && ./px4sim restart" || { warn "scene-triggered px4sim restart failed"; return 1; }
+  else
+    echo "  scene files unchanged; stack left running"
+  fi
 }
 
 ###############################################################################
