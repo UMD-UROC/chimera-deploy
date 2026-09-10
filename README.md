@@ -176,6 +176,12 @@ lifecycle. The unit waits up to three minutes for a clock step with `chronyc
 waitsync`, then runs `px4sim start` once. `SupplementaryGroups=docker` gives it
 the docker socket whether or not the login user is in that group.
 
+`setup_git_server.sh sync` is the deployment front door. After uploading
+repository updates, it invokes `./px4sim start` on the ground station and every
+reachable Orin. `px4sim start` always performs stop, build, and start, so a
+checkout cannot run with an older image. Cached builds are expected on every
+sync; dirty or diverged worktrees are left untouched and reported.
+
 `remote/.bash_aliases` holds the hand versions. Copy it to `~/.bash_aliases` on
 the Orin:
 
