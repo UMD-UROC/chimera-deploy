@@ -74,6 +74,14 @@ say()  { echo -e "\n\033[1;36m==> $*\033[0m"; }
 warn() { echo -e "\033[1;33m[warn]\033[0m $*"; }
 die()  { echo -e "\033[1;31m[error]\033[0m $*" >&2; exit 1; }
 
+# A sync keeps the noisy Docker output in per-job logs.  Its foreground shell
+# tails this compact status stream so an operator knows which independent
+# rebuild is alive without waiting for a whole image build to finish.
+sync_status() {
+  [ -n "${SYNC_STATUS_FILE:-}" ] || return 0
+  printf '%s  %s\n' "$(date '+%H:%M:%S')" "$*" >>"$SYNC_STATUS_FILE"
+}
+
 # the local working copy a mirror can be seeded from when GitHub is unreachable
 local_source_for() {
   local name="$1"
@@ -262,7 +270,10 @@ cmd_sync() {
     die "GitHub unreachable - connect to wifi first"
   fi
 
-  local clients_pid='' ground_pid='' clients_log='' ground_log='' rc=0
+  local clients_pid='' ground_pid='' clients_log='' ground_log='' status_log='' rc=0
+  local clients_done=0 ground_done=0 status_lines=0
+  status_log="$(mktemp -t chimera-sync-status.XXXXXX)"
+  export SYNC_STATUS_FILE="$status_log"
   if [ "$do_push" = 1 ]; then
     # The ground image has no dependency on an aircraft image.  Start both
     # sides now; each side still waits for and reports all of its own jobs.
@@ -277,20 +288,49 @@ cmd_sync() {
 
   if [ "$do_local" = 1 ]; then
     ground_log="$(mktemp -t chimera-sync-ground.XXXXXX)"
-    refresh_local_stack >"$ground_log" 2>&1 &
+    (sync_status 'ground: BUILDING';
+     refresh_local_stack && sync_status 'ground: SUCCESS' || {
+       sync_status 'ground: FAILURE (see ground build log)'; exit 1; }) >"$ground_log" 2>&1 &
     ground_pid=$!
   fi
 
-  if [ -n "$clients_pid" ]; then
-    wait "$clients_pid" || rc=1
-    cat "$clients_log"
-    rm -f "$clients_log"
-  fi
-  if [ -n "$ground_pid" ]; then
-    wait "$ground_pid" || rc=1
-    cat "$ground_log"
-    rm -f "$ground_log"
-  fi
+  # Both rebuild groups run concurrently.  Drain status changes immediately,
+  # but retain the full logs until each group has finished so Docker output
+  # remains readable instead of interleaving across hosts.
+  while [ "$clients_done" = 0 ] || [ "$ground_done" = 0 ]; do
+    local -a updates=()
+    mapfile -t updates <"$status_log"
+    while [ "$status_lines" -lt "${#updates[@]}" ]; do
+      echo "  [sync] ${updates[$status_lines]}"
+      status_lines=$((status_lines + 1))
+    done
+
+    if [ -n "$clients_pid" ] && [ "$clients_done" = 0 ] && ! kill -0 "$clients_pid" 2>/dev/null; then
+      wait "$clients_pid" || rc=1
+      clients_done=1
+      cat "$clients_log"
+      rm -f "$clients_log"
+    elif [ -z "$clients_pid" ]; then
+      clients_done=1
+    fi
+    if [ -n "$ground_pid" ] && [ "$ground_done" = 0 ] && ! kill -0 "$ground_pid" 2>/dev/null; then
+      wait "$ground_pid" || rc=1
+      ground_done=1
+      cat "$ground_log"
+      rm -f "$ground_log"
+    elif [ -z "$ground_pid" ]; then
+      ground_done=1
+    fi
+    [ "$clients_done" = 1 ] && [ "$ground_done" = 1 ] || sleep 1
+  done
+  # A job can publish its final status between the last drain and exit.
+  mapfile -t updates <"$status_log"
+  while [ "$status_lines" -lt "${#updates[@]}" ]; do
+    echo "  [sync] ${updates[$status_lines]}"
+    status_lines=$((status_lines + 1))
+  done
+  rm -f "$status_log"
+  unset SYNC_STATUS_FILE
   if [ "$rc" != 0 ]; then
     warn "one or more parallel sync jobs failed"
     return "$rc"
@@ -539,6 +579,7 @@ cmd_push() {
     if ! ping -c1 -W1 "$ip" >/dev/null 2>&1; then
       say "$ip"
       warn "unreachable - skipped"
+      sync_status "$ip: UNREACHABLE"
       continue
     fi
     clients+=("$ip")
@@ -547,6 +588,7 @@ cmd_push() {
     # together.  The completed log is printed under its aircraft heading.
     (push_to_client "$ip" "$subs") >"${logs[-1]}" 2>&1 &
     jobs+=("$!")
+    sync_status "$ip: BUILDING"
   done
 
   for index in "${!jobs[@]}"; do
@@ -557,8 +599,10 @@ cmd_push() {
     rm -f "${logs[$index]}"
     if [ "$rc" = 0 ]; then
       ok=$((ok + 1))
+      sync_status "${clients[$index]}: SUCCESS"
     else
       warn "${clients[$index]}: update or restart failed"
+      sync_status "${clients[$index]}: FAILURE (see client build log)"
     fi
   done
 

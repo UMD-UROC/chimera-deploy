@@ -177,10 +177,18 @@ waitsync`, then runs `px4sim start` once. `SupplementaryGroups=docker` gives it
 the docker socket whether or not the login user is in that group.
 
 `setup_git_server.sh sync` is the deployment front door. After uploading
-repository updates, it invokes `./px4sim start` on the ground station and every
-reachable Orin. `px4sim start` always performs stop, build, and start, so a
+repository updates, it invokes `./px4sim restart` on the ground station and every
+reachable Orin. `px4sim restart` always performs stop, build, and start, so a
 checkout cannot run with an older image. Cached builds are expected on every
-sync; dirty or diverged worktrees are left untouched and reported.
+sync; dirty or diverged worktrees are left untouched and reported. The foreground
+sync command reports `BUILDING`, `SUCCESS`, `FAILURE`, or `UNREACHABLE` for the
+ground station and each aircraft while their full Docker logs remain grouped.
+
+Measured on 2026-09-11 with cached base layers: scene distribution took 7 s, a
+successful aircraft ROS build took 24.1 s, the ground ROS build took 49.1 s,
+and the complete parallel `scenes ; sync` run took 121 s (114 s for `sync`).
+Network image resolution and an uncached build can take longer; these are
+observed timings, not a deadline.
 
 `remote/.bash_aliases` holds the hand versions. Copy it to `~/.bash_aliases` on
 the Orin:
