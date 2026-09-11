@@ -32,6 +32,11 @@ set_env_key() {
 UAS_NUM=$(sed -n 's/^UAS_NUM=//p' /etc/environment | tr -d '"' | tail -1)
 [ -n "$UAS_NUM" ] || die "UAS_NUM is not in /etc/environment. Run deploy.sh first."
 case "$UAS_NUM" in [1-9]) ;; *) die "UAS_NUM=$UAS_NUM is not 1 to 9" ;; esac
+case "$UAS_NUM" in
+  1|2) UAS_MODEL=v3 ;;
+  3|4) UAS_MODEL=v2 ;;
+  *) die "UAS_NUM=$UAS_NUM has no declared Chimera airframe model" ;;
+esac
 me=$(id -un)
 
 say "docker group"
@@ -78,6 +83,7 @@ if [ ! -f "$STACK/.env" ]; then
   set_env_key "$STACK/.env" COMPOSE_PROFILES aircraft
   set_env_key "$STACK/.env" UAS_BASE 0
   set_env_key "$STACK/.env" UAS_FLEET '"chimera_v3 chimera_v3 chimera_v2 chimera_v2"'
+  set_env_key "$STACK/.env" UAS_MODEL "$UAS_MODEL"
   set_env_key "$STACK/.env" SCENE ''
   set_env_key "$STACK/.env" SCENARIO ''
   set_env_key "$STACK/.env" SIMNET_PREFIX 172.28.0
@@ -92,7 +98,8 @@ if [ ! -f "$STACK/.env" ]; then
   fi
   echo "  wrote $STACK/.env for uas$UAS_NUM"
 else
-  echo "  $STACK/.env exists, left as it is"
+  set_env_key "$STACK/.env" UAS_MODEL "$UAS_MODEL"
+  echo "  $STACK/.env exists; set UAS_MODEL=$UAS_MODEL"
 fi
 if [ -n "$lens" ] && ! grep -qxF "ONBOARD_LENS_DEVICE=$lens" "$STACK/.env"; then
   echo "  the SCF4 is $lens and .env says: $(grep '^ONBOARD_LENS_DEVICE=' "$STACK/.env" || echo nothing)"
