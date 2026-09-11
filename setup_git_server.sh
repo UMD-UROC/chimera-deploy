@@ -262,8 +262,13 @@ cmd_sync() {
     die "GitHub unreachable - connect to wifi first"
   fi
 
+  local clients_pid='' ground_pid='' clients_log='' ground_log='' rc=0
   if [ "$do_push" = 1 ]; then
-    cmd_push $([ "$subs" = 1 ] && echo --submodules)
+    # The ground image has no dependency on an aircraft image.  Start both
+    # sides now; each side still waits for and reports all of its own jobs.
+    clients_log="$(mktemp -t chimera-sync-clients.XXXXXX)"
+    (cmd_push $([ "$subs" = 1 ] && echo --submodules)) >"$clients_log" 2>&1 &
+    clients_pid=$!
   else
     echo
     echo "Mirrors updated. Send them to the Orins with:"
@@ -271,7 +276,24 @@ cmd_sync() {
   fi
 
   if [ "$do_local" = 1 ]; then
-    refresh_local_stack
+    ground_log="$(mktemp -t chimera-sync-ground.XXXXXX)"
+    refresh_local_stack >"$ground_log" 2>&1 &
+    ground_pid=$!
+  fi
+
+  if [ -n "$clients_pid" ]; then
+    wait "$clients_pid" || rc=1
+    cat "$clients_log"
+    rm -f "$clients_log"
+  fi
+  if [ -n "$ground_pid" ]; then
+    wait "$ground_pid" || rc=1
+    cat "$ground_log"
+    rm -f "$ground_log"
+  fi
+  if [ "$rc" != 0 ]; then
+    warn "one or more parallel sync jobs failed"
+    return "$rc"
   fi
 
   if [ "$upstream" = 0 ]; then
@@ -507,14 +529,37 @@ cmd_push() {
     esac
   done
 
-  local ip ok=0
+  # Each aircraft has its own checkout, Docker daemon and GPU, so rebuilding
+  # them serially only burns operator time.  Keep the ground refresh outside
+  # this function (cmd_sync calls it after us): it must see the completed
+  # fleet, but the aircraft jobs themselves are independent.
+  local ip ok=0 index rc
+  local -a clients=() jobs=() logs=()
   for ip in "${CLIENTS[@]}"; do
-    say "$ip"
     if ! ping -c1 -W1 "$ip" >/dev/null 2>&1; then
+      say "$ip"
       warn "unreachable - skipped"
       continue
     fi
-    push_to_client "$ip" "$subs" && ok=$((ok + 1))
+    clients+=("$ip")
+    logs+=("$(mktemp -t chimera-sync-client.XXXXXX)")
+    # Redirect each job rather than letting parallel SSH/Docker output splice
+    # together.  The completed log is printed under its aircraft heading.
+    (push_to_client "$ip" "$subs") >"${logs[-1]}" 2>&1 &
+    jobs+=("$!")
+  done
+
+  for index in "${!jobs[@]}"; do
+    say "${clients[$index]}"
+    rc=0
+    wait "${jobs[$index]}" || rc=$?
+    cat "${logs[$index]}"
+    rm -f "${logs[$index]}"
+    if [ "$rc" = 0 ]; then
+      ok=$((ok + 1))
+    else
+      warn "${clients[$index]}: update or restart failed"
+    fi
   done
 
   say "pushed to $ok of ${#CLIENTS[@]} clients"
