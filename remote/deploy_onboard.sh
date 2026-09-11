@@ -32,6 +32,7 @@ set_env_key() {
 UAS_NUM=$(sed -n 's/^UAS_NUM=//p' /etc/environment | tr -d '"' | tail -1)
 [ -n "$UAS_NUM" ] || die "UAS_NUM is not in /etc/environment. Run deploy.sh first."
 case "$UAS_NUM" in [1-9]) ;; *) die "UAS_NUM=$UAS_NUM is not 1 to 9" ;; esac
+ROS_DOMAIN_ID=$((60 + UAS_NUM))
 case "$UAS_NUM" in
   1|2) UAS_MODEL=v3 ;;
   3|4) UAS_MODEL=v2 ;;
@@ -82,6 +83,7 @@ if [ ! -f "$STACK/.env" ]; then
   printf '\n# The aircraft. Written by chimera-deploy/remote/deploy_onboard.sh.\n' >> "$STACK/.env"
   set_env_key "$STACK/.env" COMPOSE_PROFILES aircraft
   set_env_key "$STACK/.env" UAS_BASE 0
+  set_env_key "$STACK/.env" ROS_DOMAIN_ID "$ROS_DOMAIN_ID"
   set_env_key "$STACK/.env" UAS_FLEET '"chimera_v3 chimera_v3 chimera_v2 chimera_v2"'
   set_env_key "$STACK/.env" UAS_MODEL "$UAS_MODEL"
   set_env_key "$STACK/.env" SCENE ''
@@ -99,7 +101,8 @@ if [ ! -f "$STACK/.env" ]; then
   echo "  wrote $STACK/.env for uas$UAS_NUM"
 else
   set_env_key "$STACK/.env" UAS_MODEL "$UAS_MODEL"
-  echo "  $STACK/.env exists; set UAS_MODEL=$UAS_MODEL"
+  set_env_key "$STACK/.env" ROS_DOMAIN_ID "$ROS_DOMAIN_ID"
+  echo "  $STACK/.env exists; set UAS_MODEL=$UAS_MODEL ROS_DOMAIN_ID=$ROS_DOMAIN_ID"
 fi
 if [ -n "$lens" ] && ! grep -qxF "ONBOARD_LENS_DEVICE=$lens" "$STACK/.env"; then
   echo "  the SCF4 is $lens and .env says: $(grep '^ONBOARD_LENS_DEVICE=' "$STACK/.env" || echo nothing)"
