@@ -54,6 +54,7 @@ REPOS=(
   "cdcl_umd_msgs|git@github.com:UMD-CDCL/cdcl_umd_msgs.git|$WS_SRC/cdcl_umd_msgs"
   "MAVInsight|git@github.com:UMD-UROC/MAVInsight.git|$WS_SRC/MAVInsight"
   "5g_drone|git@github.com:UMD-CDCL/5g_drone.git|$WS_SRC/5g_drone"
+  "tracking_test_5g|git@github.com:UMD-CDCL/tracking_test_5g.git|$WS_SRC/tracking_test_5g"
   "px4_msgs|git@github.com:PX4/px4_msgs.git|$WS_SRC/px4_msgs"
   "px4-sim-stack|git@github.com:UMD-CDCL/px4-sim-stack.git|$HOME/px4-sim-stack"
   "chimera-deploy|git@github.com:UMD-UROC/chimera-deploy.git|$HOME/chimera-deploy"
