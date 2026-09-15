@@ -31,6 +31,8 @@ die()  { echo "[mavros-patch] ERROR: $*" >&2; exit 1; }
     die "submodules/mavros is empty. Run: git submodule update --init submodules/mavros"
 [[ -d "$SUBMODULES/angles/angles" ]] || \
     die "submodules/angles is empty. Run: git submodule update --init submodules/angles"
+[[ -d "$SUBMODULES/geographic_msgs" ]] || \
+    die "submodules/geographic_msgs is empty. Stage the pinned geographic_info source"
 
 # The patch is written against a specific MAVROS release. If the submodule moves
 # and the apt package does not, the overlay would silently replace the installed
@@ -55,12 +57,14 @@ for pkg in mavros angles; do
     cp -a "$SUBMODULES/$pkg" "$WS/src/$pkg"
     rm -rf "$WS/src/$pkg/.git"
 done
+rm -rf "$WS/src/geographic_msgs"
+cp -a "$SUBMODULES/geographic_msgs" "$WS/src/geographic_msgs"
+rm -rf "$WS/src/geographic_msgs/.git"
 
-# mavros_msgs and libmavconn come from apt. Building the repo's copies too would
-# rebuild the messages and force a rebuild of everything that depends on them.
-touch "$WS/src/mavros/mavros_msgs/COLCON_IGNORE" \
-      "$WS/src/mavros/libmavconn/COLCON_IGNORE" \
-      "$WS/src/mavros/mavros_extras/COLCON_IGNORE"
+# Build the complete pinned source set. ROS Humble no longer publishes the
+# mavros binary packages on every supported apt mirror, so the overlay must not
+# rely on mavros_msgs or libmavconn being preinstalled.
+touch "$WS/src/mavros/mavros_extras/COLCON_IGNORE"
 
 info "applying $(basename "$PATCH")"
 patch -p1 -d "$WS/src/mavros" --forward --silent < "$PATCH" \
@@ -79,7 +83,8 @@ cd "$WS"
 # Overriding the apt mavros is the point of this workspace. It stays ABI safe
 # because the submodule is pinned to the same release the apt package ships,
 # which the version check above enforces.
-colcon build --packages-select angles mavros --allow-overriding mavros \
+colcon build --packages-select geographic_msgs angles mavros_msgs libmavconn mavros \
+    --allow-overriding geographic_msgs mavros_msgs libmavconn mavros \
     --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
 
 info "done. Overlay at $WS/install"
