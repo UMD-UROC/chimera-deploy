@@ -61,10 +61,9 @@ rm -rf "$WS/src/geographic_msgs"
 cp -a "$SUBMODULES/geographic_msgs" "$WS/src/geographic_msgs"
 rm -rf "$WS/src/geographic_msgs/.git"
 
-# Build the complete pinned source set. ROS Humble no longer publishes the
-# mavros binary packages on every supported apt mirror, so the overlay must not
-# rely on mavros_msgs or libmavconn being preinstalled.
-touch "$WS/src/mavros/mavros_extras/COLCON_IGNORE"
+# Build the complete pinned source set, including mavros_extras. The gimbal
+# manager service and attitude topics live in that package; excluding it makes
+# the vehicle-side gimbal node fall back to a synthetic simulator service.
 
 info "applying $(basename "$PATCH")"
 patch -p1 -d "$WS/src/mavros" --forward --silent < "$PATCH" \
@@ -83,7 +82,7 @@ cd "$WS"
 # Overriding the apt mavros is the point of this workspace. It stays ABI safe
 # because the submodule is pinned to the same release the apt package ships,
 # which the version check above enforces.
-colcon build --packages-select geographic_msgs angles mavros_msgs libmavconn mavros \
+colcon build --packages-select geographic_msgs angles mavros_msgs libmavconn mavros mavros_extras \
     --allow-overriding geographic_msgs mavros_msgs libmavconn mavros \
     --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
 
