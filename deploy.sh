@@ -125,7 +125,8 @@ sudo apt install -y \
   ros-humble-vision-msgs \
   ros-humble-domain-bridge \
   ros-humble-cv-bridge \
-  ros-humble-rosbag2-storage-mcap
+  ros-humble-rosbag2-storage-mcap \
+  ros-humble-foxglove-msgs
     
 pip install pymap3d folium
 
