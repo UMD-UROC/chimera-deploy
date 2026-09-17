@@ -390,6 +390,13 @@ sync_local_worktrees() {
     [ -n "$branch" ] || { echo "detached HEAD - skipped"; continue; }
 
     if [ "$online" = 1 ]; then
+      # px4_msgs is intentionally pinned on local/drone working copies.
+      # Do not fetch it from GitHub during sync; otherwise frequent upstream
+      # message updates trigger an expensive colcon rebuild.
+      if [ "$name" = px4_msgs ]; then
+        echo "$branch: pinned - GitHub pull skipped"
+        continue
+      fi
       git -C "$dir" fetch -q origin 2>/dev/null \
         || { echo "$branch: fetch from GitHub failed"; continue; }
       gh="$(git -C "$dir" rev-parse -q --verify "refs/remotes/origin/$branch" 2>/dev/null || true)"
