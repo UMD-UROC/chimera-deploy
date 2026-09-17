@@ -254,7 +254,11 @@ cmd_sync() {
       [ -d "$d" ] || continue
       [ -L "$d" ] && continue
       printf '  %-22s ' "$(basename "$d")"
-      if git -C "$d" remote update >/dev/null 2>&1; then
+      # A mirror clone normally has +refs/*:refs/* configured, but make the
+      # GitHub -> mirror contract explicit here. This refreshes every GitHub
+      # branch and tag, not just whatever branch the laptop has checked out.
+      if git -C "$d" fetch --quiet origin "+refs/heads/*:refs/heads/*" \
+             "+refs/tags/*:refs/tags/*"; then
         echo "ok"
       else
         echo "FAILED"
@@ -669,8 +673,15 @@ push_to_client() {
     # second pass on purpose - git maps each local ref to a single destination
     # per push, so the tracking refs are silently dropped if bundled above.
     # Forced, otherwise the Orin's 'git status' reports a phantom divergence.
-    git -C "$mirror" push --quiet "$target" \
-        '+refs/heads/*:refs/remotes/origin/*' >/dev/null 2>&1 || true
+    # Do not hide failure here: if this pass fails, a branch can exist in the
+    # mirror but be missing from `git branch -r` on the drone.
+    local tracking_rc=0 tracking_out
+    tracking_out="$(git -C "$mirror" push --quiet "$target" \
+        '+refs/heads/*:refs/remotes/origin/*' 2>&1)" || tracking_rc=$?
+    if [ "$tracking_rc" != 0 ]; then
+      rc=$tracking_rc
+      out="${out}${out:+$'\n'}tracking-ref push failed:${tracking_out:+$'\n'}$tracking_out"
+    fi
 
     if [ "$rc" = 0 ]; then
       echo "ok ($branch)"
