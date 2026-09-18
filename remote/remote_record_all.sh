@@ -3,26 +3,29 @@
 BAG_ROOT="$HOME/ros2_ws"
 BAG_NAME="rosbag2_$(date +%Y_%m_%d-%H_%M_%S)"
 BAG_DIR="$BAG_ROOT/$BAG_NAME"
-PILOT_SOCKET="/tmp/pilot_nv.sock"
-RGB_SOCKET="/tmp/rgb_nv.sock"
-THERMAL_SOCKET="/tmp/thermal_nv.sock"
 PIDS=()
 STOPPING=0
+
+case "${UAS_NUM:-}" in
+    1|d1)
+        STREAMS=(pilot rgb)
+        ;;
+    3|d3|4|d4)
+        STREAMS=(pilot thermal)
+        ;;
+    *)
+        echo "[ERROR] Unsupported UAS_NUM='${UAS_NUM:-unset}'; expected 1, 3, or 4."
+        exit 1
+        ;;
+esac
 
 cd "$BAG_ROOT" || exit 1
 source /opt/ros/humble/setup.bash
 source install/setup.bash
 
-BAG_REGEX=$(paste -sd '|' "$HOME/ros2_ws/src/5g_drone/resource/rosbag_topics.txt")
+echo "[INFO] Recording streams for UAS_NUM=$UAS_NUM: ${STREAMS[*]}"
 
-for socket in "$PILOT_SOCKET" "$RGB_SOCKET" "$THERMAL_SOCKET"; do
-    echo "[INFO] Waiting for NVMM socket at $socket..."
-    while [ ! -S "$socket" ]; do
-        sleep 0.1
-    done
-done
-
-ros2 bag record -s mcap --storage-preset-profile zstd_fast -e "$BAG_REGEX" -o "$BAG_NAME" &
+ros2 bag record -s mcap -a -o "$BAG_NAME" &
 p1=$!
 PIDS+=("$p1")
 
@@ -37,7 +40,7 @@ done
 
 (
     cd "$BAG_DIR" || exit 1
-    exec "$HOME/chimera-deploy/remote/record_nv_streams.sh" "$BAG_NAME"
+    exec "$HOME/chimera-deploy/remote/record_nv_streams.sh" "$BAG_NAME" "${STREAMS[@]}"
 ) &
 p2=$!
 PIDS+=("$p2")
