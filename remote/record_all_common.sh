@@ -9,8 +9,10 @@ PIDS=()
 STOPPING=0
 
 cd "$BAG_ROOT"
+set +u
 source /opt/ros/humble/setup.bash
 source install/setup.bash
+set -u
 
 ros2 bag record -s mcap -a -o "$BAG_NAME" &
 PIDS+=("$!")
