@@ -16,6 +16,8 @@ case "${UAS_NUM:-}" in
 esac
 
 echo "[INFO] Recording streams for UAS_NUM=$UAS_NUM: ${STREAMS[*]}"
-start_video_recording "$HOME/chimera-deploy/remote/record_nv_streams.sh" "${STREAMS[@]}"
+if [ "${RECORD_VIDEO:-1}" = 1 ]; then
+  start_video_recording "$HOME/chimera-deploy/remote/record_nv_streams.sh" "${STREAMS[@]}"
+fi
 
 wait -n "${PIDS[@]}"
