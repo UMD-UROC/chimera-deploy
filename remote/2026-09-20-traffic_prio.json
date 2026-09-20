@@ -1,0 +1,1795 @@
+{
+    "version": "0.3",
+    "settings": [
+        {
+            "method": "freq_bw",
+            "id": 1,
+            "params": [
+                "2410",
+                "20"
+            ]
+        },
+        {
+            "method": "nw_name",
+            "id": 2,
+            "params": [
+                "RoboScout"
+            ]
+        },
+        {
+            "method": "max_link_distance",
+            "id": 3,
+            "params": [
+                "1000"
+            ]
+        },
+        {
+            "method": "enable_max_power",
+            "id": 4,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "power_mw",
+            "id": 5,
+            "params": [
+                "1000"
+            ]
+        },
+        {
+            "method": "wbg_disable",
+            "id": 6,
+            "params": [
+                "2"
+            ]
+        },
+        {
+            "method": "wb_beacon_enable",
+            "id": 7,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "routing_beacon_period",
+            "id": 8,
+            "params": [
+                "100"
+            ]
+        },
+        {
+            "method": "routing_beacon_mcs",
+            "id": 9,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "aggr_thresh",
+            "id": 10,
+            "params": [
+                "1600"
+            ]
+        },
+        {
+            "method": "max_speed",
+            "id": 11,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "burst_time",
+            "id": 12,
+            "params": [
+                "10000"
+            ]
+        },
+        {
+            "method": "num_rts_retx",
+            "id": 13,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "num_retx",
+            "id": 14,
+            "params": [
+                "20"
+            ]
+        },
+        {
+            "method": "mcs",
+            "id": 15,
+            "params": [
+                "255"
+            ]
+        },
+        {
+            "method": "la_mode",
+            "id": 16,
+            "params": [
+                "2"
+            ]
+        },
+        {
+            "method": "tx_ant_mask",
+            "id": 17,
+            "params": [
+                "3"
+            ]
+        },
+        {
+            "method": "rx_ant_mask",
+            "id": 18,
+            "params": [
+                "3"
+            ]
+        },
+        {
+            "method": "radio_mode",
+            "id": 19,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "virtual_ip_disable",
+            "id": 20,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "virtual_ipv6_disable",
+            "id": 21,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "virtual_ip_address",
+            "id": 22,
+            "params": [
+                "10.1.1.1"
+            ]
+        },
+        {
+            "method": "virtual_ip_netmask",
+            "id": 23,
+            "params": [
+                "255.0.0.0"
+            ]
+        },
+        {
+            "method": "virtual_ip_gateway",
+            "id": 24,
+            "params": [
+                "10.1.1.2"
+            ]
+        },
+        {
+            "method": "virtual_ipv6_address",
+            "id": 25,
+            "params": [
+                "2001:db8:1::1"
+            ]
+        },
+        {
+            "method": "virtual_ipv6_prefix",
+            "id": 26,
+            "params": [
+                "64"
+            ]
+        },
+        {
+            "method": "virtual_ipv6_gateway",
+            "id": 27,
+            "params": [
+                "::"
+            ]
+        },
+        {
+            "method": "vpn_address",
+            "id": 28,
+            "params": [
+                "10.0.1.3",
+                "9000"
+            ]
+        },
+        {
+            "method": "vpn_disable",
+            "id": 29,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "vlan_config",
+            "id": 30,
+            "params": [
+                "2_1_1__1"
+            ]
+        },
+        {
+            "method": "wifi_settings",
+            "id": 31,
+            "params": {
+                "wifi_mode": "Disabled"
+            }
+        },
+        {
+            "method": "dhcp_settings",
+            "id": 32,
+            "params": {
+                "dhcp": "off"
+            }
+        },
+        {
+            "method": "qos_class",
+            "params": [
+                "5",
+                "1",
+                ""
+            ],
+            "id": 33
+        },
+        {
+            "method": "qos_class",
+            "params": [
+                "5",
+                "0",
+                ""
+            ],
+            "id": 34
+        },
+        {
+            "method": "qos_class",
+            "params": [
+                "5",
+                "2",
+                "24650-24899"
+            ],
+            "id": 35
+        },
+        {
+            "method": "qos_class",
+            "params": [
+                "6",
+                "1",
+                ""
+            ],
+            "id": 36
+        },
+        {
+            "method": "qos_class",
+            "params": [
+                "6",
+                "0",
+                ""
+            ],
+            "id": 37
+        },
+        {
+            "method": "qos_class",
+            "params": [
+                "6",
+                "2",
+                "8554",
+                "32150-32399"
+            ],
+            "id": 38
+        },
+        {
+            "method": "qos_class",
+            "params": [
+                "7",
+                "1",
+                ""
+            ],
+            "id": 39
+        },
+        {
+            "method": "qos_class",
+            "params": [
+                "7",
+                "0",
+                ""
+            ],
+            "id": 40
+        },
+        {
+            "method": "qos_class",
+            "params": [
+                "7",
+                "2",
+                "22",
+                "5760",
+                "14550",
+                "14551",
+                "14552",
+                "14553",
+                "14554"
+            ],
+            "id": 41
+        },
+        {
+            "method": "qos_class_cwmin",
+            "params": [
+                "0",
+                "4"
+            ],
+            "id": 42
+        },
+        {
+            "method": "qos_class_cwmin",
+            "params": [
+                "1",
+                "3"
+            ],
+            "id": 43
+        },
+        {
+            "method": "qos_class_cwmin",
+            "params": [
+                "2",
+                "3"
+            ],
+            "id": 44
+        },
+        {
+            "method": "qos_class_cwmax",
+            "params": [
+                "0",
+                "10"
+            ],
+            "id": 45
+        },
+        {
+            "method": "qos_class_cwmax",
+            "params": [
+                "1",
+                "6"
+            ],
+            "id": 46
+        },
+        {
+            "method": "qos_class_cwmax",
+            "params": [
+                "2",
+                "3"
+            ],
+            "id": 47
+        },
+        {
+            "method": "map_dscp_to_priority",
+            "params": [
+                "5",
+                ""
+            ],
+            "id": 48
+        },
+        {
+            "method": "map_dscp_to_priority",
+            "params": [
+                "6",
+                ""
+            ],
+            "id": 49
+        },
+        {
+            "method": "map_dscp_to_priority",
+            "params": [
+                "7",
+                ""
+            ],
+            "id": 50
+        },
+        {
+            "method": "serial_mode",
+            "id": 51,
+            "params": [
+                "debug"
+            ]
+        },
+        {
+            "method": "serial_config",
+            "id": 52,
+            "params": [
+                "115200",
+                "8",
+                "2",
+                "0",
+                "0",
+                "0",
+                "172.20.255.110",
+                "udp",
+                "54321"
+            ]
+        },
+        {
+            "method": "baudrate",
+            "id": 53,
+            "params": [
+                "115200"
+            ]
+        },
+        {
+            "method": "pa_mode",
+            "id": 54,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "pa_basic_mode_settings",
+            "id": 55,
+            "params": [
+                "3_3_3_3_4_4_4_4_0_3"
+            ]
+        },
+        {
+            "method": "temp_reporting_address",
+            "id": 56,
+            "params": [
+                "10.1.1.3",
+                "30000"
+            ]
+        },
+        {
+            "method": "temp_reporting_min_threshold",
+            "id": 57,
+            "params": [
+                "75"
+            ]
+        },
+        {
+            "method": "temp_reporting_max_threshold",
+            "id": 58,
+            "params": [
+                "85"
+            ]
+        },
+        {
+            "method": "temp_reporting_period",
+            "id": 59,
+            "params": [
+                "5"
+            ]
+        },
+        {
+            "method": "temp_reporting_mode",
+            "id": 60,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "rssi_report_enable",
+            "id": 61,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "rssi_report_address",
+            "id": 62,
+            "params": [
+                "10.1.1.4",
+                "30000"
+            ]
+        },
+        {
+            "method": "rssi_report_period",
+            "id": 63,
+            "params": [
+                "10"
+            ]
+        },
+        {
+            "method": "led_disable",
+            "id": 64,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "login_auth_disable",
+            "id": 65,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "enc_disable",
+            "id": 66,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "enc_key",
+            "id": 67,
+            "params": [
+                "HelloWorld"
+            ]
+        },
+        {
+            "method": "enc_key_len",
+            "id": 68,
+            "params": [
+                "64"
+            ]
+        },
+        {
+            "method": "enc_profile",
+            "id": 69,
+            "params": [
+                "28_64"
+            ]
+        },
+        {
+            "method": "https_disable",
+            "id": 70,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "var_gi_mode",
+            "id": 71,
+            "params": [
+                "3"
+            ]
+        },
+        {
+            "method": "var_gi_cyc_pre_len",
+            "id": 72,
+            "params": [
+                "32"
+            ]
+        },
+        {
+            "method": "voltage_reporting_mode",
+            "id": 73,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "voltage_reporting_address",
+            "id": 74,
+            "params": [
+                "10.1.1.3",
+                "30000"
+            ]
+        },
+        {
+            "method": "voltage_reporting_period",
+            "id": 75,
+            "params": [
+                "5"
+            ]
+        },
+        {
+            "method": "voltage_reporting_min_threshold",
+            "id": 76,
+            "params": [
+                "10000"
+            ]
+        },
+        {
+            "method": "voltage_reporting_max_threshold",
+            "id": 77,
+            "params": [
+                "34000"
+            ]
+        },
+        {
+            "method": "pa_basic_mode_max_output_power_per_channel",
+            "id": 78,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "cot_disable",
+            "id": 79,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "cot_timeout",
+            "id": 80,
+            "params": [
+                "10"
+            ]
+        },
+        {
+            "method": "cot_address",
+            "id": 81,
+            "params": [
+                "239.2.3.1",
+                "6969"
+            ]
+        },
+        {
+            "method": "cot_stale_time",
+            "id": 82,
+            "params": [
+                "300"
+            ]
+        },
+        {
+            "method": "cot_type",
+            "id": 83,
+            "params": [
+                "a-f-G-U-C"
+            ]
+        },
+        {
+            "method": "cot_ttl",
+            "id": 84,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "igmp_snoop_enable",
+            "id": 85,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "custom_mcast_filter_enable",
+            "id": 86,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "mcast_config",
+            "params": [
+                "0",
+                ""
+            ],
+            "id": 87
+        },
+        {
+            "method": "mcast_config",
+            "params": [
+                "1",
+                ""
+            ],
+            "id": 88
+        },
+        {
+            "method": "mcast_config",
+            "params": [
+                "2",
+                ""
+            ],
+            "id": 89
+        },
+        {
+            "method": "mcast_config",
+            "params": [
+                "3",
+                ""
+            ],
+            "id": 90
+        },
+        {
+            "method": "mcast_config",
+            "params": [
+                "4",
+                ""
+            ],
+            "id": 91
+        },
+        {
+            "method": "mcast_xor_disable",
+            "id": 92,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "mcast_xor_mcs",
+            "id": 93,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "mcast_xor_aggr_thresh",
+            "id": 94,
+            "params": [
+                "1600"
+            ]
+        },
+        {
+            "method": "mcast_xor_group_list",
+            "id": 95,
+            "params": [
+                ""
+            ]
+        },
+        {
+            "method": "mcast_xor_target_latency",
+            "id": 96,
+            "params": [
+                "100"
+            ]
+        },
+        {
+            "method": "igmp_snoop_mesh_forwarding_mode",
+            "id": 97,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "igmp_snoop_local_forwarding_mode",
+            "id": 98,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "enc_key_volatile_disable",
+            "id": 99,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "ptt_hq_link_notifications",
+            "id": 100,
+            "params": [
+                "-1"
+            ]
+        },
+        {
+            "method": "ptt_no_link_notifications",
+            "id": 101,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "ptt_level_change_link_notifications",
+            "id": 102,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "ptt_levels_link_notifications",
+            "id": 103,
+            "params": [
+                "10_20"
+            ]
+        },
+        {
+            "method": "ptt_status",
+            "id": 104,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "ptt_speaker_vol",
+            "id": 105,
+            "params": [
+                "80"
+            ]
+        },
+        {
+            "method": "ptt_usb_speaker_vol",
+            "id": 106,
+            "params": [
+                "80"
+            ]
+        },
+        {
+            "method": "ptt_mic_bias",
+            "id": 107,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "ptt_mic_type",
+            "id": 108,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "ptt_mic_vol",
+            "id": 109,
+            "params": [
+                "80"
+            ]
+        },
+        {
+            "method": "ptt_usb_mic_vol",
+            "id": 110,
+            "params": [
+                "80"
+            ]
+        },
+        {
+            "method": "ptt_mcast_group",
+            "params": [
+                "0",
+                "239.0.0.190"
+            ],
+            "id": 111
+        },
+        {
+            "method": "ptt_mcast_group",
+            "params": [
+                "1",
+                ""
+            ],
+            "id": 112
+        },
+        {
+            "method": "ptt_mcast_group",
+            "params": [
+                "2",
+                ""
+            ],
+            "id": 113
+        },
+        {
+            "method": "ptt_mcast_group",
+            "params": [
+                "3",
+                ""
+            ],
+            "id": 114
+        },
+        {
+            "method": "ptt_mcast_group",
+            "params": [
+                "4",
+                ""
+            ],
+            "id": 115
+        },
+        {
+            "method": "ptt_mcast_group",
+            "params": [
+                "5",
+                ""
+            ],
+            "id": 116
+        },
+        {
+            "method": "ptt_mcast_group",
+            "params": [
+                "6",
+                ""
+            ],
+            "id": 117
+        },
+        {
+            "method": "ptt_mcast_group",
+            "params": [
+                "7",
+                ""
+            ],
+            "id": 118
+        },
+        {
+            "method": "ptt_mcast_group",
+            "params": [
+                "8",
+                ""
+            ],
+            "id": 119
+        },
+        {
+            "method": "ptt_mcast_group",
+            "params": [
+                "9",
+                ""
+            ],
+            "id": 120
+        },
+        {
+            "method": "ptt_mcast_group",
+            "params": [
+                "10",
+                ""
+            ],
+            "id": 121
+        },
+        {
+            "method": "ptt_mcast_group",
+            "params": [
+                "11",
+                ""
+            ],
+            "id": 122
+        },
+        {
+            "method": "ptt_mcast_group",
+            "params": [
+                "12",
+                ""
+            ],
+            "id": 123
+        },
+        {
+            "method": "ptt_mcast_group",
+            "params": [
+                "13",
+                ""
+            ],
+            "id": 124
+        },
+        {
+            "method": "ptt_mcast_group",
+            "params": [
+                "14",
+                ""
+            ],
+            "id": 125
+        },
+        {
+            "method": "ptt_mcast_group",
+            "params": [
+                "15",
+                ""
+            ],
+            "id": 126
+        },
+        {
+            "method": "left_right_enable",
+            "id": 127,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "ptt_mcast_name",
+            "params": [
+                "0",
+                "PTT Group 1"
+            ],
+            "id": 128
+        },
+        {
+            "method": "ptt_mcast_name",
+            "params": [
+                "1",
+                ""
+            ],
+            "id": 129
+        },
+        {
+            "method": "ptt_mcast_name",
+            "params": [
+                "2",
+                ""
+            ],
+            "id": 130
+        },
+        {
+            "method": "ptt_mcast_name",
+            "params": [
+                "3",
+                ""
+            ],
+            "id": 131
+        },
+        {
+            "method": "ptt_mcast_name",
+            "params": [
+                "4",
+                ""
+            ],
+            "id": 132
+        },
+        {
+            "method": "ptt_mcast_name",
+            "params": [
+                "5",
+                ""
+            ],
+            "id": 133
+        },
+        {
+            "method": "ptt_mcast_name",
+            "params": [
+                "6",
+                ""
+            ],
+            "id": 134
+        },
+        {
+            "method": "ptt_mcast_name",
+            "params": [
+                "7",
+                ""
+            ],
+            "id": 135
+        },
+        {
+            "method": "ptt_mcast_name",
+            "params": [
+                "8",
+                ""
+            ],
+            "id": 136
+        },
+        {
+            "method": "ptt_mcast_name",
+            "params": [
+                "9",
+                ""
+            ],
+            "id": 137
+        },
+        {
+            "method": "ptt_mcast_name",
+            "params": [
+                "10",
+                ""
+            ],
+            "id": 138
+        },
+        {
+            "method": "ptt_mcast_name",
+            "params": [
+                "11",
+                ""
+            ],
+            "id": 139
+        },
+        {
+            "method": "ptt_mcast_name",
+            "params": [
+                "12",
+                ""
+            ],
+            "id": 140
+        },
+        {
+            "method": "ptt_mcast_name",
+            "params": [
+                "13",
+                ""
+            ],
+            "id": 141
+        },
+        {
+            "method": "ptt_mcast_name",
+            "params": [
+                "14",
+                ""
+            ],
+            "id": 142
+        },
+        {
+            "method": "ptt_mcast_name",
+            "params": [
+                "15",
+                ""
+            ],
+            "id": 143
+        },
+        {
+            "method": "ptt_vox",
+            "id": 144,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "ptt_beep_volume",
+            "id": 145,
+            "params": [
+                "100"
+            ]
+        },
+        {
+            "method": "ptt_notification_volume",
+            "id": 146,
+            "params": [
+                "100"
+            ]
+        },
+        {
+            "method": "ptt_collision_detect",
+            "id": 147,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "ptt_active_mcast_group",
+            "id": 148,
+            "params": [
+                "0_0"
+            ]
+        },
+        {
+            "method": "ptt_audio_encoder_type",
+            "id": 149,
+            "params": [
+                "2"
+            ]
+        },
+        {
+            "method": "opus_rate",
+            "id": 150,
+            "params": [
+                "30000"
+            ]
+        },
+        {
+            "method": "ptt_aggr_delay",
+            "id": 151,
+            "params": [
+                "180"
+            ]
+        },
+        {
+            "method": "enc_rf_auth_key",
+            "id": 152,
+            "params": [
+                "1234567812345678123456781234567812345678123456781234567812345678"
+            ]
+        },
+        {
+            "method": "host_key",
+            "id": 153,
+            "params": [
+                "-----BEGIN EC PRIVATE KEY-----\nMIHcAgEBBEIBJ+StZ26PNuAbKd9tp5PWqZYQvtnL/ZektlcFEahPMyg3jcnfsZNw\nnnyOrnS2Mxz4QeJvzclPSm/ISN1NHDB5sn2gBwYFK4EEACOhgYkDgYYABAE6lz0Q\n17J8VCqXcyXoNlbW9rBX68jEVJxAA7ZWENIgKCtKCIVxk34JJldjZ0yBzlx/Ic4S\nakDdHf8r1906+tOQNAH8y/gCCNnHTh9d6sJ6CQpf91AdydrY0nIVf2BJHTRRsjmz\nKX+kXkyHuYKdchOuC/EVXJ3g8M4eFo85d8KISevarA==\n-----END EC PRIVATE KEY-----"
+            ]
+        },
+        {
+            "method": "tls_cert",
+            "id": 154,
+            "params": [
+                "-----BEGIN CERTIFICATE-----\nMIIBvTCCAWOgAwIBAgIUEPa+EzMr3LgAOSPlYgqOr2lzeowwCgYIKoZIzj0EAwMw\nMzELMAkGA1UEBhMCVVMxEzARBgNVBAgMClNvbWUtU3RhdGUxDzANBgNVBAoMBlNp\nbHZ1czAgFw0yMjAxMjEyMDU3MDVaGA8yMjk1MTEwNjIwNTcwNVowMzELMAkGA1UE\nBhMCVVMxEzARBgNVBAgMClNvbWUtU3RhdGUxDzANBgNVBAoMBlNpbHZ1czBZMBMG\nByqGSM49AgEGCCqGSM49AwEHA0IABJ6rPXLGnSGqf3wyD3chhYI/AybhZodfh8rP\nrEYzVd9AtVX/6ebnH/CXKihqEwdLpH4C5GhmenE33uqXdRuSVK6jUzBRMB0GA1Ud\nDgQWBBTOJHaK0kdDAD9JjXOh3otd0CLVPjAfBgNVHSMEGDAWgBTOJHaK0kdDAD9J\njXOh3otd0CLVPjAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMDA0gAMEUCIQDy\n84cO+UmI3WuQmTL+KIC9UWRFNf8P3ulGV/94j+1miQIgT7UYXSDZApatX2ml70Y5\nFokqpLRhflqnD9tvhAySHaU=\n-----END CERTIFICATE-----\n-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIOiuketlRY/ynyLAHqQk6bEVkExt+QDkJideyfn6OUGQoAoGCCqGSM49\nAwEHoUQDQgAEnqs9csadIap/fDIPdyGFgj8DJuFmh1+Hys+sRjNV30C1Vf/p5ucf\n8JcqKGoTB0ukfgLkaGZ6cTfe6pd1G5JUrg==\n-----END EC PRIVATE KEY-----\n"
+            ]
+        },
+        {
+            "method": "list_ssh_keys",
+            "id": 155,
+            "params": []
+        },
+        {
+            "method": "mps_profile",
+            "id": 156,
+            "params": {
+                "1": {
+                    "original": {
+                        "aggr_thresh": "1600",
+                        "burst_time": "10000",
+                        "bw": "20",
+                        "freq": "2410",
+                        "max_link_distance": "1000",
+                        "max_speed": "0",
+                        "nw_name": "RoboScout",
+                        "power_mw": "1000",
+                        "ptt_mcast_group": [
+                            "0",
+                            "239.0.0.190"
+                        ],
+                        "ptt_speaker_vol": "80",
+                        "radio_mode": "0",
+                        "routing_beacon_mcs": "0",
+                        "routing_beacon_period": "100"
+                    }
+                },
+                "group": "custom",
+                "group_types": {
+                    "custom": {
+                        "freq_bw": 1,
+                        "nw_name": 1,
+                        "ptt_mcast_group": 1,
+                        "ptt_speaker_vol": 1
+                    }
+                },
+                "version": "2.0"
+            }
+        },
+        {
+            "method": "mps_disable",
+            "id": 157,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "mps_pos_override",
+            "id": 158,
+            "params": [
+                "-1"
+            ]
+        },
+        {
+            "method": "wb_list_type",
+            "id": 159,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "white_list",
+            "id": 160,
+            "params": [
+                ""
+            ]
+        },
+        {
+            "method": "black_list",
+            "id": 161,
+            "params": [
+                ""
+            ]
+        },
+        {
+            "method": "ptt_gpio_pin_mode",
+            "id": 162,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "ptt_active_2_mcast_group",
+            "id": 163,
+            "params": [
+                "_"
+            ]
+        },
+        {
+            "method": "ptt_active_3_mcast_group",
+            "id": 164,
+            "params": [
+                ""
+            ]
+        },
+        {
+            "method": "stdsa_freq_config",
+            "id": 165,
+            "params": [
+                "1",
+                "5",
+                "2430",
+                "2450",
+                "2470",
+                "2490",
+                ""
+            ]
+        },
+        {
+            "method": "stdsa_camp_freq_selection_mode",
+            "id": 166,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "stdsa_camp_freq_fixed_index",
+            "id": 167,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "enc_rf_bcast_auth_key",
+            "id": 168,
+            "params": [
+                "2345678123456781234567812345678123456781234567812345678123456781"
+            ]
+        },
+        {
+            "method": "num_retx_hp",
+            "id": 169,
+            "params": [
+                "20"
+            ]
+        },
+        {
+            "method": "num_retx_hp2",
+            "id": 170,
+            "params": [
+                "20"
+            ]
+        },
+        {
+            "method": "mcs_hp",
+            "id": 171,
+            "params": [
+                "255"
+            ]
+        },
+        {
+            "method": "mcs_hp2",
+            "id": 172,
+            "params": [
+                "255"
+            ]
+        },
+        {
+            "method": "mcast_mhop_mode",
+            "id": 173,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "mcast_ldpc_puncture_rate",
+            "id": 174,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "gps_config",
+            "id": 175,
+            "params": [
+                "serial_10001"
+            ]
+        },
+        {
+            "method": "mesh_dhcp_block_enable",
+            "id": 176,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "mesh_node_type",
+            "id": 177,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "mesh_failover_mode",
+            "id": 178,
+            "params": [
+                "2"
+            ]
+        },
+        {
+            "method": "mobile_lte_failover_snr_thresh",
+            "id": 179,
+            "params": [
+                "-5"
+            ]
+        },
+        {
+            "method": "routing_beacon_max_air_pct",
+            "id": 180,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "wan_backbone_advertised_snr",
+            "id": 181,
+            "params": [
+                "-5"
+            ]
+        },
+        {
+            "method": "mcast_one_receiver_enable",
+            "id": 182,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "idle_timeout",
+            "id": 183,
+            "params": [
+                "300"
+            ]
+        },
+        {
+            "method": "gui_idle_timeout",
+            "id": 184,
+            "params": [
+                "5"
+            ]
+        },
+        {
+            "method": "locked_timeout",
+            "id": 185,
+            "params": [
+                "60"
+            ]
+        },
+        {
+            "method": "max_auths",
+            "id": 186,
+            "params": [
+                "3"
+            ]
+        },
+        {
+            "method": "disable_concurrent_sessions",
+            "id": 187,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "notice_of_use",
+            "id": 188,
+            "params": [
+                "Unauthorized or improper use of this system may result in administrative                 disciplinary action, civil charges/criminal penalties, and/or other                 sanctions. By continuing to use this system you indicate your awareness                 of and consent to these terms and conditions of use."
+            ]
+        },
+        {
+            "method": "console_notice_enable",
+            "id": 189,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "enable_api_logs",
+            "id": 190,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "mcast_xor_auto_mcs_lower_bound",
+            "id": 191,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "routing_proto",
+            "id": 192,
+            "params": [
+                "path_vector"
+            ]
+        },
+        {
+            "method": "vlan_rf_filter",
+            "id": 193,
+            "params": [
+                ""
+            ]
+        },
+        {
+            "method": "use_wifi_gps_dongle",
+            "id": 194,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "led_brightness",
+            "id": 195,
+            "params": [
+                "4"
+            ]
+        },
+        {
+            "method": "bcast_discovery_config",
+            "id": 196,
+            "params": [
+                "0",
+                "1000",
+                "255.255.255.255",
+                "20000",
+                "20000",
+                "FF:FF:FF:FF:FF:FF"
+            ]
+        },
+        {
+            "method": "default_mcast_algo",
+            "id": 197,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "legacy_mcast_group_list",
+            "id": 198,
+            "params": [
+                ""
+            ]
+        },
+        {
+            "method": "mcast_xor_dscp_list",
+            "id": 199,
+            "params": [
+                ""
+            ]
+        },
+        {
+            "method": "mcast_legacy_dscp_list",
+            "id": 200,
+            "params": [
+                ""
+            ]
+        },
+        {
+            "method": "intf_engine_disable",
+            "id": 201,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "intf_engine_mode_disable",
+            "id": 202,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "intf_engine_memory_disable",
+            "id": 203,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "enable_password_complexity",
+            "id": 204,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "min_password_length",
+            "id": 205,
+            "params": [
+                "5"
+            ]
+        },
+        {
+            "method": "min_password_change",
+            "id": 206,
+            "params": [
+                "3"
+            ]
+        },
+        {
+            "method": "enc_wrap_key",
+            "id": 207,
+            "params": [
+                "4567812345678123456781234567812345678123456781234567812345678123"
+            ]
+        },
+        {
+            "method": "enc_hmac_key",
+            "id": 208,
+            "params": [
+                "3456781234567812345678123456781234567812345678123456781234567812"
+            ]
+        },
+        {
+            "method": "beamform_enable",
+            "id": 209,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "quick_zeroize",
+            "id": 210,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "quick_zeroize_delay",
+            "id": 211,
+            "params": [
+                "2"
+            ]
+        },
+        {
+            "method": "wan_backbone_crypto_enable",
+            "id": 212,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "ssh_service_disable",
+            "id": 213,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "send_log_to",
+            "id": 214,
+            "params": [
+                ""
+            ]
+        },
+        {
+            "method": "prioritize_ping",
+            "id": 215,
+            "params": [
+                "5"
+            ]
+        },
+        {
+            "method": "aifs_multiplier",
+            "params": [
+                "5",
+                "3"
+            ],
+            "id": 216
+        },
+        {
+            "method": "aifs_multiplier",
+            "params": [
+                "6",
+                "2"
+            ],
+            "id": 217
+        },
+        {
+            "method": "aifs_multiplier",
+            "params": [
+                "7",
+                "1"
+            ],
+            "id": 218
+        },
+        {
+            "method": "sifs_increment_us",
+            "id": 219,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "wan_arq_window",
+            "id": 220,
+            "params": [
+                "2"
+            ]
+        },
+        {
+            "method": "pcm_mode",
+            "id": 221,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "mania_penalties",
+            "id": 222,
+            "params": [
+                "-1",
+                "-1",
+                "-1",
+                "-1",
+                "-1",
+                "-1"
+            ]
+        },
+        {
+            "method": "connection_watchdog_enable",
+            "id": 223,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "connection_watchdog_timeout",
+            "id": 224,
+            "params": [
+                "3600"
+            ]
+        },
+        {
+            "method": "ptt_vox_delay",
+            "id": 225,
+            "params": [
+                "100000"
+            ]
+        },
+        {
+            "method": "ptt_vox_threshold_dB",
+            "id": 226,
+            "params": [
+                "-20"
+            ]
+        },
+        {
+            "method": "ptt_filter_band_reject",
+            "id": 227,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "ptt_filter_upper_frequency",
+            "id": 228,
+            "params": [
+                "5000"
+            ]
+        },
+        {
+            "method": "ptt_filter_lower_frequency",
+            "id": 229,
+            "params": [
+                "2000"
+            ]
+        },
+        {
+            "method": "silent_mode",
+            "id": 230,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "silent_radio_wakeup_enable",
+            "id": 231,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "igmp_send_to_all_queriers",
+            "id": 232,
+            "params": [
+                "0"
+            ]
+        },
+        {
+            "method": "unauthenticated_reset_enable",
+            "id": 233,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "aggr_delay_high",
+            "id": 234,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "aggr_delay_normal",
+            "id": 235,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "aggr_delay_critical",
+            "id": 236,
+            "params": [
+                "1"
+            ]
+        },
+        {
+            "method": "dual_freq_enable",
+            "id": 237,
+            "params": [
+                "0"
+            ]
+        }
+    ]
+}
