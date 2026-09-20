@@ -31,8 +31,8 @@ die()  { echo "[mavros-patch] ERROR: $*" >&2; exit 1; }
     die "submodules/mavros is empty. Run: git submodule update --init submodules/mavros"
 [[ -d "$SUBMODULES/angles/angles" ]] || \
     die "submodules/angles is empty. Run: git submodule update --init submodules/angles"
-[[ -d "$SUBMODULES/geographic_msgs" ]] || \
-    die "submodules/geographic_msgs is empty. Stage the pinned geographic_info source"
+[[ -d "$SUBMODULES/geographic_info/geographic_msgs" ]] || \
+    die "submodules/geographic_info is empty. Run: git submodule update --init submodules/geographic_info"
 
 # The patch is written against a specific MAVROS release. If the submodule moves
 # and the apt package does not, the overlay would silently replace the installed
@@ -58,7 +58,7 @@ for pkg in mavros angles; do
     rm -rf "$WS/src/$pkg/.git"
 done
 rm -rf "$WS/src/geographic_msgs"
-cp -a "$SUBMODULES/geographic_msgs" "$WS/src/geographic_msgs"
+cp -a "$SUBMODULES/geographic_info/geographic_msgs" "$WS/src/geographic_msgs"
 rm -rf "$WS/src/geographic_msgs/.git"
 
 # Build the complete pinned source set, including mavros_extras. The gimbal
