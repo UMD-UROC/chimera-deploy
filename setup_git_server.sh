@@ -429,6 +429,9 @@ cmd_sync() {
       wait "$ground_pid" || ground_rc=$?
       [ "$ground_rc" = 0 ] || rc=1
       ground_done=1
+      if [ -n "${SYNC_UI:-}" ]; then
+        [ "$ground_rc" = 0 ] && echo "[ground] DONE" || echo "[ground] ERROR"
+      fi
       if [ "$ground_rc" != 0 ]; then
         echo "  [sync] ground error log:"
       fi
@@ -788,6 +791,8 @@ cmd_push() {
     kill "${log_tails[$index]}" 2>/dev/null || true
     if [ "$rc" != 0 ]; then
       echo "[${clients[$index]}] ERROR (see the preceding live lines)"
+    elif [ -n "${SYNC_UI:-}" ]; then
+      echo "[${clients[$index]}] DONE"
     fi
     [ -n "${SYNC_CLIENT_LOG_DIR:-}" ] || rm -f "${logs[$index]}"
     if [ "$rc" = 0 ]; then
