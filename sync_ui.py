@@ -26,6 +26,11 @@ BOXES = ("stage", "ground", *CLIENTS)
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b[=>]")
 
 
+def display_name(host: str) -> str:
+    match = re.fullmatch(r"10\.200\.142\.6(\d+)", host)
+    return f"uas{match.group(1)}" if match else host
+
+
 def main() -> int:
     args = sys.argv[1:]
     if not args or args[0] != "sync":
@@ -159,7 +164,7 @@ def build(stage: str, panes: dict[str, deque[str]], task_started: dict[str, floa
     drones.add_column(ratio=1)
     drone_panels = []
     for host in CLIENTS:
-        panels[host] = Panel(card(host, panes[host], task_started.get(host), task_started_wall.get(host), task_finished.get(host), stage, raw_lines, ui["scroll"][host]), title=host, height=panel_height, border_style="bright_white" if selected_name == host else "green")
+        panels[host] = Panel(card(host, panes[host], task_started.get(host), task_started_wall.get(host), task_finished.get(host), stage, raw_lines, ui["scroll"][host]), title=display_name(host), height=panel_height, border_style="bright_white" if selected_name == host else "green")
         drone_panels.append(panels[host])
     selected = ui["maximized"] if ui["maximized"] is not None else None
     if selected is not None:
@@ -170,7 +175,7 @@ def build(stage: str, panes: dict[str, deque[str]], task_started: dict[str, floa
             title = "setup"
         else:
             content = card(selected, panes[selected], task_started.get(selected), task_started_wall.get(selected), task_finished.get(selected), stage, max_raw, ui["scroll"][selected])
-            title = selected
+            title = display_name(selected)
         return Group(progress, Panel(content, title=title, height=max_height, border_style="bright_white"), footer(ui))
     for index in range(0, len(drone_panels), 2):
         drones.add_row(drone_panels[index], drone_panels[index + 1] if index + 1 < len(drone_panels) else "")
