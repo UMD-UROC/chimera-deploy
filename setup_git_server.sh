@@ -754,10 +754,10 @@ cmd_push() {
   local -a clients=() jobs=() logs=() log_tails=()
   for ip in "${CLIENTS[@]}"; do
     if ! ping -c1 -W1 "$ip" >/dev/null 2>&1; then
-      say "$ip"
-      warn "unreachable - skipped"
+      if [ -n "${SYNC_CLIENT_LOG_DIR:-}" ]; then
+        printf 'OFFLINE - not reachable; skipped\n' >"$SYNC_CLIENT_LOG_DIR/$ip.log"
+      fi
       sync_status "$ip: UNREACHABLE"
-      failed=1
       continue
     fi
     clients+=("$ip")
