@@ -35,13 +35,21 @@ def main() -> int:
     panes["stage"] = deque(maxlen=3)
     stage = "starting"
     active = "stage"
-    with Live(build(stage, panes), refresh_per_second=8, transient=False) as live:
+    total_started = time.monotonic()
+    task_started: dict[str, float] = {}
+    stage_started: dict[str, float] = {}
+    errors: list[str] = []
+    with Live(build(stage, panes, task_started), refresh_per_second=8, transient=False) as live:
         for raw in proc.stdout or ():
             line = ANSI.sub("", raw.replace("\r", "")).rstrip()
             if not line:
                 continue
             match = re.search(r"stage (\d/5): (.*)", line)
             if match:
+                if stage in stage_started and stage_started[stage] < 0:
+                    stage_started[stage] = time.monotonic()
+                stage_key = match.group(1)
+                stage_started.setdefault(stage_key, time.monotonic())
                 stage = f"{match.group(1)} {match.group(2)}"
                 active = "stage"
             elif line.strip() == "ground":
@@ -55,29 +63,39 @@ def main() -> int:
                 panes[host].append(text.strip())
             else:
                 panes[active].append(line)
-            live.update(build(stage, panes))
+            task_started.setdefault(active, time.monotonic())
+            if "ERROR" in line.upper() or "FAILED" in line.upper():
+                errors.append(line)
+            live.update(build(stage, panes, task_started))
         rc = proc.wait()
         panes["stage"].append("DONE" if rc == 0 else f"FAILED (exit {rc})")
-        live.update(build(stage, panes))
+        live.update(build(stage, panes, task_started))
+    elapsed = time.monotonic() - total_started
+    print(f"sync total: {format_elapsed(elapsed)}")
+    for name, started in stage_started.items():
+        print(f"stage {name}: {format_elapsed(elapsed - (started - total_started))}")
+    if errors:
+        print("sync errors:")
+        print("\n".join(errors))
     return rc
 
 
-def build(stage: str, panes: dict[str, deque[str]]) -> Group:
+def build(stage: str, panes: dict[str, deque[str]], task_started: dict[str, float]) -> Group:
     progress = Text(f"sync: {stage}", style="bold cyan", no_wrap=True)
-    stage_panel = Panel(card("overall sync progress", panes["stage"]), title="stages", height=5, border_style="cyan")
-    ground_panel = Panel(card("ground build and restart", panes["ground"]), title="ground", height=5, border_style="yellow")
+    stage_panel = Panel(card("overall sync progress", panes["stage"], task_started.get("stage")), title="stages", height=5, border_style="cyan")
+    ground_panel = Panel(card("ground build and restart", panes["ground"], task_started.get("ground")), title="ground", height=5, border_style="yellow")
     drones = Table.grid(expand=True)
     drones.add_column(ratio=1)
     drones.add_column(ratio=1)
     drone_panels = []
     for host in CLIENTS:
-        drone_panels.append(Panel(card("source sync and rebuild", panes[host]), title=host, height=5, border_style="green"))
+        drone_panels.append(Panel(card("source sync and rebuild", panes[host], task_started.get(host)), title=host, height=5, border_style="green"))
     for index in range(0, len(drone_panels), 2):
         drones.add_row(drone_panels[index], drone_panels[index + 1] if index + 1 < len(drone_panels) else "")
     return Group(progress, stage_panel, ground_panel, drones)
 
 
-def card(purpose: str, lines: deque[str]) -> str:
+def card(purpose: str, lines: deque[str], started: float | None) -> str:
     raw = lines[-1] if lines else "waiting"
     upper = raw.upper()
     if "OFFLINE" in upper:
@@ -90,7 +108,15 @@ def card(purpose: str, lines: deque[str]) -> str:
         state = "WAITING"
     else:
         state = "RUNNING"
-    return f"{purpose}\n{state}  {time.strftime('%H:%M:%S')}\n{raw}"
+    timing = ""
+    if started is not None:
+        timing = f"{time.strftime('%H:%M:%S')}  +{format_elapsed(time.monotonic() - started)}"
+    return f"{purpose}\n{state}{('  ' + timing) if timing else ''}\n{raw}"
+
+
+def format_elapsed(seconds: float) -> str:
+    seconds = max(0, int(seconds))
+    return f"{seconds // 60:02d}:{seconds % 60:02d}"
 
 
 if __name__ == "__main__":
