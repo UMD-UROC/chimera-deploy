@@ -299,31 +299,16 @@ cmd_sync() {
     fi
 
     if [ "$do_local" = 1 ]; then
-      sync_local_worktrees 1 "$push_new"
+      sync_local_worktrees_parallel 1 "$push_new"
     fi
 
-    say "refreshing mirrors in $SERVE_ROOT"
-    local d
-    for d in "$SERVE_ROOT"/*.git; do
-      [ -d "$d" ] || continue
-      [ -L "$d" ] && continue
-      printf '  %-22s ' "$(basename "$d")"
-      # A mirror clone normally has +refs/*:refs/* configured, but make the
-      # GitHub -> mirror contract explicit here. This refreshes every GitHub
-      # branch and tag, not just whatever branch the laptop has checked out.
-      if git -C "$d" fetch --quiet origin "+refs/heads/*:refs/heads/*" \
-             "+refs/tags/*:refs/tags/*"; then
-        echo "ok"
-      else
-        echo "FAILED"
-      fi
-    done
+    sync_mirrors_parallel
   elif [ "$do_push" = 1 ]; then
     warn "GitHub unreachable - skipping the mirror refresh, pushing what we have"
     # the mirrors still hold whatever the drones pushed over the LAN, so the
     # laptop can pick those up without wifi
     if [ "$do_local" = 1 ]; then
-      sync_local_worktrees 0 "$push_new"
+      sync_local_worktrees_parallel 0 "$push_new"
     fi
   else
     die "GitHub unreachable - connect to wifi first"
@@ -332,6 +317,9 @@ cmd_sync() {
   local clients_pid='' ground_pid='' clients_log='' ground_log='' status_log='' rc=0
   local clients_done=0 ground_done=0 status_lines=0
   local client_file=''
+  local dashboard_width=120 line='' dashboard_lines=0
+  dashboard_width="$(tput cols 2>/dev/null || echo 120)"
+  [ "$dashboard_width" -gt 20 ] || dashboard_width=120
   status_log="$(mktemp -t chimera-sync-status.XXXXXX)"
   export SYNC_CLIENT_LOG_DIR="$(mktemp -d -t chimera-sync-client-logs.XXXXXX)"
   export SYNC_STATUS_FILE="$status_log"
@@ -361,12 +349,18 @@ cmd_sync() {
   # but retain the full logs until each group has finished so Docker output
   # remains readable instead of interleaving across hosts.
   while [ "$clients_done" = 0 ] || [ "$ground_done" = 0 ]; do
-    printf '\033[2J\033[H'
+    printf '\033[H\033[J'
     echo "sync progress"
     echo "----------------"
     printf 'ground\n'
     if [ -n "$ground_log" ] && [ -s "$ground_log" ]; then
-      tail -n 5 "$ground_log"
+      dashboard_lines=0
+      while IFS= read -r line; do
+        line="$(printf '%s' "$line" | sed $'s/\033\\[[0-9;]*[[:alpha:]]//g; s/\r/ /g')"
+        printf '%.*s\n' "$dashboard_width" "$line"
+        dashboard_lines=$((dashboard_lines + 1))
+      done < <(tail -n 5 "$ground_log")
+      [ "$dashboard_lines" -ge 5 ] || printf '  waiting\n%.0s' $(seq $((5 - dashboard_lines)))
     else
       printf '  waiting\n%.0s' {1..5}
     fi
@@ -374,7 +368,13 @@ cmd_sync() {
       printf '%s\n' "$ip"
       client_file="${SYNC_CLIENT_LOG_DIR:-}/$ip.log"
       if [ -s "$client_file" ]; then
-        tail -n 5 "$client_file"
+        dashboard_lines=0
+        while IFS= read -r line; do
+          line="$(printf '%s' "$line" | sed $'s/\033\\[[0-9;]*[[:alpha:]]//g; s/\r/ /g')"
+          printf '%.*s\n' "$dashboard_width" "$line"
+          dashboard_lines=$((dashboard_lines + 1))
+        done < <(tail -n 5 "$client_file")
+        [ "$dashboard_lines" -ge 5 ] || printf '  waiting\n%.0s' $(seq $((5 - dashboard_lines)))
       else
         printf '  waiting\n%.0s' {1..5}
       fi
@@ -451,6 +451,51 @@ cmd_sync() {
 # Fast-forwards only, and never touches a dirty tree. The laptop is where the
 # real work happens; nothing here may cost an uncommitted edit.
 ###############################################################################
+sync_local_worktrees_parallel() {
+  local online="$1" push_new="$2" entry name log pid rc=0
+  local -a pids=() names=() logs=()
+  for entry in "${REPOS[@]}"; do
+    IFS='|' read -r name _ _ <<< "$entry"
+    log="$(mktemp -t "chimera-sync-local-$name.XXXXXX")"
+    (REPOS=("$entry"); sync_local_worktrees "$online" "$push_new") >"$log" 2>&1 &
+    pids+=("$!"); names+=("$name"); logs+=("$log")
+  done
+  for entry in "${!pids[@]}"; do
+    rc=0; wait "${pids[$entry]}" || rc=$?
+    if [ "$rc" != 0 ]; then
+      echo "laptop ${names[$entry]}: FAILED"
+      cat "${logs[$entry]}"
+      return "$rc"
+    fi
+    rm -f "${logs[$entry]}"
+  done
+}
+
+sync_mirrors_parallel() {
+  local d name log rc
+  local -a pids=() names=() logs=()
+  say "refreshing mirrors in $SERVE_ROOT (parallel)"
+  for d in "$SERVE_ROOT"/*.git; do
+    [ -d "$d" ] || continue
+    [ -L "$d" ] && continue
+    name="$(basename "$d")"
+    log="$(mktemp -t "chimera-sync-mirror-$name.XXXXXX")"
+    (git -C "$d" fetch --quiet origin "+refs/heads/*:refs/heads/*" \
+       "+refs/tags/*:refs/tags/*") >"$log" 2>&1 &
+    pids+=("$!"); names+=("$name"); logs+=("$log")
+  done
+  for d in "${!pids[@]}"; do
+    rc=0; wait "${pids[$d]}" || rc=$?
+    if [ "$rc" != 0 ]; then
+      echo "mirror ${names[$d]}: FAILED"
+      cat "${logs[$d]}"
+      return "$rc"
+    fi
+    rm -f "${logs[$d]}"
+  done
+  echo "  all mirrors refreshed"
+}
+
 sync_local_worktrees() {
   local online="$1" push_new="$2"
   say "syncing the laptop working copies"
