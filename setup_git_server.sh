@@ -285,7 +285,7 @@ cmd_sync() {
   local setup_scenes_log setup_deploy_log setup_scenes_pid setup_deploy_pid setup_rc=0
   setup_scenes_log="$(mktemp -t chimera-sync-scenes.XXXXXX)"
   setup_deploy_log="$(mktemp -t chimera-sync-deploy.XXXXXX)"
-  (cmd_scenes >"$setup_scenes_log" 2>&1) & setup_scenes_pid=$!
+  (SCENES_DEFER_RESTART=1 cmd_scenes >"$setup_scenes_log" 2>&1) & setup_scenes_pid=$!
   (cmd_deploy >"$setup_deploy_log" 2>&1) & setup_deploy_pid=$!
   wait "$setup_scenes_pid" || { setup_rc=1; echo "scene synchronization failed:"; cat "$setup_scenes_log"; }
   wait "$setup_deploy_pid" || { setup_rc=1; echo "drone configuration failed:"; cat "$setup_deploy_log"; }
@@ -825,6 +825,50 @@ refresh_local_stack() {
   (cd "$stack" && ./px4sim restart)
 }
 
+sync_scenario_to_client() {
+  local ip="$1" rhome="$2" scene scenario result
+  local ground_env="$HOME/px4-sim-stack/.env"
+  [ -r "$ground_env" ] || { warn "ground .env is missing - cannot sync scenario"; return 1; }
+  scene="$(sed -n 's/^SCENE=//p' "$ground_env" | head -1)"
+  scenario="$(sed -n 's/^SCENARIO=//p' "$ground_env" | head -1)"
+  [[ "$scene" =~ ^[A-Za-z0-9_-]+$ && "$scenario" =~ ^[A-Za-z0-9_-]+$ ]] || {
+    warn "ground .env has invalid SCENE or SCENARIO"; return 1;
+  }
+
+  result="$(ssh -o BatchMode=yes -o ConnectTimeout=5 "$SERVER_USER@$ip" "
+    env_file='$rhome/px4-sim-stack/.env'
+    [ -f \"\$env_file\" ] || exit 1
+    old_scene=\"\$(sed -n 's/^SCENE=//p' \"\$env_file\" | head -1)\"
+    old_scenario=\"\$(sed -n 's/^SCENARIO=//p' \"\$env_file\" | head -1)\"
+    changed=0
+    if [ \"\$old_scene\" != '$scene' ]; then
+      if grep -q '^SCENE=' \"\$env_file\"; then
+        sed -i 's|^SCENE=.*|SCENE=$scene|' \"\$env_file\"
+      else
+        printf '\\nSCENE=$scene\\n' >>\"\$env_file\"
+      fi
+      changed=1
+    fi
+    if [ \"\$old_scenario\" != '$scenario' ]; then
+      if grep -q '^SCENARIO=' \"\$env_file\"; then
+        sed -i 's|^SCENARIO=.*|SCENARIO=$scenario|' \"\$env_file\"
+      else
+        printf 'SCENARIO=$scenario\\n' >>\"\$env_file\"
+      fi
+      changed=1
+    fi
+    printf '%s' \"\$changed\"
+  " 2>/dev/null)" || {
+    warn "$ip: could not sync SCENE/SCENARIO"; return 1;
+  }
+  if [ "$result" = 1 ]; then
+    echo "  scenario: updated SCENE=$scene SCENARIO=$scenario"
+    return 2
+  fi
+  echo "  scenario: already SCENE=$scene SCENARIO=$scenario"
+  return 0
+}
+
 push_to_client() {
   local ip="$1" subs="$2" desired_branch="$3"
   local ssh_opts=(-o BatchMode=yes -o ConnectTimeout=5)
@@ -922,6 +966,16 @@ push_to_client() {
     fi
   done
 
+  # Keep the onboard selectors aligned even when no repository changed. A
+  # scenario-only change must still trigger the same restart as a code change.
+  if ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
+      "test -f '$rhome/.px4sim-sync-restart-needed'"; then
+    restart_required=1
+  fi
+  sync_scenario_to_client "$ip" "$rhome" || {
+    [ "$?" = 2 ] && restart_required=1 || return 1
+  }
+
   if [ "$restart_required" = 1 ]; then
     [ -n "${SYNC_UI:-}" ] && echo "BUILD_START"
     sync_status "$ip: REBUILDING"
@@ -931,6 +985,10 @@ push_to_client() {
       warn "$ip: px4sim restart failed after sync"
       return 1
     fi
+    ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
+      "rm -f '$rhome/.px4sim-sync-restart-needed'" || {
+      warn "$ip: could not clear deferred restart marker"; return 1;
+    }
   else
     echo "  no repository updates; stack left running"
   fi
@@ -1177,10 +1235,29 @@ scenes_to_client() {
     "ls ~/$SCENES_REL/worlds/*_surface.json 2>/dev/null | wc -l")
   echo "  $count scenes"
 
-  if [ "$changed" = 1 ]; then
-    say "$ip: scene files changed; rebuilding and restarting through px4sim"
-    ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
-      "cd ~/px4-sim-stack && ./px4sim restart" || { warn "scene-triggered px4sim restart failed"; return 1; }
+  local rhome scenario_changed=0
+  rhome="$(ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" 'echo "$HOME"' 2>/dev/null)" || {
+    warn "$ip: could not read remote home for scenario sync"; return 1;
+  }
+  if sync_scenario_to_client "$ip" "$rhome"; then
+    :
+  else
+    local scenario_rc=$?
+    [ "$scenario_rc" = 2 ] && scenario_changed=1 || return 1
+  fi
+
+  if [ "$changed" = 1 ] || [ "$scenario_changed" = 1 ]; then
+    if [ "${SCENES_DEFER_RESTART:-0}" = 1 ]; then
+      ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
+        "touch '$rhome/.px4sim-sync-restart-needed'" || {
+        warn "$ip: could not defer px4sim restart"; return 1;
+      }
+      echo "  restart: deferred until sync completes"
+    else
+      say "$ip: scene or scenario changed; restarting through px4sim"
+      ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
+        "cd '$rhome/px4-sim-stack' && ./px4sim restart" || { warn "scene-triggered px4sim restart failed"; return 1; }
+    fi
   else
     echo "  scene files unchanged; stack left running"
   fi
