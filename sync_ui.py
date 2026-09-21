@@ -38,8 +38,8 @@ def main() -> int:
     total_started = time.monotonic()
     total_started_wall = time.time()
     total_finished: float | None = None
-    task_started: dict[str, float] = {}
-    task_started_wall: dict[str, float] = {}
+    task_started: dict[str, float] = {"stage": total_started}
+    task_started_wall: dict[str, float] = {"stage": total_started_wall}
     task_finished: dict[str, float] = {}
     stage_started: dict[str, float] = {}
     errors: list[str] = []
@@ -59,9 +59,6 @@ def main() -> int:
                 if stage_key == "5/5":
                     task_finished["stage"] = now
                     panes["stage"].append("DONE")
-                elif "stage" not in task_started:
-                    task_started["stage"] = now
-                    task_started_wall["stage"] = time.time()
                 if stage in stage_started and stage_started[stage] < 0:
                     stage_started[stage] = time.monotonic()
                 stage_started.setdefault(stage_key, time.monotonic())
@@ -90,7 +87,7 @@ def main() -> int:
             if event_key == "stage" and event_key not in task_started:
                 task_started[event_key] = time.monotonic()
                 task_started_wall[event_key] = time.time()
-            elif machine_event and task_start:
+            elif machine_event and task_start and event_key not in task_started:
                 task_started[event_key] = time.monotonic()
                 task_started_wall[event_key] = time.time()
                 task_finished.pop(event_key, None)
@@ -99,7 +96,7 @@ def main() -> int:
                 task_started.pop(event_key, None)
                 task_started_wall.pop(event_key, None)
                 task_finished.pop(event_key, None)
-            elif any(word in event_upper for word in ("DONE", "ERROR", "FAILED")):
+            elif event_upper in ("DONE", "ERROR") or event_upper.startswith("ERROR "):
                 task_finished.setdefault(event_key, time.monotonic())
             if "ERROR" in line.upper() or "FAILED" in line.upper():
                 errors.append(line)
@@ -149,7 +146,7 @@ def card(kind: str, lines: deque[str], started: float | None,
         state = "OFFLINE"
     elif "FAILED" in upper or "ERROR" in upper:
         state = "ERROR"
-    elif upper == "DONE" or "SUCCESS" in upper or "COMPLETE" in upper:
+    elif upper in ("DONE", "SUCCESS", "COMPLETE"):
         state = "DONE"
     elif raw == "waiting":
         state = "WAITING"
