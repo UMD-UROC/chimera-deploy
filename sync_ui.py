@@ -30,6 +30,7 @@ def main() -> int:
         text=True, bufsize=1,
     )
     panes: dict[str, deque[str]] = defaultdict(lambda: deque(maxlen=5))
+    panes["stage"] = deque(maxlen=20)
     stage = "starting"
     with Live(build(stage, panes), refresh_per_second=8, transient=False) as live:
         for raw in proc.stdout or ():
