@@ -344,7 +344,7 @@ cmd_sync() {
     (cmd_push --branch "$branch" $([ "$subs" = 1 ] && echo --submodules)) >"$clients_log" 2>&1 &
     clients_pid=$!
     if [ -n "${SYNC_UI:-}" ]; then
-      for ip in "${CLIENTS[@]}"; do echo "[$ip] START"; done
+      for ip in "${CLIENTS[@]}"; do echo "[$ip] SYNC_START"; done
     fi
   else
     echo
@@ -358,7 +358,7 @@ cmd_sync() {
      refresh_local_stack && sync_status 'ground: SUCCESS' || {
       sync_status 'ground: FAILURE (see ground build log)'; exit 1; }) >"$ground_log" 2>&1 &
     ground_pid=$!
-    [ -n "${SYNC_UI:-}" ] && echo "[ground] START"
+    [ -n "${SYNC_UI:-}" ] && echo "[ground] BUILD_START"
   fi
   [ -n "$clients_pid" ] || clients_done=1
   [ -n "$ground_pid" ] || ground_done=1
@@ -368,7 +368,8 @@ cmd_sync() {
   # remains readable instead of interleaving across hosts.
   while [ "$clients_done" = 0 ] || [ "$ground_done" = 0 ]; do
     if [ -n "${SYNC_UI:-}" ]; then
-      [ -n "$ground_log" ] && [ -s "$ground_log" ] && echo "[ground] $(tail -n 1 "$ground_log")"
+      [ "$ground_done" = 0 ] && [ -n "$ground_log" ] && [ -s "$ground_log" ] \
+        && echo "[ground] $(tail -n 1 "$ground_log")"
       for ip in "${CLIENTS[@]}"; do
         client_file="${SYNC_CLIENT_LOG_DIR:-}/$ip.log"
         [ -s "$client_file" ] && echo "[$ip] $(tail -n 1 "$client_file")"
@@ -410,6 +411,9 @@ cmd_sync() {
     local -a updates=()
     mapfile -t updates <"$status_log"
     while [ "$status_lines" -lt "${#updates[@]}" ]; do
+      if [ -n "${SYNC_UI:-}" ] && [[ "${updates[$status_lines]}" =~ ([0-9.]+):[[:space:]]REBUILDING ]]; then
+        echo "[${BASH_REMATCH[1]}] BUILD_START"
+      fi
       status_lines=$((status_lines + 1))
     done
 
@@ -790,8 +794,10 @@ cmd_push() {
     wait "${jobs[$index]}" || rc=$?
     kill "${log_tails[$index]}" 2>/dev/null || true
     if [ "$rc" != 0 ]; then
+      printf '\nERROR\n' >>"${logs[$index]}"
       echo "[${clients[$index]}] ERROR (see the preceding live lines)"
     elif [ -n "${SYNC_UI:-}" ]; then
+      printf '\nDONE\n' >>"${logs[$index]}"
       echo "[${clients[$index]}] DONE"
     fi
     [ -n "${SYNC_CLIENT_LOG_DIR:-}" ] || rm -f "${logs[$index]}"
@@ -799,6 +805,7 @@ cmd_push() {
       ok=$((ok + 1))
       sync_status "${clients[$index]}: SUCCESS"
     else
+      failed=1
       warn "${clients[$index]}: update or restart failed"
       sync_status "${clients[$index]}: FAILURE (see client build log)"
     fi
@@ -916,6 +923,8 @@ push_to_client() {
   done
 
   if [ "$restart_required" = 1 ]; then
+    [ -n "${SYNC_UI:-}" ] && echo "BUILD_START"
+    sync_status "$ip: REBUILDING"
     say "$ip: rebuilding and restarting through px4sim"
     if ! ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
          "cd '$rhome/px4-sim-stack' && ./px4sim restart"; then

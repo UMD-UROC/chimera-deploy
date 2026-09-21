@@ -36,77 +36,116 @@ def main() -> int:
     stage = "starting"
     active = "stage"
     total_started = time.monotonic()
+    total_started_wall = time.time()
+    total_finished: float | None = None
     task_started: dict[str, float] = {}
+    task_started_wall: dict[str, float] = {}
     task_finished: dict[str, float] = {}
     stage_started: dict[str, float] = {}
     errors: list[str] = []
-    with Live(build(stage, panes, task_started, task_finished), refresh_per_second=8, transient=False) as live:
+    with Live(build(stage, panes, task_started, task_started_wall, task_finished,
+                    total_started, total_started_wall, total_finished),
+              refresh_per_second=8, transient=False) as live:
         for raw in proc.stdout or ():
             line = ANSI.sub("", raw.replace("\r", "")).rstrip()
             if not line:
                 continue
+            event_key = active
+            event_text = line
             match = re.search(r"stage (\d/5): (.*)", line)
             if match:
                 now = time.monotonic()
-                if stage != "starting":
+                stage_key = match.group(1)
+                if stage_key == "5/5":
                     task_finished["stage"] = now
-                task_started["stage"] = now
-                task_finished.pop("stage", None)
+                    panes["stage"].append("DONE")
+                elif "stage" not in task_started:
+                    task_started["stage"] = now
+                    task_started_wall["stage"] = time.time()
                 if stage in stage_started and stage_started[stage] < 0:
                     stage_started[stage] = time.monotonic()
-                stage_key = match.group(1)
                 stage_started.setdefault(stage_key, time.monotonic())
                 stage = f"{match.group(1)} {match.group(2)}"
                 active = "stage"
+                event_key = "stage"
             elif line.strip() == "ground":
                 active = "ground"
+                event_key = "ground"
             elif line.strip() in CLIENTS:
                 active = line.strip()
+                event_key = active
             elif line.strip().startswith("-" ):
                 active = "stage"
+                event_key = "stage"
             elif line.startswith("[") and "]" in line:
                 host, text = line[1:].split("]", 1)
-                active = host
                 panes[host].append(text.strip())
+                event_key = host
+                event_text = text.strip()
             else:
                 panes[active].append(line)
-            task_started.setdefault(active, time.monotonic())
-            if "OFFLINE" in line.upper():
-                task_started.pop(active, None)
-                task_finished.pop(active, None)
-            elif any(word in line.upper() for word in ("DONE", "ERROR", "FAILED")):
-                task_finished.setdefault(active, time.monotonic())
+                event_key = active
+            machine_event = event_key == "ground" or event_key in CLIENTS
+            task_start = "_START" in line.upper()
+            if event_key == "stage" and event_key not in task_started:
+                task_started[event_key] = time.monotonic()
+                task_started_wall[event_key] = time.time()
+            elif machine_event and task_start:
+                task_started[event_key] = time.monotonic()
+                task_started_wall[event_key] = time.time()
+                task_finished.pop(event_key, None)
+            event_upper = event_text.upper()
+            if event_upper.startswith("OFFLINE"):
+                task_started.pop(event_key, None)
+                task_started_wall.pop(event_key, None)
+                task_finished.pop(event_key, None)
+            elif any(word in event_upper for word in ("DONE", "ERROR", "FAILED")):
+                task_finished.setdefault(event_key, time.monotonic())
             if "ERROR" in line.upper() or "FAILED" in line.upper():
                 errors.append(line)
-            live.update(build(stage, panes, task_started, task_finished))
+            live.update(build(stage, panes, task_started, task_started_wall, task_finished,
+                              total_started, total_started_wall, total_finished))
         rc = proc.wait()
         panes["stage"].append("DONE" if rc == 0 else f"FAILED (exit {rc})")
-        live.update(build(stage, panes, task_started, task_finished))
+        task_finished.setdefault("stage", time.monotonic())
+        total_finished = time.monotonic()
+        live.update(build(stage, panes, task_started, task_started_wall, task_finished,
+                          total_started, total_started_wall, total_finished))
     if errors:
         print("sync errors:")
         print("\n".join(errors))
     return rc
 
 
-def build(stage: str, panes: dict[str, deque[str]], task_started: dict[str, float], task_finished: dict[str, float]) -> Group:
-    progress = Text(f"sync: {stage}", style="bold cyan", no_wrap=True)
-    stage_panel = Panel(card("setup", panes["stage"], task_started.get("stage"), task_finished.get("stage"), stage), title="setup", height=5, border_style="cyan")
-    ground_panel = Panel(card("ground", panes["ground"], task_started.get("ground"), task_finished.get("ground"), stage), title="ground", height=5, border_style="yellow")
+def build(stage: str, panes: dict[str, deque[str]], task_started: dict[str, float],
+          task_started_wall: dict[str, float], task_finished: dict[str, float],
+          total_started: float, total_started_wall: float,
+          total_finished: float | None) -> Group:
+    total_end = total_finished if total_finished is not None else time.monotonic()
+    total_failed = bool(panes["stage"] and "FAILED" in panes["stage"][-1].upper())
+    total_state = "ERROR" if total_failed else ("DONE" if total_finished is not None else "RUNNING")
+    progress = Text(
+        f"sync: {total_state}  {time.strftime('%H:%M:%S', time.localtime(total_started_wall))}"
+        f"  +{format_elapsed(total_end - total_started)}  {stage}",
+        style="bold cyan", no_wrap=True)
+    stage_panel = Panel(card("setup", panes["stage"], task_started.get("stage"), task_started_wall.get("stage"), task_finished.get("stage"), stage), title="setup", height=5, border_style="cyan")
+    ground_panel = Panel(card("ground", panes["ground"], task_started.get("ground"), task_started_wall.get("ground"), task_finished.get("ground"), stage), title="ground", height=5, border_style="yellow")
     drones = Table.grid(expand=True)
     drones.add_column(ratio=1)
     drones.add_column(ratio=1)
     drone_panels = []
     for host in CLIENTS:
-        drone_panels.append(Panel(card(host, panes[host], task_started.get(host), task_finished.get(host), stage), title=host, height=5, border_style="green"))
+        drone_panels.append(Panel(card(host, panes[host], task_started.get(host), task_started_wall.get(host), task_finished.get(host), stage), title=host, height=5, border_style="green"))
     for index in range(0, len(drone_panels), 2):
         drones.add_row(drone_panels[index], drone_panels[index + 1] if index + 1 < len(drone_panels) else "")
     return Group(progress, stage_panel, ground_panel, drones)
 
 
-def card(kind: str, lines: deque[str], started: float | None, finished: float | None, stage: str) -> str:
+def card(kind: str, lines: deque[str], started: float | None,
+         started_wall: float | None, finished: float | None, stage: str) -> str:
     raw = lines[-1] if lines else "waiting"
     upper = raw.upper()
-    if "OFFLINE" in upper:
+    if upper.startswith("OFFLINE"):
         state = "OFFLINE"
     elif "FAILED" in upper or "ERROR" in upper:
         state = "ERROR"
@@ -117,18 +156,22 @@ def card(kind: str, lines: deque[str], started: float | None, finished: float | 
     else:
         state = "RUNNING"
     timing = ""
-    if "OFFLINE" not in upper and started is not None:
+    if not upper.startswith("OFFLINE") and started is not None and started_wall is not None:
         end = finished if finished is not None else time.monotonic()
-        timing = f"{time.strftime('%H:%M:%S')}  +{format_elapsed(end - started)}"
+        timing = f"{time.strftime('%H:%M:%S', time.localtime(started_wall))}  +{format_elapsed(end - started)}"
     return f"{purpose_for(kind, stage, raw)}\n{state}{('  ' + timing) if timing else ''}\n{raw}"
 
 
 def purpose_for(kind: str, stage: str, raw: str) -> str:
     if raw == "waiting" and kind != "setup":
         return "waiting"
-    text = f"{stage} {raw}".lower()
+    text = f"{stage} {raw}".lower() if kind == "setup" else raw.lower()
+    if raw.lower().startswith("offline"):
+        return "offline"
     for word, purpose in (
-        ("offline", "offline"),
+        ("done", "complete"),
+        ("error", "failed"),
+        ("failed", "failed"),
         ("stopping", "stopping"),
         ("building", "rebuilding"),
         ("rebuilding", "rebuilding"),
@@ -139,6 +182,7 @@ def purpose_for(kind: str, stage: str, raw: str) -> str:
         ("publish", "publishing branches"),
         ("scene", "synchronizing scenes"),
         ("config", "configuring drones"),
+        ("flight_testing", "synchronizing source"),
     ):
         if word in text:
             return purpose
