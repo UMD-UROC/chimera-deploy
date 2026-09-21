@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -31,8 +32,8 @@ def main() -> int:
         cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, bufsize=1,
     )
-    panes: dict[str, deque[str]] = defaultdict(lambda: deque(maxlen=5))
-    panes["stage"] = deque(maxlen=3)
+    panes: dict[str, deque[str]] = defaultdict(lambda: deque(maxlen=40))
+    panes["stage"] = deque(maxlen=40)
     stage = "starting"
     active = "stage"
     total_started = time.monotonic()
@@ -43,9 +44,12 @@ def main() -> int:
     task_finished: dict[str, float] = {}
     stage_started: dict[str, float] = {}
     errors: list[str] = []
-    with Live(build(stage, panes, task_started, task_started_wall, task_finished,
-                    total_started, total_started_wall, total_finished),
-              refresh_per_second=8, transient=False) as live:
+    with Live(
+        get_renderable=lambda: build(stage, panes, task_started, task_started_wall,
+                                      task_finished, total_started, total_started_wall,
+                                      total_finished),
+        refresh_per_second=8, transient=False,
+    ) as live:
         for raw in proc.stdout or ():
             line = ANSI.sub("", raw.replace("\r", "")).rstrip()
             if not line:
@@ -100,14 +104,12 @@ def main() -> int:
                 task_finished.setdefault(event_key, time.monotonic())
             if "ERROR" in line.upper() or "FAILED" in line.upper():
                 errors.append(line)
-            live.update(build(stage, panes, task_started, task_started_wall, task_finished,
-                              total_started, total_started_wall, total_finished))
+            live.refresh()
         rc = proc.wait()
         panes["stage"].append("DONE" if rc == 0 else f"FAILED (exit {rc})")
         task_finished.setdefault("stage", time.monotonic())
         total_finished = time.monotonic()
-        live.update(build(stage, panes, task_started, task_started_wall, task_finished,
-                          total_started, total_started_wall, total_finished))
+        live.refresh()
     if errors:
         print("sync errors:")
         print("\n".join(errors))
@@ -118,6 +120,9 @@ def build(stage: str, panes: dict[str, deque[str]], task_started: dict[str, floa
           task_started_wall: dict[str, float], task_finished: dict[str, float],
           total_started: float, total_started_wall: float,
           total_finished: float | None) -> Group:
+    _, terminal_height = shutil.get_terminal_size(fallback=(120, 27))
+    panel_height = max(5, (terminal_height - 1) // 4)
+    raw_lines = max(1, panel_height - 4)
     total_end = total_finished if total_finished is not None else time.monotonic()
     total_failed = bool(panes["stage"] and "FAILED" in panes["stage"][-1].upper())
     total_state = "ERROR" if total_failed else ("DONE" if total_finished is not None else "RUNNING")
@@ -125,21 +130,22 @@ def build(stage: str, panes: dict[str, deque[str]], task_started: dict[str, floa
         f"sync: {total_state}  {time.strftime('%H:%M:%S', time.localtime(total_started_wall))}"
         f"  +{format_elapsed(total_end - total_started)}  {stage}",
         style="bold cyan", no_wrap=True)
-    stage_panel = Panel(card("setup", panes["stage"], task_started.get("stage"), task_started_wall.get("stage"), task_finished.get("stage"), stage), title="setup", height=5, border_style="cyan")
-    ground_panel = Panel(card("ground", panes["ground"], task_started.get("ground"), task_started_wall.get("ground"), task_finished.get("ground"), stage), title="ground", height=5, border_style="yellow")
+    stage_panel = Panel(card("setup", panes["stage"], task_started.get("stage"), task_started_wall.get("stage"), task_finished.get("stage"), stage, raw_lines), title="setup", height=panel_height, border_style="cyan")
+    ground_panel = Panel(card("ground", panes["ground"], task_started.get("ground"), task_started_wall.get("ground"), task_finished.get("ground"), stage, raw_lines), title="ground", height=panel_height, border_style="yellow")
     drones = Table.grid(expand=True)
     drones.add_column(ratio=1)
     drones.add_column(ratio=1)
     drone_panels = []
     for host in CLIENTS:
-        drone_panels.append(Panel(card(host, panes[host], task_started.get(host), task_started_wall.get(host), task_finished.get(host), stage), title=host, height=5, border_style="green"))
+        drone_panels.append(Panel(card(host, panes[host], task_started.get(host), task_started_wall.get(host), task_finished.get(host), stage, raw_lines), title=host, height=panel_height, border_style="green"))
     for index in range(0, len(drone_panels), 2):
         drones.add_row(drone_panels[index], drone_panels[index + 1] if index + 1 < len(drone_panels) else "")
     return Group(progress, stage_panel, ground_panel, drones)
 
 
 def card(kind: str, lines: deque[str], started: float | None,
-         started_wall: float | None, finished: float | None, stage: str) -> str:
+         started_wall: float | None, finished: float | None, stage: str,
+         raw_lines: int) -> str:
     raw = lines[-1] if lines else "waiting"
     upper = raw.upper()
     if upper.startswith("OFFLINE"):
@@ -157,7 +163,8 @@ def card(kind: str, lines: deque[str], started: float | None,
         end = finished if finished is not None else time.monotonic()
         timing = f"{time.strftime('%H:%M:%S', time.localtime(started_wall))}  +{format_elapsed(end - started)}"
     operation = operation_for(kind, stage, raw)
-    return f"{high_level_for(kind)}\n{operation}: {state}{('  ' + timing) if timing else ''}\n{raw}"
+    raw_output = "\n".join(list(lines)[-raw_lines:]) if lines else "waiting"
+    return f"{high_level_for(kind)}\n{operation}: {state}{('  ' + timing) if timing else ''}\n{raw_output}"
 
 
 def high_level_for(kind: str) -> str:
