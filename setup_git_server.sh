@@ -326,7 +326,6 @@ cmd_sync() {
   fi
 
   local clients_pid='' ground_pid='' clients_log='' ground_log='' status_log='' rc=0
-  local clients_tail='' ground_tail=''
   local clients_done=0 ground_done=0 status_lines=0
   status_log="$(mktemp -t chimera-sync-status.XXXXXX)"
   export SYNC_STATUS_FILE="$status_log"
@@ -336,8 +335,6 @@ cmd_sync() {
     clients_log="$(mktemp -t chimera-sync-clients.XXXXXX)"
     (cmd_push --branch "$branch" $([ "$subs" = 1 ] && echo --submodules)) >"$clients_log" 2>&1 &
     clients_pid=$!
-    (stdbuf -oL tail -n +1 -f "$clients_log" 2>/dev/null | stdbuf -oL sed 's/^/[drones] /') &
-    clients_tail=$!
   else
     echo
     echo "Mirrors updated. Send them to the Orins with:"
@@ -350,18 +347,31 @@ cmd_sync() {
      refresh_local_stack && sync_status 'ground: SUCCESS' || {
       sync_status 'ground: FAILURE (see ground build log)'; exit 1; }) >"$ground_log" 2>&1 &
     ground_pid=$!
-    (stdbuf -oL tail -n +1 -f "$ground_log" 2>/dev/null | stdbuf -oL sed 's/^/[ground] /') &
-    ground_tail=$!
   fi
 
   # Both rebuild groups run concurrently.  Drain status changes immediately,
   # but retain the full logs until each group has finished so Docker output
   # remains readable instead of interleaving across hosts.
   while [ "$clients_done" = 0 ] || [ "$ground_done" = 0 ]; do
+    printf '\033[2J\033[H'
+    echo "sync progress"
+    echo "----------------"
+    if [ -n "$ground_log" ] && [ -s "$ground_log" ]; then
+      printf 'ground  %s\n' "$(tail -n 1 "$ground_log")"
+    else
+      echo "ground  waiting"
+    fi
+    for ip in "${CLIENTS[@]}"; do
+      if [ -n "$clients_log" ] && grep -q "^\[$ip\]" "$clients_log" 2>/dev/null; then
+        printf '%-7s %s\n' "$ip" "$(grep "^\[$ip\]" "$clients_log" | tail -n 1)"
+      else
+        printf '%-7s waiting\n' "$ip"
+      fi
+    done
+    echo "----------------"
     local -a updates=()
     mapfile -t updates <"$status_log"
     while [ "$status_lines" -lt "${#updates[@]}" ]; do
-      echo "  [sync] ${updates[$status_lines]}"
       status_lines=$((status_lines + 1))
     done
 
@@ -373,8 +383,6 @@ cmd_sync() {
       if [ "$client_rc" != 0 ]; then
         echo "  [sync] client error log:"
       fi
-      [ -n "$clients_tail" ] && kill "$clients_tail" 2>/dev/null || true
-      rm -f "$clients_log"
     elif [ -z "$clients_pid" ]; then
       clients_done=1
     fi
@@ -386,13 +394,12 @@ cmd_sync() {
       if [ "$ground_rc" != 0 ]; then
         echo "  [sync] ground error log:"
       fi
-      [ -n "$ground_tail" ] && kill "$ground_tail" 2>/dev/null || true
-      rm -f "$ground_log"
     elif [ -z "$ground_pid" ]; then
       ground_done=1
     fi
     [ "$clients_done" = 1 ] && [ "$ground_done" = 1 ] || sleep 1
   done
+  rm -f "$clients_log" "$ground_log"
   # A job can publish its final status between the last drain and exit.
   mapfile -t updates <"$status_log"
   while [ "$status_lines" -lt "${#updates[@]}" ]; do
@@ -663,7 +670,7 @@ cmd_push() {
   # this function (cmd_sync calls it after us): it must see the completed
   # fleet, but the aircraft jobs themselves are independent.
   local ip ok=0 index rc
-  local -a clients=() jobs=() logs=()
+  local -a clients=() jobs=() logs=() log_tails=()
   for ip in "${CLIENTS[@]}"; do
     if ! ping -c1 -W1 "$ip" >/dev/null 2>&1; then
       say "$ip"
@@ -678,6 +685,9 @@ cmd_push() {
     # together.  The completed log is printed under its aircraft heading.
     (push_to_client "$ip" "$subs" "$branch") >"${logs[-1]}" 2>&1 &
     jobs+=("$!")
+    (stdbuf -oL tail -n +1 -f "${logs[-1]}" 2>/dev/null |
+      stdbuf -oL sed "s/^/[$ip] /") &
+    log_tails+=("$!")
     sync_status "$ip: BUILDING"
   done
 
@@ -685,8 +695,9 @@ cmd_push() {
     say "${clients[$index]}"
     rc=0
     wait "${jobs[$index]}" || rc=$?
+    kill "${log_tails[$index]}" 2>/dev/null || true
     if [ "$rc" != 0 ]; then
-      tail -n 30 "${logs[$index]}"
+      echo "[$ip] ERROR (see the preceding live lines)"
     fi
     rm -f "${logs[$index]}"
     if [ "$rc" = 0 ]; then
