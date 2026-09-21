@@ -15,9 +15,9 @@
 #                                 working copies alone, --push-new also sends
 #                                 branches GitHub has never seen, and
 #                                 --clean-dependabot drops obsolete mirror-only
-#                                 Dependabot branches. --branch NAME makes the
-#                                 ground branch authoritative and switches
-#                                 every clean Orin checkout to it.
+#                                 Dependabot branches. --branch/-b NAME asks
+#                                 clean ground checkouts to use NAME when it
+#                                 exists, then propagates each resolved branch.
 #   push     run on the laptop  - push the current mirrors into every Orin's
 #                                 working copy and rebuild/restart changed clients
 #   scenes   run on the laptop  - copy the built scenes into every Orin and
@@ -96,16 +96,35 @@ local_source_for() {
   esac
 }
 
-validate_ground_branch() {
-  local expected="$1" entry name url checkout dir actual
+prepare_ground_branches() {
+  local requested="$1" entry name url checkout dir actual
   for entry in "${REPOS[@]}"; do
     IFS='|' read -r name url checkout <<< "$entry"
     [ "$name" = px4_msgs ] && continue
     dir="$(local_source_for "$name")"
     [ -d "$dir/.git" ] || die "ground repository missing: $name ($dir)"
     actual="$(git -C "$dir" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
-    [ "$actual" = "$expected" ] || \
-      die "ground branch mismatch: $name is '${actual:-detached}', expected '$expected'"
+    if [ -n "$requested" ] && ! git -C "$dir" show-ref --verify --quiet "refs/heads/$requested"; then
+      git -C "$dir" fetch -q origin "$requested" 2>/dev/null || true
+      if git -C "$dir" show-ref --verify --quiet "refs/remotes/origin/$requested"; then
+        git -C "$dir" diff --quiet && git -C "$dir" diff --cached --quiet \
+          || die "ground repository dirty: $name cannot create '$requested'"
+        git -C "$dir" switch --track -c "$requested" "origin/$requested" >/dev/null \
+          || die "could not create ground $name branch '$requested'"
+      fi
+    fi
+    if [ -n "$requested" ] && git -C "$dir" show-ref --verify --quiet "refs/heads/$requested"; then
+      if [ "$actual" != "$requested" ]; then
+        git -C "$dir" diff --quiet && git -C "$dir" diff --cached --quiet \
+          || die "ground repository dirty: $name cannot switch to '$requested'"
+        git -C "$dir" switch "$requested" >/dev/null \
+          || die "could not switch ground $name to '$requested'"
+      fi
+    elif [ -n "$requested" ]; then
+      warn "$name: branch '$requested' not present; using '${actual:-detached}'"
+    fi
+    [ -n "$actual" ] || actual="$(git -C "$dir" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+    [ -n "$actual" ] || die "ground repository detached: $name"
   done
 }
 
@@ -260,9 +279,8 @@ cmd_sync() {
   if [ -z "$branch" ]; then
     branch="$(git -C "$SCRIPT_DIR" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
   fi
-  [ -n "$branch" ] || die "sync requires a branch (use --branch NAME from a detached checkout)"
   [[ "$branch" != -* ]] || die "invalid sync branch: $branch"
-  validate_ground_branch "$branch"
+  prepare_ground_branches "$branch"
 
   say "synchronizing scenes and drone git configuration"
   cmd_scenes
@@ -308,6 +326,7 @@ cmd_sync() {
   fi
 
   local clients_pid='' ground_pid='' clients_log='' ground_log='' status_log='' rc=0
+  local clients_tail='' ground_tail=''
   local clients_done=0 ground_done=0 status_lines=0
   status_log="$(mktemp -t chimera-sync-status.XXXXXX)"
   export SYNC_STATUS_FILE="$status_log"
@@ -317,6 +336,8 @@ cmd_sync() {
     clients_log="$(mktemp -t chimera-sync-clients.XXXXXX)"
     (cmd_push --branch "$branch" $([ "$subs" = 1 ] && echo --submodules)) >"$clients_log" 2>&1 &
     clients_pid=$!
+    (tail -n 0 -f "$clients_log" 2>/dev/null | sed -u 's/^/[drones] /') &
+    clients_tail=$!
   else
     echo
     echo "Mirrors updated. Send them to the Orins with:"
@@ -327,8 +348,10 @@ cmd_sync() {
     ground_log="$(mktemp -t chimera-sync-ground.XXXXXX)"
     (sync_status 'ground: BUILDING';
      refresh_local_stack && sync_status 'ground: SUCCESS' || {
-       sync_status 'ground: FAILURE (see ground build log)'; exit 1; }) >"$ground_log" 2>&1 &
+      sync_status 'ground: FAILURE (see ground build log)'; exit 1; }) >"$ground_log" 2>&1 &
     ground_pid=$!
+    (tail -n 0 -f "$ground_log" 2>/dev/null | sed -u 's/^/[ground] /') &
+    ground_tail=$!
   fi
 
   # Both rebuild groups run concurrently.  Drain status changes immediately,
@@ -349,8 +372,8 @@ cmd_sync() {
       clients_done=1
       if [ "$client_rc" != 0 ]; then
         echo "  [sync] client error log:"
-        tail -n 30 "$clients_log"
       fi
+      [ -n "$clients_tail" ] && kill "$clients_tail" 2>/dev/null || true
       rm -f "$clients_log"
     elif [ -z "$clients_pid" ]; then
       clients_done=1
@@ -362,8 +385,8 @@ cmd_sync() {
       ground_done=1
       if [ "$ground_rc" != 0 ]; then
         echo "  [sync] ground error log:"
-        tail -n 30 "$ground_log"
       fi
+      [ -n "$ground_tail" ] && kill "$ground_tail" 2>/dev/null || true
       rm -f "$ground_log"
     elif [ -z "$ground_pid" ]; then
       ground_done=1
@@ -382,7 +405,11 @@ cmd_sync() {
     warn "one or more parallel sync jobs failed"
     return "$rc"
   fi
-  say "sync complete: ground and reachable drones are on $branch"
+  if [ -n "$branch" ]; then
+    say "sync complete: ground and reachable drones are on $branch"
+  else
+    say "sync complete: ground and reachable drones match their ground branches"
+  fi
 
   if [ "$upstream" = 0 ]; then
     echo
@@ -629,8 +656,7 @@ cmd_push() {
     esac
     shift
   done
-  [ -n "$branch" ] || branch="$(git -C "$SCRIPT_DIR" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
-  [ -n "$branch" ] || die "push requires a branch (use --branch NAME from a detached checkout)"
+  # An empty branch means: use the current branch of each ground repository.
 
   # Each aircraft has its own checkout, Docker daemon and GPU, so rebuilding
   # them serially only burns operator time.  Keep the ground refresh outside
@@ -700,12 +726,17 @@ push_to_client() {
   # ref is up to date while a generated input, image context, or a previous
   # partial deployment still warrants recreating the runtime stack. Err toward
   # a safe restart; dirty/rejected trees are still left untouched.
-  local entry name url dir rdir mirror state branch tree out restart_required=0
+  local entry name url dir rdir mirror state branch tree out restart_required=0 repo_branch
   for entry in "${REPOS[@]}"; do
     IFS='|' read -r name url dir <<< "$entry"
     # REPOS paths are laptop-side; the Orin's home may sit elsewhere
     rdir="${dir/#$HOME/$rhome}"
     mirror="$SERVE_ROOT/$name.git"
+    repo_branch="$desired_branch"
+    if [ -z "$repo_branch" ] || ! git -C "$mirror" show-ref --verify --quiet "refs/heads/$repo_branch"; then
+      repo_branch="$(git -C "$(local_source_for "$name")" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+    fi
+    [ -n "$repo_branch" ] || { echo "FAILED - $name: no ground branch"; return 1; }
 
     printf '  %-18s ' "$name"
     [ -d "$mirror" ] || { echo "no mirror - run 'local' first"; continue; }
@@ -749,11 +780,11 @@ push_to_client() {
       if [ "$name" = px4_msgs ]; then
         echo "ok (pinned: $branch)"
       elif ! ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
-          "git -C '$rdir' diff --quiet && git -C '$rdir' diff --cached --quiet && git -C '$rdir' switch '$desired_branch' >/dev/null 2>&1 && test \"\$(git -C '$rdir' symbolic-ref --short HEAD)\" = '$desired_branch'"; then
-        echo "FAILED - $name: could not enforce branch $desired_branch on $ip"
+          "git -C '$rdir' diff --quiet && git -C '$rdir' diff --cached --quiet && git -C '$rdir' switch '$repo_branch' >/dev/null 2>&1 && test \"\$(git -C '$rdir' symbolic-ref --short HEAD)\" = '$repo_branch'"; then
+        echo "FAILED - $name: could not enforce branch $repo_branch on $ip"
         return 1
       else
-        echo "ok ($desired_branch)"
+        echo "ok ($repo_branch)"
       fi
       restart_required=1
     else
