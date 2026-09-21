@@ -212,38 +212,67 @@ def card(kind: str, lines: deque[str], started: float | None,
 def read_keys(ui: dict) -> None:
     if not sys.stdin.isatty():
         return
-    old = termios.tcgetattr(sys.stdin)
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    pending = b""
+    last_input = time.monotonic()
     try:
-        tty.setcbreak(sys.stdin.fileno())
+        tty.setcbreak(fd)
         while not ui["stop_input"]:
-            ready, _, _ = select.select([sys.stdin], [], [], 0.1)
-            if not ready:
-                continue
-            key = sys.stdin.read(1)
-            if key == "\t":
-                ui["selected"] = (ui["selected"] + 1) % len(BOXES)
-            elif key == "\x1b":
-                sequence = ""
-                while select.select([sys.stdin], [], [], 0.03)[0]:
-                    sequence += sys.stdin.read(1)
-                if sequence == "[Z":
-                    ui["selected"] = (ui["selected"] - 1) % len(BOXES)
-                elif sequence.endswith("~"):
-                    ui["scroll"][BOXES[ui["selected"]]] += 3 if sequence.startswith("[5") else -3
-                elif sequence in ("[A", "[B", "[C", "[D"):
-                    move_arrow(ui, sequence[-1])
+            ready, _, _ = select.select([fd], [], [], 0.05)
+            if ready:
+                pending += os.read(fd, 64)
+                last_input = time.monotonic()
+            while pending:
+                known = {
+                    b"\x1b[A": "up", b"\x1b[B": "down",
+                    b"\x1b[C": "right", b"\x1b[D": "left",
+                    b"\x1b[Z": "back", b"\x1b[5~": "pageup",
+                    b"\x1b[6~": "pagedown",
+                }
+                matched = next((sequence for sequence in known if pending.startswith(sequence)), None)
+                if matched is not None:
+                    handle_key(known[matched], ui)
+                    pending = pending[len(matched):]
+                elif pending.startswith(b"\t"):
+                    handle_key("tab", ui); pending = pending[1:]
+                elif pending.startswith(b"\r") or pending.startswith(b"\n"):
+                    handle_key("enter", ui); pending = pending[1:]
+                elif pending.startswith(b"q"):
+                    handle_key("q", ui); pending = pending[1:]
+                elif pending.startswith(b"\x7f"):
+                    handle_key("reset", ui); pending = pending[1:]
+                elif pending.startswith(b"\x1b"):
+                    if len(pending) == 1 and time.monotonic() - last_input < 0.12:
+                        break
+                    handle_key("esc", ui); pending = pending[1:]
                 else:
-                    ui["maximized"] = None
-            elif key in ("\r", "\n"):
-                ui["maximized"] = BOXES[ui["selected"]]
-            elif key == "q" and ui.get("complete"):
-                ui["quit"] = True
-            elif key == "\x7f":
-                ui["scroll"][BOXES[ui["selected"]]] = 0
+                    pending = pending[1:]
             for box in BOXES:
                 ui["scroll"][box] = max(0, ui["scroll"][box])
     finally:
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old)
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+def handle_key(key: str, ui: dict) -> None:
+    if key == "tab":
+        ui["selected"] = (ui["selected"] + 1) % len(BOXES)
+    elif key == "back":
+        ui["selected"] = (ui["selected"] - 1) % len(BOXES)
+    elif key in ("up", "down", "left", "right"):
+        move_arrow(ui, {"up": "A", "down": "B", "left": "D", "right": "C"}[key])
+    elif key == "pageup":
+        ui["scroll"][BOXES[ui["selected"]]] += 3
+    elif key == "pagedown":
+        ui["scroll"][BOXES[ui["selected"]]] -= 3
+    elif key == "enter":
+        ui["maximized"] = BOXES[ui["selected"]]
+    elif key == "esc":
+        ui["maximized"] = None
+    elif key == "q" and ui.get("complete"):
+        ui["quit"] = True
+    elif key == "reset":
+        ui["scroll"][BOXES[ui["selected"]]] = 0
 
 
 def move_arrow(ui: dict, direction: str) -> None:
