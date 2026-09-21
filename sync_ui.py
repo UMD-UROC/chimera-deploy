@@ -70,10 +70,6 @@ def main() -> int:
         rc = proc.wait()
         panes["stage"].append("DONE" if rc == 0 else f"FAILED (exit {rc})")
         live.update(build(stage, panes, task_started))
-    elapsed = time.monotonic() - total_started
-    print(f"sync total: {format_elapsed(elapsed)}")
-    for name, started in stage_started.items():
-        print(f"stage {name}: {format_elapsed(elapsed - (started - total_started))}")
     if errors:
         print("sync errors:")
         print("\n".join(errors))
@@ -82,7 +78,7 @@ def main() -> int:
 
 def build(stage: str, panes: dict[str, deque[str]], task_started: dict[str, float]) -> Group:
     progress = Text(f"sync: {stage}", style="bold cyan", no_wrap=True)
-    stage_panel = Panel(card("overall sync progress", panes["stage"], task_started.get("stage")), title="stages", height=5, border_style="cyan")
+    stage_panel = Panel(card("setup progress", panes["stage"], task_started.get("stage")), title="setup", height=5, border_style="cyan")
     ground_panel = Panel(card("ground build and restart", panes["ground"], task_started.get("ground")), title="ground", height=5, border_style="yellow")
     drones = Table.grid(expand=True)
     drones.add_column(ratio=1)

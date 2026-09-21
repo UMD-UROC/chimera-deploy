@@ -343,6 +343,9 @@ cmd_sync() {
     clients_log="$(mktemp -t chimera-sync-clients.XXXXXX)"
     (cmd_push --branch "$branch" $([ "$subs" = 1 ] && echo --submodules)) >"$clients_log" 2>&1 &
     clients_pid=$!
+    if [ -n "${SYNC_UI:-}" ]; then
+      for ip in "${CLIENTS[@]}"; do echo "[$ip] START"; done
+    fi
   else
     echo
     echo "Mirrors updated. Send them to the Orins with:"
@@ -355,6 +358,7 @@ cmd_sync() {
      refresh_local_stack && sync_status 'ground: SUCCESS' || {
       sync_status 'ground: FAILURE (see ground build log)'; exit 1; }) >"$ground_log" 2>&1 &
     ground_pid=$!
+    [ -n "${SYNC_UI:-}" ] && echo "[ground] START"
   fi
   [ -n "$clients_pid" ] || clients_done=1
   [ -n "$ground_pid" ] || ground_done=1
