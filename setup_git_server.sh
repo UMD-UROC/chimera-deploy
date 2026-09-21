@@ -336,7 +336,7 @@ cmd_sync() {
     clients_log="$(mktemp -t chimera-sync-clients.XXXXXX)"
     (cmd_push --branch "$branch" $([ "$subs" = 1 ] && echo --submodules)) >"$clients_log" 2>&1 &
     clients_pid=$!
-    (tail -n 0 -f "$clients_log" 2>/dev/null | sed -u 's/^/[drones] /') &
+    (stdbuf -oL tail -n +1 -f "$clients_log" 2>/dev/null | stdbuf -oL sed 's/^/[drones] /') &
     clients_tail=$!
   else
     echo
@@ -350,7 +350,7 @@ cmd_sync() {
      refresh_local_stack && sync_status 'ground: SUCCESS' || {
       sync_status 'ground: FAILURE (see ground build log)'; exit 1; }) >"$ground_log" 2>&1 &
     ground_pid=$!
-    (tail -n 0 -f "$ground_log" 2>/dev/null | sed -u 's/^/[ground] /') &
+    (stdbuf -oL tail -n +1 -f "$ground_log" 2>/dev/null | stdbuf -oL sed 's/^/[ground] /') &
     ground_tail=$!
   fi
 
