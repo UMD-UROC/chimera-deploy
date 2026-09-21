@@ -49,14 +49,14 @@ def main() -> int:
     task_finished: dict[str, float] = {}
     stage_started: dict[str, float] = {}
     errors: list[str] = []
-    ui = {"selected": 0, "maximized": None, "scroll": defaultdict(int), "stop_input": False}
+    ui = {"selected": 0, "maximized": None, "scroll": defaultdict(int), "stop_input": False, "complete": False, "quit": False}
     input_thread = threading.Thread(target=read_keys, args=(ui,), daemon=True)
     input_thread.start()
     with Live(
         get_renderable=lambda: build(stage, panes, task_started, task_started_wall,
                                       task_finished, total_started, total_started_wall,
                                       total_finished, ui),
-        refresh_per_second=8, transient=True,
+        refresh_per_second=8, transient=False,
     ) as live:
         for raw in proc.stdout or ():
             line = ANSI.sub("", raw.replace("\r", "")).rstrip()
@@ -117,12 +117,18 @@ def main() -> int:
         panes["stage"].append("DONE" if rc == 0 else f"FAILED (exit {rc})")
         task_finished.setdefault("stage", time.monotonic())
         total_finished = time.monotonic()
+        ui["complete"] = True
         live.refresh()
+        while not ui["quit"]:
+            time.sleep(0.1)
+            live.refresh()
     ui["stop_input"] = True
     input_thread.join(timeout=0.2)
     if errors:
-        print("sync errors:")
+        print("sync completed with errors:")
         print("\n".join(errors))
+    else:
+        print("sync completed with no errors")
     return rc
 
 
@@ -131,7 +137,7 @@ def build(stage: str, panes: dict[str, deque[str]], task_started: dict[str, floa
           total_started: float, total_started_wall: float,
           total_finished: float | None, ui: dict) -> Group:
     _, terminal_height = shutil.get_terminal_size(fallback=(120, 27))
-    panel_height = max(5, (terminal_height - 1) // 4)
+    panel_height = max(5, (terminal_height - 2) // 4)
     raw_lines = max(1, panel_height - 4)
     selected_name = BOXES[ui["selected"]]
     total_end = total_finished if total_finished is not None else time.monotonic()
@@ -162,10 +168,16 @@ def build(stage: str, panes: dict[str, deque[str]], task_started: dict[str, floa
         else:
             content = card(selected, panes[selected], task_started.get(selected), task_started_wall.get(selected), task_finished.get(selected), stage, max_raw, ui["scroll"][selected])
             title = selected
-        return Group(progress, Panel(content, title=title, height=max_height, border_style="bright_white"))
+        return Group(progress, Panel(content, title=title, height=max_height, border_style="bright_white"), footer(ui))
     for index in range(0, len(drone_panels), 2):
         drones.add_row(drone_panels[index], drone_panels[index + 1] if index + 1 < len(drone_panels) else "")
-    return Group(progress, panels["stage"], panels["ground"], drones)
+    return Group(progress, panels["stage"], panels["ground"], drones, footer(ui))
+
+
+def footer(ui: dict) -> Text:
+    if ui["complete"]:
+        return Text("DONE — q quit", style="bold green", no_wrap=True)
+    return Text("tab/shift-tab or arrows select · pgup/pgdn scroll · enter maximize · esc restore", style="dim", no_wrap=True)
 
 
 def card(kind: str, lines: deque[str], started: float | None,
@@ -218,22 +230,40 @@ def read_keys(ui: dict) -> None:
                     ui["selected"] = (ui["selected"] - 1) % len(BOXES)
                 elif sequence.endswith("~"):
                     ui["scroll"][BOXES[ui["selected"]]] += 3 if sequence.startswith("[5") else -3
-                elif sequence in ("[A", "[D"):
-                    ui["selected"] = (ui["selected"] - 1) % len(BOXES)
-                elif sequence in ("[B", "[C"):
-                    ui["selected"] = (ui["selected"] + 1) % len(BOXES)
+                elif sequence in ("[A", "[B", "[C", "[D"):
+                    move_arrow(ui, sequence[-1])
                 else:
                     ui["maximized"] = None
             elif key in ("\r", "\n"):
                 ui["maximized"] = BOXES[ui["selected"]]
             elif key == "q" and ui.get("complete"):
-                ui["stop_input"] = True
+                ui["quit"] = True
             elif key == "\x7f":
                 ui["scroll"][BOXES[ui["selected"]]] = 0
             for box in BOXES:
                 ui["scroll"][box] = max(0, ui["scroll"][box])
     finally:
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old)
+
+
+def move_arrow(ui: dict, direction: str) -> None:
+    coords = {
+        "stage": (0, 0), "ground": (0, 1),
+        CLIENTS[0]: (1, 0), CLIENTS[1]: (1, 1),
+        CLIENTS[2]: (2, 0), CLIENTS[3]: (2, 1),
+    }
+    reverse = {value: key for key, value in coords.items()}
+    row, col = coords[BOXES[ui["selected"]]]
+    if direction == "A":
+        row = max(0, row - 1)
+    elif direction == "B":
+        row = min(2, row + 1)
+    elif direction == "C":
+        col = min(1, col + 1)
+    elif direction == "D":
+        col = max(0, col - 1)
+    if (row, col) in reverse:
+        ui["selected"] = BOXES.index(reverse[(row, col)])
 
 
 def high_level_for(kind: str) -> str:
