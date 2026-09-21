@@ -15,7 +15,9 @@
 #                                 working copies alone, --push-new also sends
 #                                 branches GitHub has never seen, and
 #                                 --clean-dependabot drops obsolete mirror-only
-#                                 Dependabot branches
+#                                 Dependabot branches. --branch NAME makes the
+#                                 ground branch authoritative and switches
+#                                 every clean Orin checkout to it.
 #   push     run on the laptop  - push the current mirrors into every Orin's
 #                                 working copy and rebuild/restart changed clients
 #   scenes   run on the laptop  - copy the built scenes into every Orin and
@@ -92,6 +94,19 @@ local_source_for() {
     px4-sim-stack)  echo "$HOME/px4-sim-stack" ;;
     *)              echo "$WS_SRC/$name" ;;
   esac
+}
+
+validate_ground_branch() {
+  local expected="$1" entry name url checkout dir actual
+  for entry in "${REPOS[@]}"; do
+    IFS='|' read -r name url checkout <<< "$entry"
+    [ "$name" = px4_msgs ] && continue
+    dir="$(local_source_for "$name")"
+    [ -d "$dir/.git" ] || die "ground repository missing: $name ($dir)"
+    actual="$(git -C "$dir" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+    [ "$actual" = "$expected" ] || \
+      die "ground branch mismatch: $name is '${actual:-detached}', expected '$expected'"
+  done
 }
 
 # the name an Orin checked this repo out under before the rename
@@ -223,8 +238,9 @@ open_firewall() {
 # sync - send drone commits up to GitHub, refresh the mirrors, push to the Orins
 ###############################################################################
 cmd_sync() {
-  local do_push=1 subs=0 upstream=1 push_new=0 do_local=1 clean_dependabot=0 arg
-  for arg in "$@"; do
+  local do_push=1 subs=0 upstream=1 push_new=0 do_local=1 clean_dependabot=0 branch='' arg
+  while [ "$#" -gt 0 ]; do
+    arg="$1"
     case "$arg" in
       --no-push)     do_push=0 ;;
       --submodules)  subs=1 ;;
@@ -232,9 +248,25 @@ cmd_sync() {
       --push-new)    push_new=1 ;;
       --no-local)    do_local=0 ;;
       --clean-dependabot) clean_dependabot=1 ;;
+      --branch)
+        [ "$#" -ge 2 ] || die "--branch requires a branch name"
+        branch="$2"; shift
+        ;;
       *) die "unknown option for sync: $arg" ;;
     esac
+    shift
   done
+
+  if [ -z "$branch" ]; then
+    branch="$(git -C "$SCRIPT_DIR" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  fi
+  [ -n "$branch" ] || die "sync requires a branch (use --branch NAME from a detached checkout)"
+  [[ "$branch" != -* ]] || die "invalid sync branch: $branch"
+  validate_ground_branch "$branch"
+
+  say "synchronizing scenes and drone git configuration"
+  cmd_scenes
+  cmd_deploy
 
   # drone commits -> GitHub, laptop commits -> GitHub, GitHub -> laptop,
   # GitHub -> mirrors, mirrors -> drones. Every step before the refresh has to
@@ -283,7 +315,7 @@ cmd_sync() {
     # The ground image has no dependency on an aircraft image.  Start both
     # sides now; each side still waits for and reports all of its own jobs.
     clients_log="$(mktemp -t chimera-sync-clients.XXXXXX)"
-    (cmd_push $([ "$subs" = 1 ] && echo --submodules)) >"$clients_log" 2>&1 &
+    (cmd_push --branch "$branch" $([ "$subs" = 1 ] && echo --submodules)) >"$clients_log" 2>&1 &
     clients_pid=$!
   else
     echo
@@ -311,17 +343,27 @@ cmd_sync() {
     done
 
     if [ -n "$clients_pid" ] && [ "$clients_done" = 0 ] && ! kill -0 "$clients_pid" 2>/dev/null; then
-      wait "$clients_pid" || rc=1
+      local client_rc=0
+      wait "$clients_pid" || client_rc=$?
+      [ "$client_rc" = 0 ] || rc=1
       clients_done=1
-      cat "$clients_log"
+      if [ "$client_rc" != 0 ]; then
+        echo "  [sync] client error log:"
+        tail -n 30 "$clients_log"
+      fi
       rm -f "$clients_log"
     elif [ -z "$clients_pid" ]; then
       clients_done=1
     fi
     if [ -n "$ground_pid" ] && [ "$ground_done" = 0 ] && ! kill -0 "$ground_pid" 2>/dev/null; then
-      wait "$ground_pid" || rc=1
+      local ground_rc=0
+      wait "$ground_pid" || ground_rc=$?
+      [ "$ground_rc" = 0 ] || rc=1
       ground_done=1
-      cat "$ground_log"
+      if [ "$ground_rc" != 0 ]; then
+        echo "  [sync] ground error log:"
+        tail -n 30 "$ground_log"
+      fi
       rm -f "$ground_log"
     elif [ -z "$ground_pid" ]; then
       ground_done=1
@@ -340,6 +382,7 @@ cmd_sync() {
     warn "one or more parallel sync jobs failed"
     return "$rc"
   fi
+  say "sync complete: ground and reachable drones are on $branch"
 
   if [ "$upstream" = 0 ]; then
     echo
@@ -573,13 +616,21 @@ push_mirrors_upstream() {
 # drone. A dirty tree makes git refuse that ref, so local edits are never lost.
 ###############################################################################
 cmd_push() {
-  local subs=0 arg
-  for arg in "$@"; do
+  local subs=0 branch='' arg failed=0
+  while [ "$#" -gt 0 ]; do
+    arg="$1"
     case "$arg" in
       --submodules) subs=1 ;;
+      --branch)
+        [ "$#" -ge 2 ] || die "--branch requires a branch name"
+        branch="$2"; shift
+        ;;
       *) die "unknown option for push: $arg" ;;
     esac
+    shift
   done
+  [ -n "$branch" ] || branch="$(git -C "$SCRIPT_DIR" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  [ -n "$branch" ] || die "push requires a branch (use --branch NAME from a detached checkout)"
 
   # Each aircraft has its own checkout, Docker daemon and GPU, so rebuilding
   # them serially only burns operator time.  Keep the ground refresh outside
@@ -592,13 +643,14 @@ cmd_push() {
       say "$ip"
       warn "unreachable - skipped"
       sync_status "$ip: UNREACHABLE"
+      failed=1
       continue
     fi
     clients+=("$ip")
     logs+=("$(mktemp -t chimera-sync-client.XXXXXX)")
     # Redirect each job rather than letting parallel SSH/Docker output splice
     # together.  The completed log is printed under its aircraft heading.
-    (push_to_client "$ip" "$subs") >"${logs[-1]}" 2>&1 &
+    (push_to_client "$ip" "$subs" "$branch") >"${logs[-1]}" 2>&1 &
     jobs+=("$!")
     sync_status "$ip: BUILDING"
   done
@@ -607,7 +659,9 @@ cmd_push() {
     say "${clients[$index]}"
     rc=0
     wait "${jobs[$index]}" || rc=$?
-    cat "${logs[$index]}"
+    if [ "$rc" != 0 ]; then
+      tail -n 30 "${logs[$index]}"
+    fi
     rm -f "${logs[$index]}"
     if [ "$rc" = 0 ]; then
       ok=$((ok + 1))
@@ -619,6 +673,7 @@ cmd_push() {
   done
 
   say "pushed to $ok of ${#CLIENTS[@]} clients"
+  [ "$failed" = 0 ] || return 1
 }
 
 refresh_local_stack() {
@@ -632,7 +687,7 @@ refresh_local_stack() {
 }
 
 push_to_client() {
-  local ip="$1" subs="$2"
+  local ip="$1" subs="$2" desired_branch="$3"
   local ssh_opts=(-o BatchMode=yes -o ConnectTimeout=5)
 
   local rhome
@@ -691,7 +746,15 @@ push_to_client() {
     fi
 
     if [ "$rc" = 0 ]; then
-      echo "ok ($branch)"
+      if [ "$name" = px4_msgs ]; then
+        echo "ok (pinned: $branch)"
+      elif ! ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
+          "git -C '$rdir' diff --quiet && git -C '$rdir' diff --cached --quiet && git -C '$rdir' switch '$desired_branch' >/dev/null 2>&1 && test \"\$(git -C '$rdir' symbolic-ref --short HEAD)\" = '$desired_branch'"; then
+        echo "FAILED - $name: could not enforce branch $desired_branch on $ip"
+        return 1
+      else
+        echo "ok ($desired_branch)"
+      fi
       restart_required=1
     else
       # report why git actually refused, not why we guess it refused - a dirty
