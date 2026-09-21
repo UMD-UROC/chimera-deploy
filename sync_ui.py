@@ -49,7 +49,7 @@ def main() -> int:
     task_finished: dict[str, float] = {}
     stage_started: dict[str, float] = {}
     errors: list[str] = []
-    ui = {"selected": 0, "maximized": None, "scroll": defaultdict(int), "stop_input": False, "complete": False, "quit": False}
+    ui = {"selected": 0, "maximized": None, "scroll": defaultdict(int), "scroll_max": defaultdict(int), "stop_input": False, "complete": False, "quit": False, "ground_column": 0}
     input_thread = threading.Thread(target=read_keys, args=(ui,), daemon=True)
     input_thread.start()
     with Live(
@@ -139,6 +139,9 @@ def build(stage: str, panes: dict[str, deque[str]], task_started: dict[str, floa
     _, terminal_height = shutil.get_terminal_size(fallback=(120, 27))
     panel_height = max(5, (terminal_height - 2) // 4)
     raw_lines = max(1, panel_height - 4)
+    for box in BOXES:
+        ui["scroll_max"][box] = max(0, len(panes[box]) - raw_lines)
+        ui["scroll"][box] = min(ui["scroll"][box], ui["scroll_max"][box])
     selected_name = BOXES[ui["selected"]]
     total_end = total_finished if total_finished is not None else time.monotonic()
     total_failed = bool(panes["stage"] and "FAILED" in panes["stage"][-1].upper())
@@ -262,9 +265,11 @@ def handle_key(key: str, ui: dict) -> None:
     elif key in ("up", "down", "left", "right"):
         move_arrow(ui, {"up": "A", "down": "B", "left": "D", "right": "C"}[key])
     elif key == "pageup":
-        ui["scroll"][BOXES[ui["selected"]]] += 3
+        box = BOXES[ui["selected"]]
+        ui["scroll"][box] = min(ui["scroll"][box] + 3, ui["scroll_max"].get(box, 0))
     elif key == "pagedown":
-        ui["scroll"][BOXES[ui["selected"]]] -= 3
+        box = BOXES[ui["selected"]]
+        ui["scroll"][box] = max(0, ui["scroll"][box] - 3)
     elif key == "enter":
         ui["maximized"] = BOXES[ui["selected"]]
     elif key == "esc":
@@ -276,23 +281,47 @@ def handle_key(key: str, ui: dict) -> None:
 
 
 def move_arrow(ui: dict, direction: str) -> None:
-    coords = {
-        "stage": (0, 0), "ground": (0, 1),
-        CLIENTS[0]: (1, 0), CLIENTS[1]: (1, 1),
-        CLIENTS[2]: (2, 0), CLIENTS[3]: (2, 1),
-    }
-    reverse = {value: key for key, value in coords.items()}
-    row, col = coords[BOXES[ui["selected"]]]
-    if direction == "A":
-        row = max(0, row - 1)
-    elif direction == "B":
-        row = min(2, row + 1)
-    elif direction == "C":
-        col = min(1, col + 1)
-    elif direction == "D":
-        col = max(0, col - 1)
-    if (row, col) in reverse:
-        ui["selected"] = BOXES.index(reverse[(row, col)])
+    current = BOXES[ui["selected"]]
+    left, right = CLIENTS[0], CLIENTS[1]
+    lower_left, lower_right = CLIENTS[2], CLIENTS[3]
+
+    if current == "stage":
+        if direction == "B":
+            ui["selected"] = BOXES.index("ground")
+        return
+    if current == "ground":
+        if direction == "A":
+            ui["selected"] = BOXES.index("stage")
+        elif direction == "B":
+            column = ui.get("ground_column", 0)
+            ui["selected"] = BOXES.index(right if column else left)
+        elif direction == "C":
+            ui["ground_column"] = 1
+        elif direction == "D":
+            ui["ground_column"] = 0
+        return
+
+    if current in (left, right):
+        column = 1 if current == right else 0
+        ui["ground_column"] = column
+        if direction == "A":
+            ui["selected"] = BOXES.index("ground")
+        elif direction == "B":
+            ui["selected"] = BOXES.index(lower_right if column else lower_left)
+        elif direction == "C" and current == left:
+            ui["selected"] = BOXES.index(right)
+        elif direction == "D" and current == right:
+            ui["selected"] = BOXES.index(left)
+        return
+
+    if current in (lower_left, lower_right):
+        column = 1 if current == lower_right else 0
+        if direction == "A":
+            ui["selected"] = BOXES.index(right if column else left)
+        elif direction == "C" and current == lower_left:
+            ui["selected"] = BOXES.index(lower_right)
+        elif direction == "D" and current == lower_right:
+            ui["selected"] = BOXES.index(lower_left)
 
 
 def high_level_for(kind: str) -> str:
