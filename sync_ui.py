@@ -60,6 +60,7 @@ def main() -> int:
                 active = "stage"
             elif line.startswith("[") and "]" in line:
                 host, text = line[1:].split("]", 1)
+                active = host
                 panes[host].append(text.strip())
             else:
                 panes[active].append(line)
@@ -78,20 +79,20 @@ def main() -> int:
 
 def build(stage: str, panes: dict[str, deque[str]], task_started: dict[str, float]) -> Group:
     progress = Text(f"sync: {stage}", style="bold cyan", no_wrap=True)
-    stage_panel = Panel(card("setup progress", panes["stage"], task_started.get("stage")), title="setup", height=5, border_style="cyan")
-    ground_panel = Panel(card("ground build and restart", panes["ground"], task_started.get("ground")), title="ground", height=5, border_style="yellow")
+    stage_panel = Panel(card("setup", panes["stage"], task_started.get("stage"), stage), title="setup", height=5, border_style="cyan")
+    ground_panel = Panel(card("ground", panes["ground"], task_started.get("ground"), stage), title="ground", height=5, border_style="yellow")
     drones = Table.grid(expand=True)
     drones.add_column(ratio=1)
     drones.add_column(ratio=1)
     drone_panels = []
     for host in CLIENTS:
-        drone_panels.append(Panel(card("source sync and rebuild", panes[host], task_started.get(host)), title=host, height=5, border_style="green"))
+        drone_panels.append(Panel(card(host, panes[host], task_started.get(host), stage), title=host, height=5, border_style="green"))
     for index in range(0, len(drone_panels), 2):
         drones.add_row(drone_panels[index], drone_panels[index + 1] if index + 1 < len(drone_panels) else "")
     return Group(progress, stage_panel, ground_panel, drones)
 
 
-def card(purpose: str, lines: deque[str], started: float | None) -> str:
+def card(kind: str, lines: deque[str], started: float | None, stage: str) -> str:
     raw = lines[-1] if lines else "waiting"
     upper = raw.upper()
     if "OFFLINE" in upper:
@@ -107,7 +108,29 @@ def card(purpose: str, lines: deque[str], started: float | None) -> str:
     timing = ""
     if started is not None:
         timing = f"{time.strftime('%H:%M:%S')}  +{format_elapsed(time.monotonic() - started)}"
-    return f"{purpose}\n{state}{('  ' + timing) if timing else ''}\n{raw}"
+    return f"{purpose_for(kind, stage, raw)}\n{state}{('  ' + timing) if timing else ''}\n{raw}"
+
+
+def purpose_for(kind: str, stage: str, raw: str) -> str:
+    if raw == "waiting" and kind != "setup":
+        return "waiting"
+    text = f"{stage} {raw}".lower()
+    for word, purpose in (
+        ("offline", "offline"),
+        ("stopping", "stopping"),
+        ("building", "rebuilding"),
+        ("rebuilding", "rebuilding"),
+        ("restarting", "restarting"),
+        ("starting", "starting"),
+        ("sync", "synchronizing"),
+        ("refresh", "refreshing mirrors"),
+        ("publish", "publishing branches"),
+        ("scene", "synchronizing scenes"),
+        ("config", "configuring drones"),
+    ):
+        if word in text:
+            return purpose
+    return "setup" if kind == "setup" else "working"
 
 
 def format_elapsed(seconds: float) -> str:
