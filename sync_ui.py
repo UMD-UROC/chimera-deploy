@@ -156,24 +156,35 @@ def card(kind: str, lines: deque[str], started: float | None,
     if not upper.startswith("OFFLINE") and started is not None and started_wall is not None:
         end = finished if finished is not None else time.monotonic()
         timing = f"{time.strftime('%H:%M:%S', time.localtime(started_wall))}  +{format_elapsed(end - started)}"
-    return f"{purpose_for(kind, stage, raw)}\n{state}{('  ' + timing) if timing else ''}\n{raw}"
+    operation = operation_for(kind, stage, raw)
+    return f"{high_level_for(kind)}\n{operation}: {state}{('  ' + timing) if timing else ''}\n{raw}"
 
 
-def purpose_for(kind: str, stage: str, raw: str) -> str:
-    if raw == "waiting" and kind != "setup":
+def high_level_for(kind: str) -> str:
+    if kind == "setup":
+        return "Synchronize setup and source state"
+    if kind == "ground":
+        return "Update ground px4sim stack"
+    return "Update drone from ground"
+
+
+def operation_for(kind: str, stage: str, raw: str) -> str:
+    if raw == "waiting":
         return "waiting"
-    text = f"{stage} {raw}".lower() if kind == "setup" else raw.lower()
-    if raw.lower().startswith("offline"):
+    if raw.upper().startswith("OFFLINE"):
         return "offline"
+    if raw.upper() in ("DONE", "SUCCESS", "COMPLETE"):
+        return "complete"
+    text = f"{stage} {raw}".lower() if kind == "setup" else raw.lower()
     for word, purpose in (
-        ("done", "complete"),
         ("error", "failed"),
         ("failed", "failed"),
+        ("restart", "restarting"),
         ("stopping", "stopping"),
         ("building", "rebuilding"),
         ("rebuilding", "rebuilding"),
-        ("restarting", "restarting"),
-        ("starting", "starting"),
+        ("build_start", "rebuilding"),
+        ("sync_start", "syncing source"),
         ("sync", "synchronizing"),
         ("refresh", "refreshing mirrors"),
         ("publish", "publishing branches"),
@@ -183,7 +194,7 @@ def purpose_for(kind: str, stage: str, raw: str) -> str:
     ):
         if word in text:
             return purpose
-    return "setup" if kind == "setup" else "working"
+    return "working"
 
 
 def format_elapsed(seconds: float) -> str:
