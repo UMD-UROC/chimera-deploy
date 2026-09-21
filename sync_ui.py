@@ -35,6 +35,14 @@ def main() -> int:
     args = sys.argv[1:]
     if not args or args[0] != "sync":
         args = ["sync", *args]
+
+    # Status is intentionally a plain, read-only CLI command.  Do not start
+    # the Rich live dashboard for this lightweight query.
+    if "--status" in args:
+        return subprocess.call(
+            [os.path.join(ROOT, "setup_git_server.sh"), *args], cwd=ROOT
+        )
+
     env = os.environ.copy()
     env["SYNC_UI"] = "1"
     proc = subprocess.Popen(

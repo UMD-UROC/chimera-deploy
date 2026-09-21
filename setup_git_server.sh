@@ -18,6 +18,8 @@
 #                                 Dependabot branches. --branch/-b NAME asks
 #                                 clean ground checkouts to use NAME when it
 #                                 exists, then propagates each resolved branch.
+#                                 --status only prints the current ground repo
+#                                 branches and working-tree changes.
 #   push     run on the laptop  - push the current mirrors into every Orin's
 #                                 working copy and rebuild/restart changed clients
 #   scenes   run on the laptop  - copy the built scenes into every Orin and
@@ -257,10 +259,11 @@ open_firewall() {
 # sync - send drone commits up to GitHub, refresh the mirrors, push to the Orins
 ###############################################################################
 cmd_sync() {
-  local do_push=1 subs=0 upstream=1 push_new=0 do_local=1 clean_dependabot=0 branch='' arg
+  local do_push=1 subs=0 upstream=1 push_new=0 do_local=1 clean_dependabot=0 show_status=0 branch='' arg
   while [ "$#" -gt 0 ]; do
     arg="$1"
     case "$arg" in
+      --status)       show_status=1 ;;
       --no-push)     do_push=0 ;;
       --submodules)  subs=1 ;;
       --no-upstream) upstream=0 ;;
@@ -275,6 +278,8 @@ cmd_sync() {
     esac
     shift
   done
+
+  [ "$show_status" = 0 ] || { cmd_sync_status; return; }
 
   [[ "$branch" != -* ]] || die "invalid sync branch: $branch"
   prepare_ground_branches "$branch"
@@ -487,6 +492,21 @@ cmd_sync() {
     echo "  git -C $SERVE_ROOT/<repo>.git -c remote.origin.mirror=false \\"
     echo "      push origin <branch>"
   fi
+}
+
+cmd_sync_status() {
+  local entry name url dir
+  for entry in "${REPOS[@]}"; do
+    IFS='|' read -r name url _ <<< "$entry"
+    dir="$(local_source_for "$name")"
+    printf '\n== %s (%s) ==\n' "$name" "$dir"
+    if [ ! -d "$dir/.git" ]; then
+      echo "repository missing"
+      continue
+    fi
+
+    git -C "$dir" status --short --branch --untracked-files=all
+  done
 }
 
 ###############################################################################
