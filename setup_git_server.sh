@@ -276,9 +276,6 @@ cmd_sync() {
     shift
   done
 
-  if [ -z "$branch" ]; then
-    branch="$(git -C "$SCRIPT_DIR" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
-  fi
   [[ "$branch" != -* ]] || die "invalid sync branch: $branch"
   prepare_ground_branches "$branch"
 
@@ -357,6 +354,8 @@ cmd_sync() {
       sync_status 'ground: FAILURE (see ground build log)'; exit 1; }) >"$ground_log" 2>&1 &
     ground_pid=$!
   fi
+  [ -n "$clients_pid" ] || clients_done=1
+  [ -n "$ground_pid" ] || ground_done=1
 
   # Both rebuild groups run concurrently.  Drain status changes immediately,
   # but retain the full logs until each group has finished so Docker output
