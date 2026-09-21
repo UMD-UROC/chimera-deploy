@@ -716,7 +716,7 @@ cmd_push() {
     wait "${jobs[$index]}" || rc=$?
     kill "${log_tails[$index]}" 2>/dev/null || true
     if [ "$rc" != 0 ]; then
-      echo "[$ip] ERROR (see the preceding live lines)"
+      echo "[${clients[$index]}] ERROR (see the preceding live lines)"
     fi
     [ -n "${SYNC_CLIENT_LOG_DIR:-}" ] || rm -f "${logs[$index]}"
     if [ "$rc" = 0 ]; then
