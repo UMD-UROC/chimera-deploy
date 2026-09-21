@@ -12,6 +12,7 @@ from rich.console import Group
 from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
+from rich.table import Table
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CLIENTS = os.environ.get("CLIENTS", "10.200.142.61 10.200.142.62 10.200.142.63 10.200.142.64").split()
@@ -30,7 +31,7 @@ def main() -> int:
         text=True, bufsize=1,
     )
     panes: dict[str, deque[str]] = defaultdict(lambda: deque(maxlen=5))
-    panes["stage"] = deque(maxlen=20)
+    panes["stage"] = deque(maxlen=3)
     stage = "starting"
     active = "stage"
     with Live(build(stage, panes), refresh_per_second=8, transient=False) as live:
@@ -61,11 +62,18 @@ def main() -> int:
 
 
 def build(stage: str, panes: dict[str, deque[str]]) -> Group:
-    blocks = [Panel("\n".join(panes["stage"]) or "waiting", title=f"SYNC  {stage}", border_style="cyan")]
+    progress = Text(f"sync: {stage}", style="bold cyan", no_wrap=True)
+    stage_panel = Panel("\n".join(panes["stage"]) or "waiting", title="stages", height=5, border_style="cyan")
+    ground_panel = Panel("\n".join(panes["ground"]) or "waiting", title="ground", height=5, border_style="yellow")
+    drones = Table.grid(expand=True)
+    drones.add_column(ratio=1)
+    drones.add_column(ratio=1)
+    drone_panels = []
     for host in CLIENTS:
-        blocks.append(Panel("\n".join(panes[host]) or "waiting", title=host, border_style="green"))
-    blocks.append(Panel("\n".join(panes["ground"]) or "waiting", title="ground", border_style="yellow"))
-    return Group(*blocks)
+        drone_panels.append(Panel("\n".join(panes[host]) or "waiting", title=host, height=5, border_style="green"))
+    for index in range(0, len(drone_panels), 2):
+        drones.add_row(drone_panels[index], drone_panels[index + 1] if index + 1 < len(drone_panels) else "")
+    return Group(progress, stage_panel, ground_panel, drones)
 
 
 if __name__ == "__main__":
