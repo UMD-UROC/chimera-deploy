@@ -328,6 +328,8 @@ cmd_sync() {
   fi
 
   local clients_pid='' ground_pid='' clients_log='' ground_log='' status_log='' rc=0
+  local ground_output_lines=0 ground_output_lines_sent=0 client_output_lines=0
+  declare -A client_output_lines_sent=()
   local clients_done=0 ground_done=0 status_lines=0
   local client_file=''
   local dashboard_width=120 line='' dashboard_lines=0
@@ -368,11 +370,24 @@ cmd_sync() {
   # remains readable instead of interleaving across hosts.
   while [ "$clients_done" = 0 ] || [ "$ground_done" = 0 ]; do
     if [ -n "${SYNC_UI:-}" ]; then
-      [ "$ground_done" = 0 ] && [ -n "$ground_log" ] && [ -s "$ground_log" ] \
-        && echo "[ground] $(tail -n 1 "$ground_log")"
+      if [ -n "$ground_log" ] && [ -s "$ground_log" ]; then
+        ground_output_lines="$(wc -l <"$ground_log")"
+        if [ "$ground_output_lines" -gt "$ground_output_lines_sent" ]; then
+          sed -n "$((ground_output_lines_sent + 1)),${ground_output_lines}p" "$ground_log" \
+            | sed 's/^/[ground] /'
+          ground_output_lines_sent="$ground_output_lines"
+        fi
+      fi
       for ip in "${CLIENTS[@]}"; do
         client_file="${SYNC_CLIENT_LOG_DIR:-}/$ip.log"
-        [ -s "$client_file" ] && echo "[$ip] $(tail -n 1 "$client_file")"
+        if [ -s "$client_file" ]; then
+          client_output_lines="$(wc -l <"$client_file")"
+          if [ "$client_output_lines" -gt "${client_output_lines_sent[$ip]:-0}" ]; then
+            sed -n "$(( ${client_output_lines_sent[$ip]:-0} + 1 )),${client_output_lines}p" "$client_file" \
+              | sed "s/^/[$ip] /"
+            client_output_lines_sent[$ip]="$client_output_lines"
+          fi
+        fi
       done
     else
 

@@ -42,8 +42,11 @@ def main() -> int:
         cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, bufsize=1,
     )
-    panes: dict[str, deque[str]] = defaultdict(lambda: deque(maxlen=40))
-    panes["stage"] = deque(maxlen=40)
+    # Keep the complete output for each process.  The renderer only shows the
+    # portion that fits in a pane, and the existing scroll controls let the
+    # operator inspect older lines.
+    panes: dict[str, deque[str]] = defaultdict(deque)
+    panes["stage"] = deque()
     stage = "starting"
     active = "stage"
     total_started = time.monotonic()
@@ -71,6 +74,7 @@ def main() -> int:
             event_text = line
             match = re.search(r"stage (\d/5): (.*)", line)
             if match:
+                panes["stage"].append(line)
                 now = time.monotonic()
                 stage_key = match.group(1)
                 if stage_key == "5/5":
