@@ -48,7 +48,7 @@ def main() -> int:
         get_renderable=lambda: build(stage, panes, task_started, task_started_wall,
                                       task_finished, total_started, total_started_wall,
                                       total_finished),
-        refresh_per_second=8, transient=False,
+        refresh_per_second=8, transient=True,
     ) as live:
         for raw in proc.stdout or ():
             line = ANSI.sub("", raw.replace("\r", "")).rstrip()
