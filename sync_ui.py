@@ -32,6 +32,7 @@ def main() -> int:
     panes: dict[str, deque[str]] = defaultdict(lambda: deque(maxlen=5))
     panes["stage"] = deque(maxlen=20)
     stage = "starting"
+    active = "stage"
     with Live(build(stage, panes), refresh_per_second=8, transient=False) as live:
         for raw in proc.stdout or ():
             line = ANSI.sub("", raw.replace("\r", "")).rstrip()
@@ -40,11 +41,18 @@ def main() -> int:
             match = re.search(r"stage (\d/5): (.*)", line)
             if match:
                 stage = f"{match.group(1)} {match.group(2)}"
+                active = "stage"
+            elif line.strip() == "ground":
+                active = "ground"
+            elif line.strip() in CLIENTS:
+                active = line.strip()
+            elif line.strip().startswith("-" ):
+                active = "stage"
             elif line.startswith("[") and "]" in line:
                 host, text = line[1:].split("]", 1)
                 panes[host].append(text.strip())
             else:
-                panes["stage"].append(line)
+                panes[active].append(line)
             live.update(build(stage, panes))
         rc = proc.wait()
         panes["stage"].append("DONE" if rc == 0 else f"FAILED (exit {rc})")

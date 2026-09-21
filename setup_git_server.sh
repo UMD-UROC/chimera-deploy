@@ -363,6 +363,14 @@ cmd_sync() {
   # but retain the full logs until each group has finished so Docker output
   # remains readable instead of interleaving across hosts.
   while [ "$clients_done" = 0 ] || [ "$ground_done" = 0 ]; do
+    if [ -n "${SYNC_UI:-}" ]; then
+      [ -n "$ground_log" ] && [ -s "$ground_log" ] && echo "[ground] $(tail -n 1 "$ground_log")"
+      for ip in "${CLIENTS[@]}"; do
+        client_file="${SYNC_CLIENT_LOG_DIR:-}/$ip.log"
+        [ -s "$client_file" ] && echo "[$ip] $(tail -n 1 "$client_file")"
+      done
+    else
+
     printf '\033[H\033[J'
     echo "sync progress"
     echo "----------------"
@@ -394,6 +402,7 @@ cmd_sync() {
       fi
     done
     echo "----------------"
+    fi
     local -a updates=()
     mapfile -t updates <"$status_log"
     while [ "$status_lines" -lt "${#updates[@]}" ]; do
