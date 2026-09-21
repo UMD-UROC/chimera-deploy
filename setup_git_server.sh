@@ -279,7 +279,9 @@ cmd_sync() {
   [[ "$branch" != -* ]] || die "invalid sync branch: $branch"
   prepare_ground_branches "$branch"
 
-  say "synchronizing scenes and drone git configuration"
+  say "stage 1/5: scenes and drone git configuration"
+  echo "  scenes: starting"
+  echo "  drone configuration: starting"
   local setup_scenes_log setup_deploy_log setup_scenes_pid setup_deploy_pid setup_rc=0
   setup_scenes_log="$(mktemp -t chimera-sync-scenes.XXXXXX)"
   setup_deploy_log="$(mktemp -t chimera-sync-deploy.XXXXXX)"
@@ -287,6 +289,7 @@ cmd_sync() {
   (cmd_deploy >"$setup_deploy_log" 2>&1) & setup_deploy_pid=$!
   wait "$setup_scenes_pid" || { setup_rc=1; echo "scene synchronization failed:"; cat "$setup_scenes_log"; }
   wait "$setup_deploy_pid" || { setup_rc=1; echo "drone configuration failed:"; cat "$setup_deploy_log"; }
+  [ "$setup_rc" = 0 ] && echo "  scenes: done; drone configuration: done"
   rm -f "$setup_scenes_log" "$setup_deploy_log"
   [ "$setup_rc" = 0 ] || die "scene or drone configuration failed"
 
@@ -294,15 +297,25 @@ cmd_sync() {
   # GitHub -> mirrors, mirrors -> drones. Every step before the refresh has to
   # land first, or the forced mirror fetch overwrites what it has not seen.
   if github_up; then
+    say "stage 2/5: publishing mirror branches upstream"
     if [ "$upstream" = 1 ]; then
       push_mirrors_upstream "$push_new" "$clean_dependabot"
+      echo "  upstream publish: done"
+    else
+      echo "  upstream publish: skipped"
     fi
 
     if [ "$do_local" = 1 ]; then
+      say "stage 3/5: synchronizing ground working copies (parallel)"
       sync_local_worktrees_parallel 1 "$push_new"
+      echo "  ground working copies: done"
+    else
+      echo "  ground working copies: skipped"
     fi
 
+    say "stage 4/5: refreshing mirrors (parallel)"
     sync_mirrors_parallel
+    echo "  mirrors: done"
   elif [ "$do_push" = 1 ]; then
     warn "GitHub unreachable - skipping the mirror refresh, pushing what we have"
     # the mirrors still hold whatever the drones pushed over the LAN, so the
@@ -323,6 +336,7 @@ cmd_sync() {
   status_log="$(mktemp -t chimera-sync-status.XXXXXX)"
   export SYNC_CLIENT_LOG_DIR="$(mktemp -d -t chimera-sync-client-logs.XXXXXX)"
   export SYNC_STATUS_FILE="$status_log"
+  say "stage 5/5: rebuilding ground and drones (parallel dashboard)"
   if [ "$do_push" = 1 ]; then
     # The ground image has no dependency on an aircraft image.  Start both
     # sides now; each side still waits for and reports all of its own jobs.
