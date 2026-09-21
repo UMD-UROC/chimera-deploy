@@ -283,8 +283,15 @@ cmd_sync() {
   prepare_ground_branches "$branch"
 
   say "synchronizing scenes and drone git configuration"
-  cmd_scenes
-  cmd_deploy
+  local setup_scenes_log setup_deploy_log setup_scenes_pid setup_deploy_pid setup_rc=0
+  setup_scenes_log="$(mktemp -t chimera-sync-scenes.XXXXXX)"
+  setup_deploy_log="$(mktemp -t chimera-sync-deploy.XXXXXX)"
+  (cmd_scenes >"$setup_scenes_log" 2>&1) & setup_scenes_pid=$!
+  (cmd_deploy >"$setup_deploy_log" 2>&1) & setup_deploy_pid=$!
+  wait "$setup_scenes_pid" || { setup_rc=1; echo "scene synchronization failed:"; cat "$setup_scenes_log"; }
+  wait "$setup_deploy_pid" || { setup_rc=1; echo "drone configuration failed:"; cat "$setup_deploy_log"; }
+  rm -f "$setup_scenes_log" "$setup_deploy_log"
+  [ "$setup_rc" = 0 ] || die "scene or drone configuration failed"
 
   # drone commits -> GitHub, laptop commits -> GitHub, GitHub -> laptop,
   # GitHub -> mirrors, mirrors -> drones. Every step before the refresh has to
@@ -327,7 +334,9 @@ cmd_sync() {
 
   local clients_pid='' ground_pid='' clients_log='' ground_log='' status_log='' rc=0
   local clients_done=0 ground_done=0 status_lines=0
+  local client_file=''
   status_log="$(mktemp -t chimera-sync-status.XXXXXX)"
+  export SYNC_CLIENT_LOG_DIR="$(mktemp -d -t chimera-sync-client-logs.XXXXXX)"
   export SYNC_STATUS_FILE="$status_log"
   if [ "$do_push" = 1 ]; then
     # The ground image has no dependency on an aircraft image.  Start both
@@ -356,16 +365,19 @@ cmd_sync() {
     printf '\033[2J\033[H'
     echo "sync progress"
     echo "----------------"
+    printf 'ground\n'
     if [ -n "$ground_log" ] && [ -s "$ground_log" ]; then
-      printf 'ground  %s\n' "$(tail -n 1 "$ground_log")"
+      tail -n 5 "$ground_log"
     else
-      echo "ground  waiting"
+      printf '  waiting\n%.0s' {1..5}
     fi
     for ip in "${CLIENTS[@]}"; do
-      if [ -n "$clients_log" ] && grep -q "^\[$ip\]" "$clients_log" 2>/dev/null; then
-        printf '%-7s %s\n' "$ip" "$(grep "^\[$ip\]" "$clients_log" | tail -n 1)"
+      printf '%s\n' "$ip"
+      client_file="${SYNC_CLIENT_LOG_DIR:-}/$ip.log"
+      if [ -s "$client_file" ]; then
+        tail -n 5 "$client_file"
       else
-        printf '%-7s waiting\n' "$ip"
+        printf '  waiting\n%.0s' {1..5}
       fi
     done
     echo "----------------"
@@ -400,6 +412,8 @@ cmd_sync() {
     [ "$clients_done" = 1 ] && [ "$ground_done" = 1 ] || sleep 1
   done
   rm -f "$clients_log" "$ground_log"
+  rm -rf "$SYNC_CLIENT_LOG_DIR"
+  unset SYNC_CLIENT_LOG_DIR
   # A job can publish its final status between the last drain and exit.
   mapfile -t updates <"$status_log"
   while [ "$status_lines" -lt "${#updates[@]}" ]; do
@@ -680,7 +694,12 @@ cmd_push() {
       continue
     fi
     clients+=("$ip")
-    logs+=("$(mktemp -t chimera-sync-client.XXXXXX)")
+    if [ -n "${SYNC_CLIENT_LOG_DIR:-}" ]; then
+      logs+=("$SYNC_CLIENT_LOG_DIR/$ip.log")
+      : >"${logs[-1]}"
+    else
+      logs+=("$(mktemp -t chimera-sync-client.XXXXXX)")
+    fi
     # Redirect each job rather than letting parallel SSH/Docker output splice
     # together.  The completed log is printed under its aircraft heading.
     (push_to_client "$ip" "$subs" "$branch") >"${logs[-1]}" 2>&1 &
@@ -699,7 +718,7 @@ cmd_push() {
     if [ "$rc" != 0 ]; then
       echo "[$ip] ERROR (see the preceding live lines)"
     fi
-    rm -f "${logs[$index]}"
+    [ -n "${SYNC_CLIENT_LOG_DIR:-}" ] || rm -f "${logs[$index]}"
     if [ "$rc" = 0 ]; then
       ok=$((ok + 1))
       sync_status "${clients[$index]}: SUCCESS"
