@@ -38,6 +38,15 @@
 - Live application was not completed because d2's sudo password was required
   and the available alias comment password was rejected. No further guesses
   were attempted.
+
+### Live application completed
+
+- Using the user-provided sudo password over the serial console, d2 was
+  corrected without rebooting or restarting PX4Sim.
+- `eno1` remained reachable through the former DHCP retry interval and beyond:
+  repeated pings succeeded, SSH remained available, and the final state was
+  `Wired connection 2`, `100 (connected)`, static `10.200.142.62/24`, and no
+  default route.
 - `rcam.service` also failed once because the thermal-fork camera stopped producing frames (`No frames from thermal-fork for 15 seconds`); it restarted, but reported the Boson capture device missing while RGB restarted successfully. This is a separate camera/USB reliability issue, not the direct Ethernet drop.
 
 Last updated: 2026-09-22  
