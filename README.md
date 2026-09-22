@@ -216,11 +216,13 @@ and the complete parallel `scenes ; sync` run took 121 s (114 s for `sync`).
 Network image resolution and an uncached build can take longer; these are
 observed timings, not a deadline.
 
-`remote/.bash_aliases` now contains only the container-era aircraft helpers.
+`remote/.bash_aliases` now contains only the container-era aircraft helpers,
+including `deploy-doctor` for the read-only deployment health check.
 Copy it to `~/.bash_aliases` on the Orin:
 
 ```
 pxs status      # invoke any PX4Sim command from any directory
+deploy-doctor   # check the deployed aircraft without changing state
 ```
 
 The container is the path this aircraft flies. The former `onboard-native`,

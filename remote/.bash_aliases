@@ -5,6 +5,7 @@
 
 alias cdd='cd ~/chimera-deploy'
 alias pxs='cd ~/px4-sim-stack && ./px4sim'
+alias deploy-doctor='cd ~/chimera-deploy && ./remote/deploy_doctor.sh'
 
 # Read-only ROS environment helpers for diagnostics. Do not launch native ROS
 # onboard: it conflicts with the aircraft container's MAVROS and SCF4.
