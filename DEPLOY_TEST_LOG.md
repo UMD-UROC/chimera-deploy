@@ -24,11 +24,30 @@
   image stream, and `yolo12l-custom-960` TensorRT engine.
 - Expected thermal caveat reproduced: after RGB, thermal, and gimbal traffic
   ran together, the Boson disappeared from USB and the thermal stream stopped.
-- Remaining real blocker: `/uas2/state` and `/uas2/imu/data` have no samples.
-  `mavlink-router` is configured for `/dev/ttyTHS1` at 500000 baud and
-  `AllowSrcSysIn = 2,255`, but reports unknown endpoints consistent with the
-  FCU emitting source sysid 1. Confirm `MAV_SYS_ID` in QGC before changing the
-  router filter; do not broaden it blindly.
+- At this stage the remaining real blocker was `/uas2/state` and
+  `/uas2/imu/data` having no samples. The router reported unknown endpoints,
+  and the PX4 source ID had not yet been verified; changing the filter was
+  intentionally deferred.
+
+## PX4 parameter update and MAVROS transport diagnosis (2026-09-22)
+
+- The updated PX4 parameters are effective: `mavlink_census.py` over the native
+  router TCP endpoint sees telemetry with source system ID 2, including
+  ATTITUDE, LOCAL_POSITION_NED, ALTITUDE, and HEARTBEAT.
+- The router was reloaded once and explicitly reopened `/dev/ttyTHS1`, the
+  onboard UDP endpoint `127.0.0.1:14402`, and the ground endpoint
+  `10.200.142.60:14552`. The aircraft container was then restarted through the
+  PX4Sim front door with `./px4sim restart --no-build aircraft`.
+- The remaining telemetry failure is inside the MAVROS receive path: MAVROS is
+  bound to UDP 14402 with `tgt_system: 2`, and the socket receive queue grows
+  while the MAVROS UDP worker does not consume the queued packets. This is not
+  currently evidence that PX4 or the router source-ID filter is wrong. No
+  additional filter broadening or restart was performed.
+- The detector remains healthy and loaded
+  `yolo12l-custom-960.onnx_b1_gpu0_fp16.engine`; RGB image data publishes.
+- The doctor now reports the verified UAS2 source filter as a pass. Its
+  recurring thermal warnings remain expected under the documented shared-USB
+  hub congestion failure.
 
 ## Post-restart PX4Sim check (2026-09-22)
 

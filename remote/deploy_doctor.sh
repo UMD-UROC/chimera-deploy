@@ -194,7 +194,9 @@ if [[ -r "$router_config" ]]; then
         fail "router UART endpoint is not ttyTHS1 at 500000 baud"
     fi
     if grep -q 'AllowSrcSysIn = 2,255' "$router_config"; then
-        warn "router currently filters source sysid 1; confirm PX4 MAV_SYS_ID before changing it"
+        pass "router allows UAS2 source sysid 2"
+    else
+        warn "router does not explicitly allow UAS2 source sysid 2; confirm PX4 MAV_SYS_ID before changing filters"
     fi
 else
     fail "cannot read $router_config"
