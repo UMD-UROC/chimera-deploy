@@ -13,7 +13,7 @@ SERVER_IP=${SERVER_IP:-10.200.142.60}
 GIT_PORT=${GIT_PORT:-9418}
 # onboard.service holds this path. One place names it.
 STACK=$HOME/px4-sim-stack
-DEPLOY_BRANCH=$(git -C "$DEPLOY_ROOT" branch --show-current)
+DEPLOY_BRANCH=$(git -C "$DEPLOY_ROOT" -c submodule.recurse=false branch --show-current 2>/dev/null || true)
 STACK_BRANCH=${STACK_BRANCH:-${DEPLOY_BRANCH:-flight_testing}}
 WS=${WS:-$HOME/ros2_ws}
 
@@ -33,12 +33,19 @@ UAS_NUM=$(sed -n 's/^UAS_NUM=//p' /etc/environment | tr -d '"' | tail -1)
 [ -n "$UAS_NUM" ] || die "UAS_NUM is not in /etc/environment. Run deploy.sh first."
 case "$UAS_NUM" in [1-9]) ;; *) die "UAS_NUM=$UAS_NUM is not 1 to 9" ;; esac
 ROS_DOMAIN_ID=$((60 + UAS_NUM))
-case "$UAS_NUM" in
-  1|2) UAS_MODEL=v3 ;;
-  3|4) UAS_MODEL=v2 ;;
-  *) die "UAS_NUM=$UAS_NUM has no declared Chimera airframe model" ;;
-esac
+UAS_MODEL=$(sed -n 's/^CHIMERA_MODEL=//p' /etc/environment | tr -d '"' | tail -1)
+if [ -z "$UAS_MODEL" ]; then
+  case "$UAS_NUM" in
+    1|2) UAS_MODEL=v3 ;;
+    3|4) UAS_MODEL=v2 ;;
+    *) die "UAS_NUM=$UAS_NUM has no declared Chimera airframe model" ;;
+  esac
+fi
+case "$UAS_MODEL" in v2|v3) ;; *) die "CHIMERA_MODEL=$UAS_MODEL is not v2 or v3" ;; esac
 me=$(id -un)
+
+say "preflight"
+[ -d "$WS/src/5g_drone" ] || die "$WS/src/5g_drone is missing. Bring the flight repositories to this machine first (from the laptop: ./setup_git_server.sh deploy, or run ./setup_git_server.sh remote here)."
 
 say "docker group"
 if id -nG "$me" | grep -qw docker; then
@@ -109,6 +116,13 @@ if [ -n "$lens" ] && ! grep -qxF "ONBOARD_LENS_DEVICE=$lens" "$STACK/.env"; then
 fi
 
 say "model links"
+ORIN_PARAMS="$WS/src/5g_drone/perception_models/orin/params.yaml"
+if [ ! -f "$ORIN_PARAMS" ]; then
+  install -m 644 "$DEPLOY_ROOT/remote/orin_params.yaml" "$ORIN_PARAMS"
+  echo "  wrote the Orin detector override: yolo12x-custom-1280"
+else
+  echo "  keeping existing $ORIN_PARAMS"
+fi
 "$WS/src/5g_drone/scripts/fetch_models.py" resolve --link ||
   die "fetch_models.py knows no engine group for this machine. Add a rule for it to $WS/src/5g_drone/perception_models/manifest.json, then run this again."
 "$WS/src/5g_drone/scripts/fetch_models.py" check --role onboard || true

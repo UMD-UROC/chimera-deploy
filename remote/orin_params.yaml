@@ -1,0 +1,7 @@
+# Chimera Orin deployment override.
+# The common file names yolo12l-custom-960, but the verified onboard model
+# release and the stack documentation provide yolo12x-custom-1280.
+/**/*:
+  ds_pipeline:
+    ros__parameters:
+      model.detector: "yolo12x-custom-1280"

@@ -93,19 +93,39 @@ Now all that's left is to install the chimera SDK. Since we have the git repo cl
 ```cd chimera-deploy; ./deploy.sh```
 Be sure to use the correct UAS number from earlier
 
+For Chimera v3 aircraft (UAS 1–2), the deploy script configures the wired
+RoboScout interface (`10.200.142.62/24` for UAS 2) and does not install a Wi-Fi
+module. Chimera v2 aircraft (UAS 3–4) take the legacy `rtw88` Wi-Fi-driver
+path instead. When a v3 ground link is ready to share internet, run this on
+the ground station (not on the drone):
+
+```
+cd chimera-deploy
+./local/share-on.sh
+```
+
+Then, on the drone, add the shared-link default route:
+
+```
+sudo ip route replace default via 10.200.142.60 dev eth0
+```
+
 `deploy.sh` writes `UAS_NUM` and `ROS_DOMAIN_ID` into `/etc/environment`,
 installs the native services, and then calls `remote/deploy_onboard.sh`, which
 puts the onboard container on the aircraft. The next section says what that
 step does.
 
-Finally, I recommend using ```sudo nmtui``` to configure the network connections. You will need to reboot or unplug and replug the wifi adapter after flashing to initialize it. You will also likely need to redo the ssh key to allow your host to connect to the Orin if you don't always use the ethernet hardwired to your router.
+Do not run `sudo apt upgrade` or `ubuntu-drivers autoinstall` as part of this
+deployment. The SDK/JetPack versions are intentionally pinned. The deploy
+script does not change the existing Wi-Fi connection and only adds the
+RoboScout address on the connected wired interface.
 
-CUDA
-```
-sudo apt update
-sudo apt upgrade
-sudo ubuntu-drivers autoinstall # for cuda/nvidia-smi
-```
+For the intended split, the drone uses the PX4Sim `aircraft` profile and the
+laptop uses the `ground` profile. The laptop runs `./px4sim ui` and the
+`chimera_real` Foxglove layout; the drone runs only its `onboard` container
+plus native camera/router services. The old broad EchoMAV installer and
+pre-container ROS launch aliases are retained as legacy material and are not
+needed for routine PX4Sim deployment.
 Local Cam Server
 ```
 open local/lcam.service # update path for your machine
@@ -190,20 +210,16 @@ and the complete parallel `scenes ; sync` run took 121 s (114 s for `sync`).
 Network image resolution and an uncached build can take longer; these are
 observed timings, not a deadline.
 
-`remote/.bash_aliases` holds the hand versions. Copy it to `~/.bash_aliases` on
-the Orin:
+`remote/.bash_aliases` now contains only the container-era aircraft helpers.
+Copy it to `~/.bash_aliases` on the Orin:
 
 ```
-onboard         # cd ~/px4-sim-stack && ./px4sim start
-onboard-logs    # cd ~/px4-sim-stack && ./px4sim logs onboard
-onboard-native  # the same launch with no container, for a machine with no image
+pxs status      # invoke any PX4Sim command from any directory
 ```
 
-The container is the path this aircraft flies. `onboard-native` starts the same
-launch with no container. The older `uspi<N>` aliases start the per-vehicle
-launch files that came before it. Both are for a machine that has no image yet.
-Never run a native launch and the container at once: one MAVROS can bind 14402,
-and one node can hold the SCF4 lens.
+The container is the path this aircraft flies. The former `onboard-native`,
+`uspi<N>`, camera-forwarding, calibration, and recording aliases were removed
+from the active file; they belonged to the pre-container deployment.
 
 Everything after the deploy goes through the px4-sim-stack front door, and
 `px4-sim-stack/docs/front-doors.md` is the guide to it. It carries the command
