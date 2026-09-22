@@ -185,3 +185,37 @@ status/log/doctor aliases were removed from the active file.
    the camera readiness check after reboot, and continue to the PX4Sim
    preflight.
 6. Run `./px4sim doctor` before enabling `onboard.service` or starting PX4Sim.
+
+## PX4Sim aircraft verification on d2 (2026-09-22)
+
+- The aircraft images built successfully on UAS 2 with pinned ROS, CUDA 12.6,
+  TensorRT 10.3.0.30, MAVROS, PX4 messages, `tracking_test`, and the YOLO
+  parser. The ARM64 build took about 53 minutes; the slowest stages were
+  `px4_msgs` (~41 minutes) and the MAVROS patch (~53 minutes). No host
+  `sudo apt upgrade` was run.
+- `./px4sim start` brought up the onboard container. The camera path now
+  produces `/uas2/image` at about 30 Hz, and the prebuilt
+  `yolo12l-custom-960.onnx_b1_gpu0_fp16.engine` loads successfully. The
+  `yolo12l-custom-960` ONNX, labels, and engine were copied from the laptop
+  because the current `5g_drone` model manifest does not include them.
+- UAS2's source parameters refer to missing placeholder zoom calibration
+  files. The deployment overlay now uses the installed 1920x1080
+  `90deg-cil034` calibration as a temporary UI/sensor fallback for all three
+  presets. It is not a final D2 localization calibration and must be replaced
+  after D2-specific calibration is available.
+- `rcam.service`, `mavlink-router.service`, and `chrony` remain active; the
+  drone still has DHCP/default routing on Wi-Fi plus persistent
+  `10.200.142.62/24` on `eno1`. No RoboScout internet sharing was enabled.
+- Remaining blocker: MAVROS telemetry is silent (`/uas2/altitude` has no
+  samples), while `mavlink-routerd` reports roughly 235 messages to unknown
+  endpoints every five seconds. Its generated filters currently allow source
+  sysids `2..255`; the flight controller may be emitting sysid 1. Confirm the
+  FCU sysid before changing the native router filter, then restart only
+  `mavlink-router` and the onboard container if required. Do not change this
+  blindly while the aircraft is operating.
+- The generic `./px4sim verify vehicle`/`foxglove` stages assume `FIRST_UAS=1`
+  even on this real UAS2 aircraft. Direct checks should use `/uas2/*` until
+  the px4-sim-stack verification helper is made vehicle-aware.
+- Important non-blocking warnings include the missing optional ReID model,
+  missing `lsmod`/`modprobe` inside the container, software video fallback,
+  15 W power mode, and 15 GB host RAM.

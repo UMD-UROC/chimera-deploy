@@ -116,9 +116,9 @@ fi
 
 say "model links"
 ORIN_PARAMS="$WS/src/5g_drone/perception_models/orin/params.yaml"
-if [ ! -f "$ORIN_PARAMS" ]; then
+if [ ! -f "$ORIN_PARAMS" ] || ! grep -q 'model.detector: "yolo12l-custom-960"' "$ORIN_PARAMS"; then
   install -m 644 "$DEPLOY_ROOT/remote/orin_params.yaml" "$ORIN_PARAMS"
-  echo "  wrote the Orin detector override: yolo12x-custom-1280"
+  echo "  wrote the Orin detector override: yolo12l-custom-960"
 else
   echo "  keeping existing $ORIN_PARAMS"
 fi

@@ -1,7 +1,16 @@
 # Chimera Orin deployment override.
-# The common file names yolo12l-custom-960, but the verified onboard model
-# release and the stack documentation provide yolo12x-custom-1280.
-/**/*:
-  ds_pipeline:
-    ros__parameters:
-      model.detector: "yolo12x-custom-1280"
+/**:
+  uas2:
+    ds_pipeline:
+      ros__parameters:
+        model.detector: "yolo12l-custom-960"
+    zoom:
+      ros__parameters:
+        # UAS2's source params still name placeholder zoom calibrations that are
+        # not installed in the package. Keep the onboard graph producing
+        # CameraInfo for the PX4Sim/UI path until a D2-specific calibration is
+        # supplied. This is a temporary 1920x1080 optical fallback, not a flight
+        # localization calibration.
+        zoom.camera_info.calibration.narrow: "config/90deg-cil034-1920x1080-d3-scaled.yaml"
+        zoom.camera_info.calibration.mid: "config/90deg-cil034-1920x1080-d3-scaled.yaml"
+        zoom.camera_info.calibration.wide: "config/90deg-cil034-1920x1080-d3-scaled.yaml"
