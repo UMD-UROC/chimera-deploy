@@ -107,7 +107,7 @@ cd chimera-deploy
 Then, on the drone, add the shared-link default route:
 
 ```
-sudo ip route replace default via 10.200.142.60 dev eth0
+sudo ip route replace default via 10.200.142.60 dev eno1
 ```
 
 `deploy.sh` writes `UAS_NUM` and `ROS_DOMAIN_ID` into `/etc/environment`,

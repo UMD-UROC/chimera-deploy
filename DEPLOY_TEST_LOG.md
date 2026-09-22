@@ -23,6 +23,21 @@
 - `eno1` has `10.200.142.62/24`, but the active NetworkManager profile is `Wired connection 2` with `ipv4.method=auto` (DHCP), `autoconnect=yes`, and priority `-999`.
 - NetworkManager starts DHCP on `eno1`, waits 45 seconds, fails with `ip-config-unavailable`, disconnects the interface, then immediately auto-activates the same profile again. This is the direct cause of the periodic wired SSH/ping drops.
 - The alternate `Wired connection 1` also contains `10.200.142.62/24` but is bound to `eth0`, which is not the current interface. No profile was changed during diagnosis.
+
+## RoboScout profile correction (2026-09-22)
+
+- Updated `deploy.sh` so the active Ethernet profile is converted to static
+  RoboScout configuration on `eno1` (`10.200.142.62/24`, no gateway, no
+  default route, autoconnect priority 100).
+- The script disables competing Ethernet profiles bound to `eno1`, preventing
+  the DHCP retry loop that caused management drops. It also disables the
+  stale `Wired connection 1` profile when present.
+- Updated `local/share-on.sh` and the README to use the explicit shared-link
+  route `default via 10.200.142.60 dev eno1` on the drone. Normal operation
+  intentionally has no default gateway; internet sharing adds it temporarily.
+- Live application was not completed because d2's sudo password was required
+  and the available alias comment password was rejected. No further guesses
+  were attempted.
 - `rcam.service` also failed once because the thermal-fork camera stopped producing frames (`No frames from thermal-fork for 15 seconds`); it restarted, but reported the Boson capture device missing while RGB restarted successfully. This is a separate camera/USB reliability issue, not the direct Ethernet drop.
 
 Last updated: 2026-09-22  

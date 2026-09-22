@@ -96,28 +96,36 @@ if [[ "$UAS_MODEL" == v3 ]]; then
         | awk -F: -v dev="$ROBO_IF" '$2 == dev { print $1; exit }')
     if [ -n "$ACTIVE_ROBO_CON" ]; then
         ROBO_CON="$ACTIVE_ROBO_CON"
-        if ! nmcli -g ipv4.addresses connection show "$ROBO_CON" \
-            | tr ',' '\n' | grep -qx "$ROBO_ADDR"; then
-            sudo nmcli connection modify "$ROBO_CON" +ipv4.addresses "$ROBO_ADDR"
-        fi
+    elif nmcli -t -f NAME connection show | grep -Fxq "$ROBO_CON"; then
+        sudo nmcli connection modify "$ROBO_CON" connection.interface-name "$ROBO_IF"
     else
-        if nmcli -t -f NAME connection show | grep -Fxq "$ROBO_CON"; then
-            sudo nmcli connection modify "$ROBO_CON" \
-                connection.interface-name "$ROBO_IF" \
-                ipv4.method manual ipv4.addresses "$ROBO_ADDR" \
-                ipv4.gateway "" ipv4.never-default yes connection.autoconnect yes
-        else
-            sudo nmcli connection add type ethernet ifname "$ROBO_IF" \
-                con-name "$ROBO_CON" ipv4.method manual \
-                ipv4.addresses "$ROBO_ADDR" ipv4.gateway "" \
-                ipv4.never-default yes connection.autoconnect yes
-        fi
+        sudo nmcli connection add type ethernet ifname "$ROBO_IF" \
+            con-name "$ROBO_CON"
     fi
+    # One Ethernet profile owns the RoboScout link. Disable competing profiles
+    # on this interface so NetworkManager cannot retry DHCP and drop .62.
+    while IFS= read -r con; do
+        [ -n "$con" ] || continue
+        [ "$con" = "$ROBO_CON" ] && continue
+        con_type=$(nmcli -g connection.type connection show "$con" 2>/dev/null || true)
+        con_if=$(nmcli -g connection.interface-name connection show "$con" 2>/dev/null || true)
+        if [ "$con_type" = ethernet ] && [ "$con_if" = "$ROBO_IF" ]; then
+            sudo nmcli connection modify "$con" connection.autoconnect no
+            echo "Disabled competing Ethernet profile: $con"
+        fi
+    done < <(nmcli -t -f NAME connection show)
+    sudo nmcli connection modify "$ROBO_CON" \
+        connection.interface-name "$ROBO_IF" \
+        ipv4.method manual ipv4.addresses "$ROBO_ADDR" \
+        ipv4.gateway "" ipv4.never-default yes ipv4.route-metric 50 \
+        connection.autoconnect yes connection.autoconnect-priority 100
+    sudo nmcli connection up "$ROBO_CON"
     if ! ip -4 addr show dev "$ROBO_IF" | grep -qE "inet ${ROBO_ADDR%/*}/"; then
         sudo ip addr add "$ROBO_ADDR" dev "$ROBO_IF"
     fi
     echo "RoboScout is configured as $ROBO_IF with $ROBO_ADDR (no default route)."
-    echo "After the ground station is connected, run local/share-on.sh there, then:"
+    echo "Normal mode has no default gateway; the laptop remains the management peer."
+    echo "When internet is needed, run local/share-on.sh on the laptop, then on this drone:"
     echo "  sudo ip route replace default via 10.200.142.60 dev $ROBO_IF"
 else
     # Chimera v2 uses the rtw88 Wi-Fi module. Do not run this branch on v3.

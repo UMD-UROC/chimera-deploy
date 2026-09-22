@@ -26,4 +26,4 @@ sudo iptables -t nat -C POSTROUTING -o "$WIFI" -j MASQUERADE 2>/dev/null || \
 sudo iptables -t nat -A POSTROUTING -o "$WIFI" -j MASQUERADE
 
 echo "Internet sharing enabled."
-echo "On the drone: sudo ip route add default via 10.200.142.60"
+echo "On the drone: sudo ip route replace default via 10.200.142.60 dev eno1"
