@@ -1,5 +1,35 @@
 # Chimera deploy test log
 
+## Host sync and PX4Sim front-door verification (2026-09-22)
+
+- Ran the exact host alias command `cd ~/chimera-deploy && ./sync_ui.py sync`.
+- The first sync stopped safely because d2 had a non-Git, manually copied
+  `tracking_test_5g` directory. It was moved, not deleted, to
+  `~/legacy/tracking_test_5g-pre-sync-20260922`; the host sync then cloned the
+  repository normally. Other fleet clients were offline and were not changed.
+- Sync distributed the top-level repositories and invoked the PX4Sim restart
+  front door. The first restart was rejected because d2 had a stale
+  `CHIMERA_DEPLOY_REF` pin. PX4Sim does not need the deployment repository
+  pinned when host sync is the source-of-truth distributor, so the optional
+  source-pin gate was disabled in the ignored PX4Sim `.env` on the laptop and
+  d2. SDK/package versions were not changed.
+- A fresh source build hit exit 137 while two stale/duplicate builds competed;
+  the stale build was stopped. A retry with `ROS_BUILD_JOBS=1` remained healthy
+  but stalled in the generated `px4_msgs` dependency step. The existing
+  verified images were then started through the explicit
+  `./px4sim restart --no-build aircraft` front door. No system `onboard.service`
+  and no host OS restart were used.
+- Final front-door status: `px4simstack-onboard-1` running. Deploy doctor
+  passed the RoboScout address/profile, native services, PX4Sim container,
+  image stream, and `yolo12l-custom-960` TensorRT engine.
+- Expected thermal caveat reproduced: after RGB, thermal, and gimbal traffic
+  ran together, the Boson disappeared from USB and the thermal stream stopped.
+- Remaining real blocker: `/uas2/state` and `/uas2/imu/data` have no samples.
+  `mavlink-router` is configured for `/dev/ttyTHS1` at 500000 baud and
+  `AllowSrcSysIn = 2,255`, but reports unknown endpoints consistent with the
+  FCU emitting source sysid 1. Confirm `MAV_SYS_ID` in QGC before changing the
+  router filter; do not broaden it blindly.
+
 ## Post-restart PX4Sim check (2026-09-22)
 
 - After the user restart, the RoboScout link initially worked at `10.200.142.62` and the onboard PX4Sim container was started manually.
@@ -64,7 +94,7 @@
   warning pending PX4 sysid confirmation.
 
 Last updated: 2026-09-22  
-Target: `d2` at `192.168.1.9`  
+Target: `d2` at `10.200.142.62` (RoboScout wired)
 UAS: `2`  
 Airframe: Chimera v3  
 Branch: `deploy-testing-chimera-v3`
