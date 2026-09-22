@@ -259,12 +259,17 @@ step_done
 
 # -----------------------------------------------------------------------------
 # 8. Onboard px4-sim-stack deployment
-# Estimate: 1-10 minutes; clone/model resolution/build availability vary
+# Estimate: 1-10 minutes after host sync; model resolution/build availability vary
 # -----------------------------------------------------------------------------
 section "onboard px4-sim-stack deployment" "~1-10 minutes (provisional)"
-# the onboard container: docker access, px4-sim-stack, its .env, and models.
-# The flight repos must be on the machine first. ./setup_git_server.sh remote
-# clones them from the laptop git daemon.
+# The host sync front door distributes all flight repositories, px4-sim-stack,
+# and chimera-deploy to the aircraft, then rebuilds/restarts PX4Sim. It is the
+# only repository propagation path; remote/deploy_onboard.sh only configures
+# the already-synced checkout and models.
+echo "Run this exact host sync command in a laptop terminal before continuing:"
+echo "  cd ~/chimera-deploy && ./sync_ui.py sync"
+read -r -p "Has the host sync completed successfully? [y/N]: " sync_done
+[[ "$sync_done" =~ ^[Yy]$ ]] || { echo "Run host sync, then rerun deploy.sh."; exit 1; }
 ./remote/deploy_onboard.sh || exit 1
 step_done
 

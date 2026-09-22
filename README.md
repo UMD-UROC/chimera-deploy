@@ -157,8 +157,15 @@ The flight code runs on the aircraft in a container, from the px4-sim-stack
 nodes and the MAVInsight frame tree, and the native `rcam.service` and
 `mavlink-router.service` keep serving the cameras and the autopilot beside it.
 
-`remote/deploy_onboard.sh` puts it in place. Run it on the Orin as `user`, from
-this directory, after `deploy.sh` or on its own:
+The host `sync` front door distributes the flight repositories and
+px4-sim-stack. Run this on the laptop first:
+
+```
+cd ~/chimera-deploy && ./sync_ui.py sync
+```
+
+Then `remote/deploy_onboard.sh` configures the already-synced aircraft
+checkout. Run it on the Orin as `user`, from this directory:
 
 ```
 ./remote/deploy_onboard.sh                     # prepare the aircraft checkout and models
@@ -167,19 +174,16 @@ cd ~/px4-sim-stack && ./px4sim restart aircraft # build/start through the PX4Sim
 
 Each step examines the machine before it acts, so a second run changes nothing.
 It adds `user` to group `docker`, renames `~/ros2_ws/src/umd_uas` to
-`~/ros2_ws/src/5g_drone`, clones px4-sim-stack from the laptop's git daemon,
-machine's TensorRT engines with `fetch_models.py resolve --link`.
+`~/ros2_ws/src/5g_drone`, and links this machine's TensorRT engines with
+`fetch_models.py resolve --link`. Repository cloning and updates are owned by
+the host sync command and are not duplicated here.
 It does not install a systemd lifecycle unit; use `./px4sim start`, `./px4sim
 restart`, `./px4sim stop`, and `./px4sim status` for stack lifecycle control.
 
-The stack clone follows the current `chimera-deploy` branch. Set
-`STACK_BRANCH` to override it; a detached checkout falls back to
-`flight_testing`.
-
 **The flight code directory is `5g_drone`, not `umd_uas`.** The container build
-and `fetch_models.py` both read that name. `setup_git_server.sh remote` and
-`remote/deploy_onboard.sh` each move an old checkout rather than clone a second
-one, because two directories of one ROS package stop the colcon build.
+The host sync command selects the branch and updates the aircraft checkout.
+`remote/deploy_onboard.sh` only moves an old `umd_uas` directory into the
+expected `5g_drone` name; it does not clone or update repositories.
 
 The aircraft Compose service is controlled by the PX4Sim front door, not a
 second systemd lifecycle path. This keeps stop, build, and start behavior in

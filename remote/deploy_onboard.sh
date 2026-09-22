@@ -1,19 +1,16 @@
 #!/usr/bin/env bash
-# Put the onboard container on an aircraft: docker access, the px4-sim-stack
-# checkout, its .env and the model links. Each step examines
+# Prepare the onboard container configuration after the host sync has placed
+# the flight repositories and px4-sim-stack. Each step examines
 # the machine before it acts, so a second run changes nothing.
 #
 # Run it on the Orin as `user`, from ~/chimera-deploy, after deploy.sh or on
-# its own. It needs git://10.200.142.60 (setup_git_server.sh local on the
-# laptop). Start or restart the aircraft only through ./px4sim.
+# its own. Repository distribution is owned by the host sync front door:
+# `cd ~/chimera-deploy && ./sync_ui.py sync`. Start or restart the aircraft
+# only through ./px4sim.
 set -euo pipefail
 
 DEPLOY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SERVER_IP=${SERVER_IP:-10.200.142.60}
-GIT_PORT=${GIT_PORT:-9418}
 STACK=$HOME/px4-sim-stack
-DEPLOY_BRANCH=$(git -C "$DEPLOY_ROOT" -c submodule.recurse=false branch --show-current 2>/dev/null || true)
-STACK_BRANCH=${STACK_BRANCH:-${DEPLOY_BRANCH:-flight_testing}}
 WS=${WS:-$HOME/ros2_ws}
 
 say() { echo -e "\n\033[1;36m==> $*\033[0m"; }
@@ -44,7 +41,7 @@ case "$UAS_MODEL" in v2|v3) ;; *) die "CHIMERA_MODEL=$UAS_MODEL is not v2 or v3"
 me=$(id -un)
 
 say "preflight"
-[ -d "$WS/src/5g_drone" ] || die "$WS/src/5g_drone is missing. Bring the flight repositories to this machine first (from the laptop: ./setup_git_server.sh deploy, or run ./setup_git_server.sh remote here)."
+[ -d "$WS/src/5g_drone" ] || die "$WS/src/5g_drone is missing. Run the host sync command first: cd ~/chimera-deploy && ./sync_ui.py sync"
 
 say "docker group"
 if id -nG "$me" | grep -qw docker; then
@@ -64,17 +61,7 @@ fi
   which the container build needs."
 
 say "px4-sim-stack at $STACK"
-if [ ! -d "$STACK/.git" ]; then
-  stack_url="git://$SERVER_IP:$GIT_PORT/px4-sim-stack.git"
-  # The named branch while the mirror carries it, its default branch after
-  # the merge deletes it.
-  if git ls-remote --exit-code --heads "$stack_url" "$STACK_BRANCH" >/dev/null 2>&1; then
-    git clone --branch "$STACK_BRANCH" "$stack_url" "$STACK"
-  else
-    echo "  the mirror has no $STACK_BRANCH. Cloning its default branch."
-    git clone "$stack_url" "$STACK"
-  fi
-fi
+[ -d "$STACK/.git" ] || die "$STACK is missing. Run the host sync command first: cd ~/chimera-deploy && ./sync_ui.py sync"
 # The log volumes bind here. Docker makes a missing one root-owned, and the
 # uid 1000 container then writes nothing into it.
 mkdir -p "$STACK"/logs/{onboard,offboard,px4,qgc}
