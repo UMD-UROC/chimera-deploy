@@ -17,6 +17,14 @@
 - Router configuration still filters incoming source IDs with `AllowSrcSysIn = 2,255`. Confirm the flashed PX4 `MAV_SYS_ID` in QGC before changing this; do not blindly alter the filter.
 - The obsolete `/etc/systemd/system/onboard.service` remains installed on d2 but is disabled/inactive. Removing it requires the drone user's sudo password; the deployment repository no longer installs or references it.
 
+## Serial-console diagnosis of d2 network drops (2026-09-22)
+
+- Connected through the existing `orin-usb` target (`/dev/ttyUSB0`, 115200) with picocom. d2 was not rebooting: uptime was 8 minutes and the PX4Sim container was still up.
+- `eno1` has `10.200.142.62/24`, but the active NetworkManager profile is `Wired connection 2` with `ipv4.method=auto` (DHCP), `autoconnect=yes`, and priority `-999`.
+- NetworkManager starts DHCP on `eno1`, waits 45 seconds, fails with `ip-config-unavailable`, disconnects the interface, then immediately auto-activates the same profile again. This is the direct cause of the periodic wired SSH/ping drops.
+- The alternate `Wired connection 1` also contains `10.200.142.62/24` but is bound to `eth0`, which is not the current interface. No profile was changed during diagnosis.
+- `rcam.service` also failed once because the thermal-fork camera stopped producing frames (`No frames from thermal-fork for 15 seconds`); it restarted, but reported the Boson capture device missing while RGB restarted successfully. This is a separate camera/USB reliability issue, not the direct Ethernet drop.
+
 Last updated: 2026-09-22  
 Target: `d2` at `192.168.1.9`  
 UAS: `2`  
