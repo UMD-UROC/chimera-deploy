@@ -193,6 +193,23 @@ sync; dirty or diverged worktrees are left untouched and reported. The foregroun
 sync command reports `BUILDING`, `SUCCESS`, `FAILURE`, or `UNREACHABLE` for the
 ground station and each aircraft while their full Docker logs remain grouped.
 
+## Deployment doctor
+
+Run the read-only health check on an aircraft after deployment:
+
+```
+./remote/deploy_doctor.sh
+```
+
+It checks the airframe identity, RoboScout or v2 Wi-Fi path, native services,
+PX4Sim container, ROS camera and MAVROS topics, detector engine, and the native
+MAVLink UART/router. It exits nonzero for hard failures and reports warnings
+separately. The thermal warning is intentional: on the current hardware the
+Boson can stream successfully at startup, then disappear from USB after about
+30 seconds when RGB, thermal, and gimbal traffic saturate the shared hub. The
+doctor records that as a known warning rather than treating it as an unexpected
+deployment failure.
+
 Measured on 2026-09-11 with cached base layers: scene distribution took 7 s, a
 successful aircraft ROS build took 24.1 s, the ground ROS build took 49.1 s,
 and the complete parallel `scenes ; sync` run took 121 s (114 s for `sync`).

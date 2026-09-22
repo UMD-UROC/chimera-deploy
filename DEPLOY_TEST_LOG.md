@@ -49,6 +49,20 @@
   default route.
 - `rcam.service` also failed once because the thermal-fork camera stopped producing frames (`No frames from thermal-fork for 15 seconds`); it restarted, but reported the Boson capture device missing while RGB restarted successfully. This is a separate camera/USB reliability issue, not the direct Ethernet drop.
 
+## Deployment doctor helper (2026-09-22)
+
+- Added `remote/deploy_doctor.sh`, a read-only aircraft health check covering
+  identity, v2/v3 network state, native services, thermal USB caveat, PX4Sim
+  container, ROS camera/MAVROS topics, detector engine, and MAVLink router.
+- The helper treats the documented RGB/thermal/gimbal USB-hub thermal failure as
+  a warning, while missing RGB/MAVROS data and a stopped onboard container are
+  failures.
+- Streamed the helper against d2 without installing it or changing state. It
+  passed the corrected wired profile, native services, and current Boson USB
+  visibility, but correctly reported that `px4simstack-onboard-1` is currently
+  stopped with exit 255. MAVLink unknown-endpoint/sysid filtering remains a
+  warning pending PX4 sysid confirmation.
+
 Last updated: 2026-09-22  
 Target: `d2` at `192.168.1.9`  
 UAS: `2`  
