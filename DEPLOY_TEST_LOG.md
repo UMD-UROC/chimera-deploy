@@ -1,5 +1,12 @@
 # Chimera deploy test log
 
+## Post-restart PX4Sim check (2026-09-22)
+
+- After the user restart, the RoboScout link initially worked at `10.200.142.62` and the onboard PX4Sim container was started manually.
+- During the post-start warmup check, the drone stopped answering on both `10.200.142.62` and the former Wi-Fi address `192.168.1.9`.
+- The laptop Ethernet carrier remains up and `RoboScout-wired` remains connected at `10.200.142.60/24`, but ARP for `.62` is incomplete and SSH is unreachable.
+- No additional restart or network configuration change was made. PX4Sim camera/model and MAVLink telemetry still need verification after the drone is reachable again.
+
 Last updated: 2026-09-22  
 Target: `d2` at `192.168.1.9`  
 UAS: `2`  
@@ -64,8 +71,9 @@ of partially changing the target.
 - The required model assets were copied from the ground `ros2_ws`.
   `fetch_models.py check --role onboard` reports all four required files
   present and matching.
-- `remote/deploy_onboard.sh` completed successfully and installed
-  `onboard.service`, but deliberately did not enable or start it.
+- `remote/deploy_onboard.sh` completed successfully; the obsolete
+  `onboard.service` lifecycle path is being removed. PX4Sim is the sole stack
+  lifecycle front door.
 - The Orin model directory now has a deploy-owned override selecting the
   verified `yolo12x-custom-1280` detector. The doctor still warns until the
   TensorRT detector/classifier engine filenames are built or supplied; this
@@ -132,7 +140,7 @@ Keep and verify before considering removal:
 - IMX477 device-tree overlay configuration.
 - EchoTherm daemon and v4l2 loopback support.
 - GStreamer RTSP dependencies used by native `rcam`.
-- Chrony/time synchronization; `onboard.service` waits for clock sync.
+- Chrony/time synchronization remains a host prerequisite for PX4Sim.
 - Native MAVLink routing, unless PX4Sim's aircraft profile demonstrably replaces
   it without changing the documented UDP/UART interfaces.
 
@@ -184,7 +192,7 @@ status/log/doctor aliases were removed from the active file.
 5. Rerun the deploy script; it should skip the completed thermal install, pass
    the camera readiness check after reboot, and continue to the PX4Sim
    preflight.
-6. Run `./px4sim doctor` before enabling `onboard.service` or starting PX4Sim.
+6. Run `./px4sim doctor` before starting or restarting PX4Sim.
 
 ## PX4Sim aircraft verification on d2 (2026-09-22)
 

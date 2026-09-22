@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
 # Put the onboard container on an aircraft: docker access, the px4-sim-stack
-# checkout, its .env, the model links and the boot unit. Each step examines
+# checkout, its .env and the model links. Each step examines
 # the machine before it acts, so a second run changes nothing.
 #
 # Run it on the Orin as `user`, from ~/chimera-deploy, after deploy.sh or on
 # its own. It needs git://10.200.142.60 (setup_git_server.sh local on the
-# laptop). Enable the unit only after the bench tests: ENABLE_BOOT_UNIT=1.
+# laptop). Start or restart the aircraft only through ./px4sim.
 set -euo pipefail
 
 DEPLOY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVER_IP=${SERVER_IP:-10.200.142.60}
 GIT_PORT=${GIT_PORT:-9418}
-# onboard.service holds this path. One place names it.
 STACK=$HOME/px4-sim-stack
 DEPLOY_BRANCH=$(git -C "$DEPLOY_ROOT" -c submodule.recurse=false branch --show-current 2>/dev/null || true)
 STACK_BRANCH=${STACK_BRANCH:-${DEPLOY_BRANCH:-flight_testing}}
@@ -96,8 +95,8 @@ if [ ! -f "$STACK/.env" ]; then
   set_env_key "$STACK/.env" SCENARIO ''
   set_env_key "$STACK/.env" SIMNET_PREFIX 172.28.0
   set_env_key "$STACK/.env" ONBOARD_LENS_DEVICE "$lens"
-  # The host's own ids. The boot unit runs `px4sim start`, which does not
-  # read the host the way `px4sim doctor` does.
+  # The host's own ids. `px4sim start` does not read the host the way
+  # `px4sim doctor` does.
   set_env_key "$STACK/.env" HOST_UID "$(id -u)"
   set_env_key "$STACK/.env" HOST_GID "$(id -g)"
   render_gid=$(getent group render | cut -d: -f3 || true)
@@ -126,16 +125,5 @@ fi
   die "fetch_models.py knows no engine group for this machine. Add a rule for it to $WS/src/5g_drone/perception_models/manifest.json, then run this again."
 "$WS/src/5g_drone/scripts/fetch_models.py" check --role onboard || true
 
-say "boot unit"
-sudo install -m 644 "$DEPLOY_ROOT/remote/onboard.service" /etc/systemd/system/onboard.service
-sudo systemctl daemon-reload
-if [ "${ENABLE_BOOT_UNIT:-0}" = 1 ]; then
-  sudo systemctl enable onboard.service
-  echo "  onboard.service enabled. It starts at the next boot."
-else
-  echo "  onboard.service installed, not enabled. After the bench tests:"
-  echo "    sudo systemctl enable --now onboard"
-fi
-
 say "next"
-echo "  log in again, then:  cd $STACK && ./px4sim doctor && ./px4sim start"
+echo "  cd $STACK && ./px4sim doctor && ./px4sim restart aircraft"

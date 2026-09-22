@@ -161,16 +161,16 @@ nodes and the MAVInsight frame tree, and the native `rcam.service` and
 this directory, after `deploy.sh` or on its own:
 
 ```
-./remote/deploy_onboard.sh                     # install the boot unit, do not enable it
-ENABLE_BOOT_UNIT=1 ./remote/deploy_onboard.sh  # and enable it
+./remote/deploy_onboard.sh                     # prepare the aircraft checkout and models
+cd ~/px4-sim-stack && ./px4sim restart aircraft # build/start through the PX4Sim front door
 ```
 
 Each step examines the machine before it acts, so a second run changes nothing.
 It adds `user` to group `docker`, renames `~/ros2_ws/src/umd_uas` to
 `~/ros2_ws/src/5g_drone`, clones px4-sim-stack from the laptop's git daemon,
-writes its `.env` with the aircraft keys and the SCF4 lens path, links this
-machine's TensorRT engines with `fetch_models.py resolve --link`, and installs
-`remote/onboard.service`.
+machine's TensorRT engines with `fetch_models.py resolve --link`.
+It does not install a systemd lifecycle unit; use `./px4sim start`, `./px4sim
+restart`, `./px4sim stop`, and `./px4sim status` for stack lifecycle control.
 
 The stack clone follows the current `chimera-deploy` branch. Set
 `STACK_BRANCH` to override it; a detached checkout falls back to
@@ -181,20 +181,9 @@ and `fetch_models.py` both read that name. `setup_git_server.sh remote` and
 `remote/deploy_onboard.sh` each move an old checkout rather than clone a second
 one, because two directories of one ROS package stop the colcon build.
 
-`remote/onboard.service` starts the stack at boot:
-
-```
-sudo systemctl enable --now onboard
-sudo systemctl restart onboard        # after a rebuild
-journalctl -u onboard -n 40
-```
-
-It is a `oneshot` unit, ordered after `docker.service`, `rcam.service`,
-`mavlink-router.service` and `time-sync.target`. The aircraft Compose service
-does not carry a Docker restart policy because this systemd unit owns its boot
-lifecycle. The unit waits up to three minutes for a clock step with `chronyc
-waitsync`, then runs `px4sim start` once. `SupplementaryGroups=docker` gives it
-the docker socket whether or not the login user is in that group.
+The aircraft Compose service is controlled by the PX4Sim front door, not a
+second systemd lifecycle path. This keeps stop, build, and start behavior in
+one place.
 
 `setup_git_server.sh sync` is the deployment front door. After uploading
 repository updates, it invokes `./px4sim restart` on the ground station and every

@@ -55,7 +55,8 @@ case "$UAS_MODEL" in
 esac
 echo "Selected Chimera model: $UAS_MODEL"
 
-# set as environment variables, once. onboard.service reads this file too.
+# set as environment variables, once. PX4Sim reads the aircraft settings from
+# the generated stack environment.
 export UAS_NUM
 grep -qxF "UAS_NUM=${UAS_NUM}" /etc/environment \
   || echo "UAS_NUM=${UAS_NUM}" | sudo tee -a /etc/environment
@@ -253,7 +254,7 @@ step_done
 # Estimate: 1-10 minutes; clone/model resolution/build availability vary
 # -----------------------------------------------------------------------------
 section "onboard px4-sim-stack deployment" "~1-10 minutes (provisional)"
-# the onboard container: docker access, px4-sim-stack, its .env, the boot unit.
+# the onboard container: docker access, px4-sim-stack, its .env, and models.
 # The flight repos must be on the machine first. ./setup_git_server.sh remote
 # clones them from the laptop git daemon.
 ./remote/deploy_onboard.sh || exit 1
