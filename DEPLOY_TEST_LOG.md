@@ -7,6 +7,16 @@
 - The laptop Ethernet carrier remains up and `RoboScout-wired` remains connected at `10.200.142.60/24`, but ARP for `.62` is incomplete and SSH is unreachable.
 - No additional restart or network configuration change was made. PX4Sim camera/model and MAVLink telemetry still need verification after the drone is reachable again.
 
+## PX4Sim front-door restart and telemetry check (2026-09-22)
+
+- After the user restart, `./px4sim restart aircraft` completed successfully on d2. It rebuilt from cache, replaced the Compose network/container, and reported `onboard Up`.
+- Vision is working: `/uas2/image` measured approximately 20–25 Hz. DeepStream loaded the requested prebuilt `yolo12l-custom-960.onnx_b1_gpu0_fp16.engine` and the injury engine without an engine build.
+- The UAS2 ROS graph starts, including MAVROS, Foxglove, camera, gimbal, zoom, and detection nodes.
+- PX4 telemetry is not working yet: `/uas2/state`, `/uas2/imu/data`, and `/uas2/altitude` have publishers/topics but no messages.
+- Native `mavlink-router.service` is active and opens `/dev/ttyTHS1` at 500000 baud, but logs about 234–237 messages to unknown endpoints every five seconds.
+- Router configuration still filters incoming source IDs with `AllowSrcSysIn = 2,255`. Confirm the flashed PX4 `MAV_SYS_ID` in QGC before changing this; do not blindly alter the filter.
+- The obsolete `/etc/systemd/system/onboard.service` remains installed on d2 but is disabled/inactive. Removing it requires the drone user's sudo password; the deployment repository no longer installs or references it.
+
 Last updated: 2026-09-22  
 Target: `d2` at `192.168.1.9`  
 UAS: `2`  
