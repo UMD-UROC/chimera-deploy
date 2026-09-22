@@ -39,13 +39,15 @@ else
   echo "$ROOTFS has files, skip extracting 'Tegra_Linux_Sample-Root-Filesystem_r36.4.4_aarch64.tbz2' and applying binaries"
 fi
 
-# delete all non-system users (UID >= 1000)
-sudo chroot "$ROOTFS" bash -c 'userdel -r user 2>/dev/null || true'
+# delete all non-system users (UID >= 1000), including any stale target user
+sudo chroot "$ROOTFS" bash -c '
+  awk -F: '\''$3 >= 1000 && $1 != "nobody" { print $1 }'\'' /etc/passwd \
+    | xargs -r -n1 userdel -r 2>/dev/null || true
+'
 # create desired user
-cd $ORIN/Linux_for_Tegra
-# TODO: this fails when username is user, l4t_create_default_user.sh doesn't get to updating hostname
+cd "$ORIN/Linux_for_Tegra"
 : "${DRONE_PASSWORD:?set DRONE_PASSWORD to the drone password from the team password store}"
-sudo tools/l4t_create_default_user.sh -u user -p "$DRONE_PASSWORD" -n d$UAS_NUM -a --accept-license
+sudo tools/l4t_create_default_user.sh -u user -p "$DRONE_PASSWORD" -n "d$UAS_NUM" -a --accept-license
 
 echo "installing 'echopilot_ai_bsp'..."
 cd $SCRIPT_DIR/submodules/echopilot_ai_bsp
@@ -88,6 +90,7 @@ ssh-keygen -t rsa -b 4096
 cat /home/user/.ssh/id_rsa.pub # add this to your github account ssh keys
 git clone --recurse-submodules git@github.com:UMD-UROC/chimera-deploy.git
 cd chimera-deploy
+# git checkout flight_testing
 git submodule update --init --recursive # to update submodules
 
 ### sdk manager app (download from nvidia https://developer.nvidia.com/sdk-manager)
@@ -114,4 +117,3 @@ target proxy settings: do not set proxy
 install
 
 EOF
-
