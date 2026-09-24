@@ -77,7 +77,12 @@ done
 # graphics; the container toolkit's default of "utility" ships no GL at all.
 DOCKER_RUNTIMES=$(docker info --format '{{.Runtimes}}' 2>/dev/null || true)
 if [[ $DOCKER_RUNTIMES == *nvidia* ]] && command -v nvidia-smi >/dev/null 2>&1; then
-    ARGS+=( --gpus all -e NVIDIA_DRIVER_CAPABILITIES=graphics,compute,utility,display )
+    # `video` is required for the NVIDIA container hook to expose the NVDEC/
+    # NVENC userspace libraries. Without it OpenGL still works and nvidia-smi
+    # succeeds, but QGC's GStreamer decoder list has no hardware decoder.
+    ARGS+=( --gpus all \
+        -e NVIDIA_VISIBLE_DEVICES=all \
+        -e NVIDIA_DRIVER_CAPABILITIES=graphics,compute,utility,video,display )
 fi
 
 # Alert tones.
