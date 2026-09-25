@@ -1147,22 +1147,34 @@ cmd_deploy() {
   systemctl is-active --quiet git-daemon.service \
     || die "git-daemon is not running - run './setup_git_server.sh local' first"
 
-  local ip ok=0
+  local ip ok=0 log rc ip_index
+  local -a pids=() ips=() logs=()
   for ip in "${CLIENTS[@]}"; do
-    say "$ip"
-    if ! ping -c1 -W1 "$ip" >/dev/null 2>&1; then
-      warn "unreachable - skipped"
-      continue
-    fi
+    log="$(mktemp -t chimera-deploy-client.XXXXXX)"
+    ips+=("$ip") logs+=("$log")
+    (
+      echo "$ip"
+      if ! ping -c1 -W1 "$ip" >/dev/null 2>&1; then
+        echo "unreachable - skipped"
+        exit 2
+      fi
+      # let the Orin push back over ssh
+      install_client_key "$ip"
+      scp -q -o BatchMode=yes "${BASH_SOURCE[0]}" "$SERVER_USER@$ip:/tmp/setup_git_server.sh"
+      # shellcheck disable=SC2029
+      ssh -o BatchMode=yes "$SERVER_USER@$ip" \
+        "SERVER_IP=$SERVER_IP SERVE_ROOT=$SERVE_ROOT GIT_PORT=$GIT_PORT bash /tmp/setup_git_server.sh remote"
+    ) >"$log" 2>&1 &
+    pids+=("$!")
+  done
 
-    # let the Orin push back over ssh
-    install_client_key "$ip"
-
-    scp -q -o BatchMode=yes "${BASH_SOURCE[0]}" "$SERVER_USER@$ip:/tmp/setup_git_server.sh"
-    # shellcheck disable=SC2029
-    ssh -o BatchMode=yes "$SERVER_USER@$ip" \
-      "SERVER_IP=$SERVER_IP SERVE_ROOT=$SERVE_ROOT GIT_PORT=$GIT_PORT bash /tmp/setup_git_server.sh remote"
-    ok=$((ok + 1))
+  for ip_index in "${!pids[@]}"; do
+    rc=0; wait "${pids[$ip_index]}" || rc=$?
+    sed "s/^/[${ips[$ip_index]}] /" "${logs[$ip_index]}"
+    rm -f "${logs[$ip_index]}"
+    [ "$rc" = 0 ] && ok=$((ok + 1)) || {
+      [ "$rc" = 2 ] || warn "${ips[$ip_index]}: configuration failed"
+    }
   done
 
   say "configured $ok of ${#CLIENTS[@]} clients"
@@ -1236,14 +1248,19 @@ cmd_scenes() {
   cd ~/px4-sim-stack && ./px4sim genscene --help"
   command -v rsync >/dev/null || die "rsync is not installed on this machine"
 
-  local ip ok=0
+  local ip ok=0 log rc ip_index
+  local -a pids=() ips=() logs=()
   for ip in "${CLIENTS[@]}"; do
-    say "$ip"
-    if ! ping -c1 -W1 "$ip" >/dev/null 2>&1; then
-      warn "unreachable - skipped"
-      continue
-    fi
-    scenes_to_client "$ip" && ok=$((ok + 1))
+    log="$(mktemp -t chimera-scenes-client.XXXXXX)"
+    ips+=("$ip") logs+=("$log")
+    (scenes_to_client "$ip") >"$log" 2>&1 &
+    pids+=("$!")
+  done
+  for ip_index in "${!pids[@]}"; do
+    rc=0; wait "${pids[$ip_index]}" || rc=$?
+    sed "s/^/[${ips[$ip_index]}] /" "${logs[$ip_index]}"
+    rm -f "${logs[$ip_index]}"
+    [ "$rc" = 0 ] && ok=$((ok + 1)) || true
   done
 
   say "sent the scenes to $ok of ${#CLIENTS[@]} clients"
