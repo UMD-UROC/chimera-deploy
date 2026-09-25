@@ -71,6 +71,8 @@ patch -p1 -d "$WS/src/mavros" --forward --silent < "$PATCH" \
 
 grep -q "MAV_CMD::REQUEST_MESSAGE" "$WS/src/mavros/mavros/src/plugins/sys_status.cpp" \
     || die "patch applied but REQUEST_MESSAGE is not in sys_status.cpp"
+grep -q "MAV_CMD::REQUEST_MESSAGE" "$WS/src/mavros/mavros/src/plugins/home_position.cpp" \
+    || die "patch applied but REQUEST_MESSAGE is not in home_position.cpp"
 
 info "building (this takes a while on the Orin)"
 # ROS setup files read unset variables, so -u has to come off around them.

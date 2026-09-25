@@ -1,11 +1,12 @@
 From b4fb1f026bae71a08a06a764ed0acf6c687f4d6e Mon Sep 17 00:00:00 2001
 From: Chimera <ctitus@umd.edu>
 Date: Thu, 13 Aug 2026 10:24:15 -0400
-Subject: [PATCH] sys_status: request AUTOPILOT_VERSION via REQUEST_MESSAGE
+Subject: [PATCH] PX4 v1.18: request capability and home messages via REQUEST_MESSAGE
 
-PX4 v1.18 removed the legacy command shims from mavlink_receiver.cpp.
-MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES (520) now falls through to the
-default case, and the FCU answers MAV_RESULT_UNSUPPORTED (3).
+PX4 v1.18 removes legacy request-command shims. MAVROS 2.14.0 asks for
+AUTOPILOT_VERSION with MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES (520) and
+HOME_POSITION with MAV_CMD_GET_HOME_POSITION. When either legacy request is
+unsupported, MAVROS never receives the corresponding state after it starts.
 
 MAVROS therefore never receives AUTOPILOT_VERSION from the autopilot.
 The sys plugin retries five times and then gives up:
@@ -26,8 +27,39 @@ Verified on an EchoPilot AI running PX4 v1.18.0-beta1. The FCU answers
 MAV_RESULT_ACCEPTED and sends AUTOPILOT_VERSION with capabilities
 0x000000000004e8ff. The waypoint plugin then logs "Using MISSION_ITEM_INT".
 ---
- mavros/src/plugins/sys_status.cpp | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ mavros/src/plugins/home_position.cpp | 18 ++++++++++--------
+ mavros/src/plugins/sys_status.cpp     | 8 ++++++--
+ 2 files changed, 16 insertions(+), 10 deletions(-)
+
+diff --git a/mavros/src/plugins/home_position.cpp b/mavros/src/plugins/home_position.cpp
+index 0dd9476..f6d9bbd 100644
+--- a/mavros/src/plugins/home_position.cpp
++++ b/mavros/src/plugins/home_position.cpp
+@@ -90,16 +90,8 @@ private:
+-    bool ret = false;
+-
+-    try {
+-      auto client = node->create_client<mavros_msgs::srv::CommandLong>("cmd/command");
+-
+-      auto cmdrq = std::make_shared<mavros_msgs::srv::CommandLong::Request>();
+-      cmdrq->command = utils::enum_value(MAV_CMD::GET_HOME_POSITION);
+-
+-      auto future = client->async_send_request(cmdrq);
+-      auto response = future.get();
+-      ret = response->success;
+-    } catch (std::exception & ex) {
+-      RCLCPP_ERROR_STREAM(get_logger(), "HP: %s" << ex.what());
+-    }
+-
+-    return ret;
++    mavlink::common::msg::COMMAND_LONG cmd {};
++    cmd.target_system = uas->get_tgt_system();
++    cmd.target_component = uas->get_tgt_component();
++    cmd.command = utils::enum_value(MAV_CMD::REQUEST_MESSAGE);
++    cmd.param1 = mavlink::common::msg::HOME_POSITION::MSG_ID;
++    uas->send_message(cmd);
++
++    return true;
 
 diff --git a/mavros/src/plugins/sys_status.cpp b/mavros/src/plugins/sys_status.cpp
 index e36a96d..6d793d3 100644
