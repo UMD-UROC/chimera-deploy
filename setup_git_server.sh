@@ -1057,7 +1057,7 @@ apply_mavros_patch_client() {
   local result
 
   result="$(ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
-    "set -e; patch=\$(sha256sum '$rdeploy/remote/mavros_patch/0001-sys_status-request-AUTOPILOT_VERSION-via-REQUEST_MESSAGE.patch' | cut -d' ' -f1); source=\$(git -C '$rdeploy/submodules/mavros' rev-parse HEAD); stamp=\"\$patch \$source\"; marker=\'$rhome/mavros_ws/.chimera-mavros-patch\'; if [ -f \"\$marker\" ] && [ \"\$(cat \"\$marker\")\" = \"\$stamp\" ]; then echo unchanged; else echo applying; '$rdeploy/remote/mavros_patch/apply.sh'; mkdir -p \"\$(dirname \"\$marker\")\"; printf '%s\\n' \"\$stamp\" > \"\$marker\"; fi" 2>&1)" || {
+    "set -e; patch=\$(sha256sum '$rdeploy/remote/mavros_patch/0001-sys_status-request-AUTOPILOT_VERSION-via-REQUEST_MESSAGE.patch' | cut -d' ' -f1); source=\$(git -C '$rdeploy/submodules/mavros' rev-parse HEAD); stamp=\"\$patch \$source\"; marker=\'$rhome/mavros_ws/.chimera-mavros-patch\'; ws=\'$rhome/mavros_ws\'; if [ -f \"\$marker\" ] && [ \"\$(cat \"\$marker\")\" = \"\$stamp\" ]; then echo unchanged; elif [ -f \"\$ws/install/setup.bash\" ] && grep -q 'MAV_CMD::REQUEST_MESSAGE' \"\$ws/src/mavros/mavros/src/plugins/sys_status.cpp\" && grep -q 'MAV_CMD::REQUEST_MESSAGE' \"\$ws/src/mavros/mavros/src/plugins/home_position.cpp\"; then mkdir -p \"\$(dirname \"\$marker\")\"; printf '%s\\n' \"\$stamp\" > \"\$marker\"; echo existing-valid-overlay; else echo applying; '$rdeploy/remote/mavros_patch/apply.sh'; mkdir -p \"\$(dirname \"\$marker\")\"; printf '%s\\n' \"\$stamp\" > \"\$marker\"; fi" 2>&1)" || {
     echo "FAILED - MAVROS patch on $ip"
     printf '%s\n' "$result" | sed 's/^/      /'
     return 1
