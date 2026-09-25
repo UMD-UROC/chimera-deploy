@@ -283,6 +283,7 @@ cmd_sync() {
   [ "$show_status" = 0 ] || { cmd_sync_status; return; }
 
   [[ "$branch" != -* ]] || die "invalid sync branch: $branch"
+  check_sync_trees_clean
   prepare_ground_branches "$branch"
 
   say "stage 1/5: scenes and drone git configuration"
@@ -860,6 +861,54 @@ refresh_local_stack() {
   # runtime input outside the set of files Git reports as updated. Always use
   # the disruptive front door here; `start` deliberately no-ops when running.
   (cd "$stack" && ./px4sim restart)
+}
+
+# Sync is a propagation operation, not a way to hide local work. Check every
+# checkout before changing mirrors, branches, scenes, or drone configuration so
+# one dirty repository cannot turn a run into a partial update. Offline drones
+# are intentionally skipped; a reachable drone with a dirty tree is fatal.
+check_sync_trees_clean() {
+  local entry name url dir ip rhome rdir state rc=0 details
+
+  say "preflight: checking working trees"
+  for entry in "${REPOS[@]}"; do
+    IFS='|' read -r name url _ <<< "$entry"
+    dir="$(local_source_for "$name")"
+    [ -d "$dir/.git" ] || die "preflight: missing ground repository $name ($dir)"
+    details="$(git -C "$dir" status --porcelain=v1 --untracked-files=all 2>/dev/null)" || {
+      die "preflight: could not inspect ground repository $name"
+    }
+    if [ -n "$details" ]; then
+      echo "$details" | sed "s/^/  $name: /"
+      rc=1
+    fi
+  done
+
+  for ip in "${CLIENTS[@]}"; do
+    ping -c1 -W1 "$ip" >/dev/null 2>&1 || continue
+    rhome="$(ssh -o BatchMode=yes -o ConnectTimeout=5 "$SERVER_USER@$ip" 'echo "$HOME"' 2>/dev/null)" || {
+      warn "preflight: $ip is reachable but SSH failed"
+      rc=1
+      continue
+    }
+    for entry in "${REPOS[@]}"; do
+      IFS='|' read -r name url dir <<< "$entry"
+      rdir="${dir/#$HOME/$rhome}"
+      state="$(ssh -o BatchMode=yes -o ConnectTimeout=5 "$SERVER_USER@$ip" \
+        "if [ -d '$rdir/.git' ]; then git -C '$rdir' status --porcelain=v1 --untracked-files=all; fi" \
+        2>/dev/null)" || {
+          warn "preflight: could not inspect $ip/$name"
+          rc=1
+          continue
+        }
+      if [ -n "$state" ]; then
+        echo "$state" | sed "s/^/  $ip $name: /"
+        rc=1
+      fi
+    done
+  done
+  [ "$rc" = 0 ] || die "preflight found uncommitted, staged, or untracked changes; resolve them before syncing"
+  echo "  all inspected working trees clean"
 }
 
 sync_scenario_to_client() {
