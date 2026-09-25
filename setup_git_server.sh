@@ -996,10 +996,18 @@ push_to_client() {
       printf '%s\n' "$out" | sed 's/^/      /'
     fi
 
-    if [ "$subs" = 1 ] && [ "$name" = chimera-deploy ]; then
+    # MAVROS is an offline-pinned submodule used by the overlay build below;
+    # it must follow the chimera-deploy gitlink on every sync.  --submodules
+    # remains available for callers that want the other submodules refreshed.
+    if [ "$name" = chimera-deploy ]; then
       update_client_submodules "$ip" "$rdir"
     fi
   done
+
+  # MAVROS is built as an overlay outside the ROS workspace. Updating the
+  # chimera-deploy commit alone cannot update that overlay, so keep it aligned
+  # with the patch and MAVROS submodule before the PX4Sim restart below.
+  apply_mavros_patch_client "$ip" "$rhome" || return 1
 
   # Keep the onboard selectors aligned even when no repository changed. A
   # scenario-only change must still trigger the same restart as a code change.
@@ -1041,6 +1049,20 @@ update_client_submodules() {
   else
     echo "FAILED - check manually on $ip"
   fi
+}
+
+apply_mavros_patch_client() {
+  local ip="$1" rhome="$2" rdeploy="$rhome/chimera-deploy"
+  local ssh_opts=(-o BatchMode=yes -o ConnectTimeout=5)
+  local result
+
+  result="$(ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
+    "set -e; patch=\$(sha256sum '$rdeploy/remote/mavros_patch/0001-sys_status-request-AUTOPILOT_VERSION-via-REQUEST_MESSAGE.patch' | cut -d' ' -f1); source=\$(git -C '$rdeploy/submodules/mavros' rev-parse HEAD); stamp=\"\$patch \$source\"; marker=\'$rhome/mavros_ws/.chimera-mavros-patch\'; if [ -f \"\$marker\" ] && [ \"\$(cat \"\$marker\")\" = \"\$stamp\" ]; then echo unchanged; else echo applying; '$rdeploy/remote/mavros_patch/apply.sh'; mkdir -p \"\$(dirname \"\$marker\")\"; printf '%s\\n' \"\$stamp\" > \"\$marker\"; fi" 2>&1)" || {
+    echo "FAILED - MAVROS patch on $ip"
+    printf '%s\n' "$result" | sed 's/^/      /'
+    return 1
+  }
+  echo "  MAVROS patch: $result"
 }
 
 ###############################################################################
