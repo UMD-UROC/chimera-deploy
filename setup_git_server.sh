@@ -73,6 +73,7 @@ SUBMODULES=(
   "echopilot_ai_bsp|https://github.com/EchoMAV/echopilot_ai_bsp"
   "mavros|https://github.com/mavlink/mavros.git"
   "angles|https://github.com/ros/angles.git"
+  "geographic_info|https://github.com/ros-geographic-info/geographic_info.git"
 )
 
 say()  { echo -e "\n\033[1;36m==> $*\033[0m"; }
