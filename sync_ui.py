@@ -68,21 +68,23 @@ def main() -> int:
     ui = {"selected": 0, "maximized": None, "scroll": defaultdict(int), "scroll_max": defaultdict(int), "stop_input": False, "complete": False, "quit": False, "ground_column": 0}
     input_thread = threading.Thread(target=read_keys, args=(ui,), daemon=True)
     input_thread.start()
+    enable_mouse()
     with Live(
         get_renderable=lambda: build(stage, panes, task_started, task_started_wall,
                                       task_finished, total_started, total_started_wall,
                                       total_finished, ui),
-        refresh_per_second=8, transient=False,
+        refresh_per_second=12, transient=False,
     ) as live:
         for raw in proc.stdout or ():
-            line = ANSI.sub("", raw.replace("\r", "")).rstrip()
-            if not line:
+            stored = raw.replace("\r", "").rstrip("\n")
+            line = ANSI.sub("", stored)
+            if not line.strip():
                 continue
             event_key = active
             event_text = line
             match = re.search(r"stage (\d/5): (.*)", line)
             if match:
-                panes["stage"].append(line)
+                panes["stage"].append(stored)
                 now = time.monotonic()
                 stage_key = match.group(1)
                 if stage_key == "5/5":
@@ -105,11 +107,11 @@ def main() -> int:
                 event_key = "stage"
             elif line.startswith("[") and "]" in line:
                 host, text = line[1:].split("]", 1)
-                panes[host].append(text.strip())
+                panes[host].append(stored[stored.find("]") + 1:].strip())
                 event_key = host
                 event_text = text.strip()
             else:
-                panes[active].append(line)
+                panes[active].append(stored)
                 event_key = active
             machine_event = event_key == "ground" or event_key in CLIENTS
             task_start = "_START" in line.upper()
@@ -129,7 +131,6 @@ def main() -> int:
                 task_finished.setdefault(event_key, time.monotonic())
             if "ERROR" in line.upper() or "FAILED" in line.upper():
                 errors.append(line)
-            live.refresh()
         rc = proc.wait()
         panes["stage"].append("DONE" if rc == 0 else f"FAILED (exit {rc})")
         task_finished.setdefault("stage", time.monotonic())
@@ -140,6 +141,7 @@ def main() -> int:
             time.sleep(0.1)
             live.refresh()
     ui["stop_input"] = True
+    disable_mouse()
     input_thread.join(timeout=0.2)
     if errors:
         print("sync completed with errors:")
@@ -226,7 +228,27 @@ def card(kind: str, lines: deque[str], started: float | None,
         raw_output = "\n".join(all_lines[max(0, end - raw_lines):end])
     else:
         raw_output = "waiting"
-    return f"{high_level_for(kind)}\n{operation}: {state}{('  ' + timing) if timing else ''}\n{raw_output}"
+    header = Text()
+    header.append(high_level_for(kind) + "\n", style="bold")
+    header.append(f"{operation}: {state}{('  ' + timing) if timing else ''}\n",
+                  style="cyan" if state == "RUNNING" else
+                        "green" if state == "DONE" else
+                        "red" if state == "ERROR" else "yellow")
+    header.append_text(Text.from_ansi(raw_output))
+    return header
+
+
+def enable_mouse() -> None:
+    if sys.stdout.isatty():
+        # SGR mouse mode gives unambiguous coordinates and wheel events.
+        sys.stdout.write("\x1b[?1000h\x1b[?1006h")
+        sys.stdout.flush()
+
+
+def disable_mouse() -> None:
+    if sys.stdout.isatty():
+        sys.stdout.write("\x1b[?1006l\x1b[?1000l")
+        sys.stdout.flush()
 
 
 def read_keys(ui: dict) -> None:
@@ -263,6 +285,12 @@ def read_keys(ui: dict) -> None:
                 elif pending.startswith(b"\x7f"):
                     handle_key("reset", ui); pending = pending[1:]
                 elif pending.startswith(b"\x1b"):
+                    mouse = re.match(rb"\x1b\[<([0-9]+);([0-9]+);([0-9]+)([mM])", pending)
+                    if mouse:
+                        end = mouse.end()
+                        handle_mouse(int(mouse.group(1)), int(mouse.group(2)), int(mouse.group(3)), ui)
+                        pending = pending[end:]
+                        continue
                     if len(pending) == 1 and time.monotonic() - last_input < 0.12:
                         break
                     handle_key("esc", ui); pending = pending[1:]
@@ -295,6 +323,34 @@ def handle_key(key: str, ui: dict) -> None:
         ui["quit"] = True
     elif key == "reset":
         ui["scroll"][BOXES[ui["selected"]]] = 0
+
+
+def handle_mouse(button: int, x: int, y: int, ui: dict) -> None:
+    box = box_at(x, y, ui)
+    if box is None:
+        return
+    ui["selected"] = BOXES.index(box)
+    if button in (64, 65):
+        delta = 3 if button == 64 else -3
+        ui["scroll"][box] = max(0, min(ui["scroll"][box] + delta,
+                                        ui["scroll_max"].get(box, 0)))
+
+
+def box_at(x: int, y: int, ui: dict) -> str | None:
+    if ui["maximized"] is not None:
+        return ui["maximized"]
+    _, height = shutil.get_terminal_size(fallback=(120, 27))
+    panel_height = max(5, (height - 2) // 4)
+    if 2 <= y < 2 + panel_height:
+        return "stage"
+    if 2 + panel_height <= y < 2 + 2 * panel_height:
+        return "ground"
+    if y >= 2 + 2 * panel_height:
+        col = 0 if x < max(1, shutil.get_terminal_size(fallback=(120, 27))[0] // 2) else 1
+        row = 0 if y < 2 + 3 * panel_height else 1
+        index = row * 2 + col
+        return CLIENTS[index] if index < len(CLIENTS) else None
+    return None
 
 
 def move_arrow(ui: dict, direction: str) -> None:
