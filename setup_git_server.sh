@@ -778,11 +778,12 @@ push_mirrors_upstream() {
 # drone. A dirty tree makes git refuse that ref, so local edits are never lost.
 ###############################################################################
 cmd_push() {
-  local subs=0 branch='' arg failed=0
+  local subs=0 no_restart=0 branch='' arg failed=0
   while [ "$#" -gt 0 ]; do
     arg="$1"
     case "$arg" in
       --submodules) subs=1 ;;
+      --no-restart) no_restart=1 ;;
       --branch)
         [ "$#" -ge 2 ] || die "--branch requires a branch name"
         branch="$2"; shift
@@ -816,7 +817,7 @@ cmd_push() {
     fi
     # Redirect each job rather than letting parallel SSH/Docker output splice
     # together.  The completed log is printed under its aircraft heading.
-    (push_to_client "$ip" "$subs" "$branch") >"${logs[-1]}" 2>&1 &
+    (NO_RESTART="$no_restart" push_to_client "$ip" "$subs" "$branch") >"${logs[-1]}" 2>&1 &
     jobs+=("$!")
     (stdbuf -oL tail -n +1 -f "${logs[-1]}" 2>/dev/null |
       stdbuf -oL sed "s/^/[$ip] /") &
@@ -1015,7 +1016,9 @@ push_to_client() {
     [ "$?" = 2 ] && restart_required=1 || return 1
   }
 
-  if [ "$restart_required" = 1 ]; then
+  if [ "${NO_RESTART:-0}" = 1 ]; then
+    echo "  restart: skipped (--no-restart)"
+  elif [ "$restart_required" = 1 ]; then
     [ -n "${SYNC_UI:-}" ] && echo "BUILD_START"
     sync_status "$ip: REBUILDING"
     say "$ip: rebuilding and restarting through px4sim"
