@@ -311,25 +311,23 @@ sudo apt install --no-upgrade -y \
     
 pip install pymap3d folium
 
-# torch
-pip install --no-deps ultralytics
-pip uninstall -y torch torchvision torchaudio ultralytics && \
-pip install --no-cache-dir https://pypi.jetson-ai-lab.io/jp6/cu126/+f/02f/de421eabbf626/torch-2.9.1-cp310-cp310-linux_aarch64.whl#sha256=02fde421eabbf62633092de30405ea4d917323c55bea22bfd10dfeb1f1023506 # torch 2.9.1 cuda
-pip install --no-cache-dir https://pypi.jetson-ai-lab.io/jp6/cu126/+f/d12/bede7113e6b00/torchaudio-2.9.1-cp310-cp310-linux_aarch64.whl#sha256=d12bede7113e6b00f7c5ed53a28f7fa44a624780c8097a6a2352f32548d77ffb # torch audio 2.9.1 cuda
-pip install --no-cache-dir https://pypi.jetson-ai-lab.io/jp6/cu126/+f/d5b/caaf709f11750/torchvision-0.24.1-cp310-cp310-linux_aarch64.whl#sha256=d5bcaaf709f11750b5bb0f6ec30f37605da2f3d5cb3cd2b0fe5fac2850e08642 # torch vision 2.9.1 cuda
-pip install --user --force-reinstall 'numpy<2'
-pip install --no-deps ultralytics
-pip install onnx
-pip install ftfy regex tqdm
-pip install git+https://github.com/openai/CLIP.git
-pip install onnxscript
-
-# cuda ss
-cd ~
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm64/cuda-keyring_1.1-1_all.deb
-sudo dpkg -i cuda-keyring_1.1-1_all.deb
-sudo apt update
-sudo apt install --no-upgrade -y cudss
+# Native model-conversion dependencies (JetPack 6 / Python 3.10 / aarch64).
+# This block is independently runnable; converting a checkpoint must not run
+# the rest of deploy.sh.  Jetson's CUDA-enabled aarch64 wheel is required.
+if ! ldconfig -p 2>/dev/null | grep -q 'libcudss.so.0'; then
+  wget -q https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm64/cuda-keyring_1.1-1_all.deb
+  sudo dpkg -i cuda-keyring_1.1-1_all.deb
+  sudo apt-get update
+  sudo apt-get install --no-upgrade -y cudss
+fi
+python3 -m pip uninstall -y torch torchvision torchaudio ultralytics || true
+python3 -m pip install --user --no-cache-dir --force-reinstall 'numpy<2'
+python3 -m pip install --user --no-cache-dir \
+  'https://pypi.jetson-ai-lab.io/jp6/cu126/+f/02f/de421eabbf626/torch-2.9.1-cp310-cp310-linux_aarch64.whl#sha256=02fde421eabbf62633092de30405ea4d917323c55bea22bfd10dfeb1f1023506'
+python3 -m pip install --user --no-cache-dir \
+  'https://pypi.jetson-ai-lab.io/jp6/cu126/+f/d5b/caaf709f11750/torchvision-0.24.1-cp310-cp310-linux_aarch64.whl#sha256=d5bcaaf709f11750b5bb0f6ec30f37605da2f3d5cb3cd2b0fe5fac2850e08642'
+python3 -m pip install --user --no-cache-dir --no-deps ultralytics
+python3 -m pip install --user --no-cache-dir onnx onnxscript
 
 # pyds
 # may not need these two lines
