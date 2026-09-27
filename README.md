@@ -193,9 +193,13 @@ one place.
 repository updates, it invokes `./px4sim restart` on the ground station and every
 reachable Orin. `px4sim restart` always performs stop, build, and start, so a
 checkout cannot run with an older image. Cached builds are expected on every
-sync; dirty or diverged worktrees are left untouched and reported. The foreground
-sync command reports `BUILDING`, `SUCCESS`, `FAILURE`, or `UNREACHABLE` for the
-ground station and each aircraft while their full Docker logs remain grouped.
+sync; dirty or diverged worktrees are left untouched and reported. The sync also
+reconciles `SCENE`, `SCENARIO`, `CONOPS`, and
+`UAS_ROLES` from the ground station's px4-sim-stack `.env`, so an aircraft that
+was offline when an operator changed a selector catches up when it reconnects.
+The foreground sync command reports `BUILDING`, `SUCCESS`, `FAILURE`, or
+`UNREACHABLE` for the ground station and each aircraft while their full Docker
+logs remain grouped.
 
 ## Deployment doctor
 

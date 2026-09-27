@@ -911,47 +911,64 @@ check_sync_trees_clean() {
   echo "  all inspected working trees clean"
 }
 
-sync_scenario_to_client() {
-  local ip="$1" rhome="$2" scene scenario result
+sync_selectors_to_client() {
+  local ip="$1" rhome="$2" scene scenario conops roles role result remote_command
   local ground_env="$HOME/px4-sim-stack/.env"
-  [ -r "$ground_env" ] || { warn "ground .env is missing - cannot sync scenario"; return 1; }
+  [ -r "$ground_env" ] || { warn "ground .env is missing - cannot sync selectors"; return 1; }
   scene="$(sed -n 's/^SCENE=//p' "$ground_env" | head -1)"
   scenario="$(sed -n 's/^SCENARIO=//p' "$ground_env" | head -1)"
+  conops="$(sed -n 's/^CONOPS=//p' "$ground_env" | head -1)"
+  roles="$(sed -n 's/^UAS_ROLES=//p' "$ground_env" | head -1)"
+  conops=${conops:-option1}
+  roles=${roles:-'assess assess search search'}
+  roles=${roles#\"}; roles=${roles%\"}
+  roles=${roles#\'}; roles=${roles%\'}
   [[ "$scene" =~ ^[A-Za-z0-9_-]+$ && "$scenario" =~ ^[A-Za-z0-9_-]+$ ]] || {
     warn "ground .env has invalid SCENE or SCENARIO"; return 1;
   }
+  case "$conops" in option1|option2) ;; *) warn "ground .env has invalid CONOPS"; return 1 ;; esac
+  [ -n "$roles" ] || { warn "ground .env has empty UAS_ROLES"; return 1; }
+  for role in $roles; do
+    case "$role" in search|assess) ;; *) warn "ground .env has invalid UAS_ROLES"; return 1 ;; esac
+  done
+  roles="\"$roles\""
 
-  result="$(ssh -o BatchMode=yes -o ConnectTimeout=5 "$SERVER_USER@$ip" "
-    env_file='$rhome/px4-sim-stack/.env'
-    [ -f \"\$env_file\" ] || exit 1
-    old_scene=\"\$(sed -n 's/^SCENE=//p' \"\$env_file\" | head -1)\"
-    old_scenario=\"\$(sed -n 's/^SCENARIO=//p' \"\$env_file\" | head -1)\"
+  printf -v remote_command 'env_file=%q; scene=%q; scenario=%q; conops=%q; roles=%q; ' \
+    "$rhome/px4-sim-stack/.env" "$scene" "$scenario" "$conops" "$roles"
+  # The selector variables expand on the aircraft when this command runs.
+  # shellcheck disable=SC2016
+  remote_command+='[ -f "$env_file" ] || exit 1
+    set_env_key() {
+      local key=$1 value=$2 escaped
+      if grep -q "^$key=" "$env_file"; then
+        escaped=$(printf "%s" "$value" | sed "s|[&\\\\]|\\\\&|g")
+        sed -i "s|^$key=.*|$key=$escaped|" "$env_file"
+      else
+        printf "%s=%s\\n" "$key" "$value" >>"$env_file"
+      fi
+    }
+    sync_key() {
+      local key=$1 desired=$2 current
+      current=$(sed -n "s/^$key=//p" "$env_file" | head -1)
+      if [ "$current" != "$desired" ]; then
+        set_env_key "$key" "$desired"
+        changed=1
+      fi
+    }
     changed=0
-    if [ \"\$old_scene\" != '$scene' ]; then
-      if grep -q '^SCENE=' \"\$env_file\"; then
-        sed -i 's|^SCENE=.*|SCENE=$scene|' \"\$env_file\"
-      else
-        printf '\\nSCENE=$scene\\n' >>\"\$env_file\"
-      fi
-      changed=1
-    fi
-    if [ \"\$old_scenario\" != '$scenario' ]; then
-      if grep -q '^SCENARIO=' \"\$env_file\"; then
-        sed -i 's|^SCENARIO=.*|SCENARIO=$scenario|' \"\$env_file\"
-      else
-        printf 'SCENARIO=$scenario\\n' >>\"\$env_file\"
-      fi
-      changed=1
-    fi
-    printf '%s' \"\$changed\"
-  " 2>/dev/null)" || {
-    warn "$ip: could not sync SCENE/SCENARIO"; return 1;
+    sync_key SCENE "$scene"
+    sync_key SCENARIO "$scenario"
+    sync_key CONOPS "$conops"
+    sync_key UAS_ROLES "$roles"
+    printf "%s" "$changed"'
+  result="$(ssh -o BatchMode=yes -o ConnectTimeout=5 "$SERVER_USER@$ip" "$remote_command" 2>/dev/null)" || {
+    warn "$ip: could not sync selectors"; return 1;
   }
   if [ "$result" = 1 ]; then
-    echo "  scenario: updated SCENE=$scene SCENARIO=$scenario"
+    echo "  selectors: updated SCENE=$scene SCENARIO=$scenario CONOPS=$conops UAS_ROLES=$roles"
     return 2
   fi
-  echo "  scenario: already SCENE=$scene SCENARIO=$scenario"
+  echo "  selectors: already SCENE=$scene SCENARIO=$scenario CONOPS=$conops UAS_ROLES=$roles"
   return 0
 }
 
@@ -1056,12 +1073,12 @@ push_to_client() {
   done
 
   # Keep the onboard selectors aligned even when no repository changed. A
-  # scenario-only change must still trigger the same restart as a code change.
+  # selector-only change must still trigger the same restart as a code change.
   if ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
       "test -f '$rhome/.px4sim-sync-restart-needed'"; then
     restart_required=1
   fi
-  sync_scenario_to_client "$ip" "$rhome" || {
+  sync_selectors_to_client "$ip" "$rhome" || {
     [ "$?" = 2 ] && restart_required=1 || return 1
   }
 
@@ -1343,18 +1360,18 @@ scenes_to_client() {
     "ls ~/$SCENES_REL/worlds/*_surface.json 2>/dev/null | wc -l")
   echo "  $count scenes"
 
-  local rhome scenario_changed=0
+  local rhome selectors_changed=0
   rhome="$(ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" 'echo "$HOME"' 2>/dev/null)" || {
-    warn "$ip: could not read remote home for scenario sync"; return 1;
+    warn "$ip: could not read remote home for selector sync"; return 1;
   }
-  if sync_scenario_to_client "$ip" "$rhome"; then
+  if sync_selectors_to_client "$ip" "$rhome"; then
     :
   else
-    local scenario_rc=$?
-    [ "$scenario_rc" = 2 ] && scenario_changed=1 || return 1
+    local selectors_rc=$?
+    [ "$selectors_rc" = 2 ] && selectors_changed=1 || return 1
   fi
 
-  if [ "$changed" = 1 ] || [ "$scenario_changed" = 1 ]; then
+  if [ "$changed" = 1 ] || [ "$selectors_changed" = 1 ]; then
     if [ "${SCENES_DEFER_RESTART:-0}" = 1 ]; then
       ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
         "touch '$rhome/.px4sim-sync-restart-needed'" || {
@@ -1362,7 +1379,7 @@ scenes_to_client() {
       }
       echo "  restart: deferred until sync completes"
     else
-      say "$ip: scene or scenario changed; restarting through px4sim"
+      say "$ip: scene or selector changed; restarting through px4sim"
       ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" \
         "cd '$rhome/px4-sim-stack' && ./px4sim restart" || { warn "scene-triggered px4sim restart failed"; return 1; }
     fi

@@ -25,6 +25,11 @@ set_env_key() {
   fi
 }
 
+# Add a default without replacing a selection already made by the operator.
+ensure_env_key() {
+  grep -q "^$2=" "$1" || set_env_key "$1" "$2" "$3"
+}
+
 UAS_NUM=$(sed -n 's/^UAS_NUM=//p' /etc/environment | tr -d '"' | tail -1)
 [ -n "$UAS_NUM" ] || die "UAS_NUM is not in /etc/environment. Run deploy.sh first."
 case "$UAS_NUM" in [1-9]) ;; *) die "UAS_NUM=$UAS_NUM is not 1 to 9" ;; esac
@@ -98,6 +103,10 @@ else
   sed -i '/^ROS_DOMAIN_ID=/d' "$STACK/.env"
   echo "  $STACK/.env exists; set UAS_NUM=$UAS_NUM UAS_MODEL=$UAS_MODEL"
 fi
+# New .env.example files already contain these selectors. Seed older aircraft
+# configurations as well, while preserving choices pushed by the ground UI.
+ensure_env_key "$STACK/.env" UAS_ROLES '"assess assess search search"'
+ensure_env_key "$STACK/.env" CONOPS option1
 if [ -n "$lens" ] && ! grep -qxF "ONBOARD_LENS_DEVICE=$lens" "$STACK/.env"; then
   echo "  the SCF4 is $lens and .env says: $(grep '^ONBOARD_LENS_DEVICE=' "$STACK/.env" || echo nothing)"
 fi
