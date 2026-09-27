@@ -38,7 +38,7 @@ def main() -> int:
 
     # Status is intentionally a plain, read-only CLI command.  Do not start
     # the Rich live dashboard for this lightweight query.
-    if "--status" in args:
+    if "--status" in args or "--help" in args or "-h" in args:
         return subprocess.call(
             [os.path.join(ROOT, "setup_git_server.sh"), *args], cwd=ROOT
         )

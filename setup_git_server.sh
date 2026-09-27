@@ -260,11 +260,32 @@ open_firewall() {
 # sync - send drone commits up to GitHub, refresh the mirrors, push to the Orins
 ###############################################################################
 cmd_sync() {
-  local do_push=1 subs=0 upstream=1 push_new=0 do_local=1 clean_dependabot=0 show_status=0 branch='' arg
+  local do_push=1 subs=0 upstream=1 push_new=0 do_local=1 clean_dependabot=0 show_status=0 local_only=0 no_build=0 branch='' arg
   while [ "$#" -gt 0 ]; do
     arg="$1"
     case "$arg" in
       --status)       show_status=1 ;;
+      --help|-h)
+        cat <<'EOF'
+Usage: ./setup_git_server.sh sync [options]
+
+Options:
+  --local              update only the local working copies
+  --no-build           skip all local and drone builds
+  --no-push            update mirrors without pushing to drones
+  --submodules         update chimera-deploy submodules
+  --no-upstream         skip publishing to GitHub
+  --push-new            push new branches upstream and to drones
+  --no-local            skip local working-copy updates and builds
+  --clean-dependabot    remove obsolete Dependabot mirror branches
+  --branch NAME         use NAME where available
+  --status              show local repository status
+  --help, -h            show this help
+EOF
+        return 0
+        ;;
+      --local)       local_only=1; do_push=0 ;;
+      --no-build)    no_build=1 ;;
       --no-push)     do_push=0 ;;
       --submodules)  subs=1 ;;
       --no-upstream) upstream=0 ;;
@@ -282,23 +303,30 @@ cmd_sync() {
 
   [ "$show_status" = 0 ] || { cmd_sync_status; return; }
 
+  if [ "$local_only" = 1 ]; then
+    do_push=0
+    upstream=0
+  fi
+
   [[ "$branch" != -* ]] || die "invalid sync branch: $branch"
   check_sync_trees_clean
   prepare_ground_branches "$branch"
 
-  say "stage 1/5: scenes and drone git configuration"
-  echo "  scenes: starting"
-  echo "  drone configuration: starting"
-  local setup_scenes_log setup_deploy_log setup_scenes_pid setup_deploy_pid setup_rc=0
-  setup_scenes_log="$(mktemp -t chimera-sync-scenes.XXXXXX)"
-  setup_deploy_log="$(mktemp -t chimera-sync-deploy.XXXXXX)"
-  (SCENES_DEFER_RESTART=1 cmd_scenes >"$setup_scenes_log" 2>&1) & setup_scenes_pid=$!
-  (cmd_deploy >"$setup_deploy_log" 2>&1) & setup_deploy_pid=$!
-  wait "$setup_scenes_pid" || { setup_rc=1; echo "scene synchronization failed:"; cat "$setup_scenes_log"; }
-  wait "$setup_deploy_pid" || { setup_rc=1; echo "drone configuration failed:"; cat "$setup_deploy_log"; }
-  [ "$setup_rc" = 0 ] && echo "  scenes: done; drone configuration: done"
-  rm -f "$setup_scenes_log" "$setup_deploy_log"
-  [ "$setup_rc" = 0 ] || die "scene or drone configuration failed"
+  if [ "$local_only" = 0 ]; then
+    say "stage 1/5: scenes and drone git configuration"
+    echo "  scenes: starting"
+    echo "  drone configuration: starting"
+    local setup_scenes_log setup_deploy_log setup_scenes_pid setup_deploy_pid setup_rc=0
+    setup_scenes_log="$(mktemp -t chimera-sync-scenes.XXXXXX)"
+    setup_deploy_log="$(mktemp -t chimera-sync-deploy.XXXXXX)"
+    (SCENES_DEFER_RESTART=1 cmd_scenes >"$setup_scenes_log" 2>&1) & setup_scenes_pid=$!
+    (cmd_deploy >"$setup_deploy_log" 2>&1) & setup_deploy_pid=$!
+    wait "$setup_scenes_pid" || { setup_rc=1; echo "scene synchronization failed:"; cat "$setup_scenes_log"; }
+    wait "$setup_deploy_pid" || { setup_rc=1; echo "drone configuration failed:"; cat "$setup_deploy_log"; }
+    [ "$setup_rc" = 0 ] && echo "  scenes: done; drone configuration: done"
+    rm -f "$setup_scenes_log" "$setup_deploy_log"
+    [ "$setup_rc" = 0 ] || die "scene or drone configuration failed"
+  fi
 
   # drone commits -> GitHub, laptop commits -> GitHub, GitHub -> laptop,
   # GitHub -> mirrors, mirrors -> drones. Every step before the refresh has to
@@ -320,9 +348,11 @@ cmd_sync() {
       echo "  ground working copies: skipped"
     fi
 
-    say "stage 4/5: refreshing mirrors (parallel)"
-    sync_mirrors_parallel
-    echo "  mirrors: done"
+    if [ "$local_only" = 0 ]; then
+      say "stage 4/5: refreshing mirrors (parallel)"
+      sync_mirrors_parallel
+      echo "  mirrors: done"
+    fi
   elif [ "$do_push" = 1 ]; then
     warn "GitHub unreachable - skipping the mirror refresh, pushing what we have"
     # the mirrors still hold whatever the drones pushed over the LAN, so the
@@ -342,6 +372,10 @@ cmd_sync() {
   local dashboard_width=120 line='' dashboard_lines=0
   dashboard_width="$(tput cols 2>/dev/null || echo 120)"
   [ "$dashboard_width" -gt 20 ] || dashboard_width=120
+  if [ "$no_build" = 1 ]; then
+    echo "  builds: skipped"
+    return 0
+  fi
   status_log="$(mktemp -t chimera-sync-status.XXXXXX)"
   export SYNC_CLIENT_LOG_DIR="$(mktemp -d -t chimera-sync-client-logs.XXXXXX)"
   export SYNC_STATUS_FILE="$status_log"
