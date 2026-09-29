@@ -277,3 +277,28 @@ The IMX477 pilot camera's white balance, saturation and exposure come from
 [`remote/CAMERA_TUNING.md`](remote/CAMERA_TUNING.md) for how to try settings
 without editing the repo, measure them with `local/tune_pilot_camera.sh`, and
 roll the winner out with `sync`.
+
+# Thermal camera setup
+
+The Boson's palette (black hot), gain mode and noise filters are settings in
+the camera's flash, not in the repo. Set each camera once, and again after a
+camera swap. On the drone, after a `sync`:
+
+```
+cd ~/chimera-deploy/remote
+./boson_setup.py            # report, and what --apply would change
+./boson_setup.py --apply    # apply and save to camera flash; the stream changes at once
+```
+
+Chimera v3 (UAS 1–2) also needs `./boson_averager.py --on`, then a camera power
+cycle. The docstring in `remote/boson_setup.py` says what each setting does, and
+why it leaves the AGC and radiometry alone.
+
+Both scripts use flirpy, which `deploy.sh` installs. On a drone deployed before
+that, install it once. Keep `--no-deps`: flirpy's own dependencies pull in
+numpy 2, which the pinned torch cannot use.
+
+```
+python3 -m pip install --user pyserial==3.5
+python3 -m pip install --user --no-deps flirpy==0.6.2
+```

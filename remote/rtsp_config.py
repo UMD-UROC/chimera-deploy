@@ -254,6 +254,8 @@ PRODUCERS = {
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvunixfdsink socket-path={SOCKETS[RGB_RAW]} sync=false async=false
         """,
+    # Black hot is the Boson's own palette, saved in its flash by
+    # ./boson_setup.py --apply. Nothing in this pipeline inverts.
     "thermal-fork": f"""
         v4l2src device={THERMAL_DEVICE} io-mode=2 do-timestamp=true !
         video/x-raw,width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=I420{THERMAL_CAPS_RATE} !

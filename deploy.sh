@@ -329,6 +329,12 @@ python3 -m pip install --user --no-cache-dir \
 python3 -m pip install --user --no-cache-dir --no-deps ultralytics
 python3 -m pip install --user --no-cache-dir onnx onnxscript
 
+# Boson control, for remote/boson_setup.py and remote/boson_averager.py.
+# --no-deps: flirpy asks for pip's opencv-python-headless, which needs numpy 2
+# and would shadow JetPack's cv2. Its Boson class needs only cv2 and pyserial.
+python3 -m pip install --user --no-cache-dir pyserial==3.5
+python3 -m pip install --user --no-cache-dir --no-deps flirpy==0.6.2
+
 # pyds
 # may not need these two lines
 sudo /opt/nvidia/deepstream/deepstream/install.sh

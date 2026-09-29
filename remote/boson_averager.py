@@ -19,7 +19,11 @@ on, the camera sends 29.7 fps and 14.6 MB/s, and both cameras fit.
     ./boson_averager.py --on         # halve the frame rate, then power cycle
     ./boson_averager.py --off        # back to 60 Hz, then power cycle
 
-Needs flirpy:  python3 -m pip install --user flirpy
+Needs flirpy, which deploy.sh installs. By hand, keep --no-deps (see
+./boson_setup.py for why):
+
+    python3 -m pip install --user pyserial==3.5
+    python3 -m pip install --user --no-deps flirpy==0.6.2
 """
 
 import argparse
@@ -37,7 +41,7 @@ def open_camera(port):
     try:
         from flirpy.camera.boson import Boson
     except ImportError:
-        sys.exit("flirpy is not installed. python3 -m pip install --user flirpy")
+        sys.exit("flirpy is not installed. See the top of this file for how.")
     return Boson(port=port)
 
 
