@@ -11,6 +11,7 @@ but also shades the frame blue, and costs a videoconvert on the CPU.
     ./boson_setup.py --apply             # apply PROFILE and save it to camera flash
     ./boson_setup.py --apply --no-save   # try it until the camera loses power
     ./boson_setup.py --factory           # back to FLIR's factory settings, saved
+    ./boson_setup.py --check             # exit 1 unless it matches PROFILE
 
 Every change shows in the live stream at once. Nothing has to restart.
 
@@ -274,12 +275,22 @@ def factory(camera, capable, save):
     return 0
 
 
+def check(camera, capable):
+    now = snapshot(camera, capable)
+    off = [f"{label} is {name(names, now[label])}, want {name(names, wanted)}"
+           for label, _, _, wanted, _, names, _ in settings(capable) if not same(now[label], wanted)]
+    print("; ".join(off) if off else "matches PROFILE")
+    return 1 if off else 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     action = parser.add_mutually_exclusive_group()
     action.add_argument("--apply", action="store_true", help="apply PROFILE and save it to flash")
     action.add_argument("--factory", action="store_true",
                         help="restore FLIR's factory settings, except the averager, and save them")
+    action.add_argument("--check", action="store_true",
+                        help="exit 1 unless the camera matches PROFILE (deploy_doctor.sh uses this)")
     parser.add_argument("--no-save", action="store_true", help="with --apply or --factory, leave flash alone")
     parser.add_argument("--port", help="serial port (default: found by USB id)")
     args = parser.parse_args()
@@ -293,6 +304,8 @@ def main():
             return apply(camera, capable, save=not args.no_save)
         if args.factory:
             return factory(camera, capable, save=not args.no_save)
+        if args.check:
+            return check(camera, capable)
         return report(camera, capable)
     finally:
         camera.close()

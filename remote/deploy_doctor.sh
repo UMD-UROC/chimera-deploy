@@ -120,6 +120,23 @@ fi
 if printf '%s\n' "$thermal_log" | grep -Eqi 'No frames from thermal-fork|Boson is off the air|no capture device'; then
     warn "thermal stream later failed as expected under shared USB-hub congestion"
 fi
+# The palette and AGC live in the camera, so a swapped camera arrives on FLIR's
+# factory settings: white hot, which the detectors do much worse on.
+if have lsusb && lsusb | grep -Eqi 'FLIR|Boson'; then
+    here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    if boson=$(timeout 30 python3 "$here/boson_setup.py" --check 2>&1); then
+        pass "Boson is on the Chimera settings (black hot, AGC)"
+    else
+        warn "Boson is not on the Chimera settings: ${boson##*$'\n'}. Run remote/boson_setup.py --apply"
+    fi
+    if [[ "$UAS_MODEL" == v3 ]]; then
+        if timeout 30 python3 "$here/boson_averager.py" 2>/dev/null | grep -Eq '^averager +: 1'; then
+            pass "Boson averager is on (30 Hz), as a v3 needs"
+        else
+            warn "Boson averager is off or unreadable; a v3 then loses the thermal camera off USB. Run remote/boson_averager.py --on, then power cycle the camera"
+        fi
+    fi
+fi
 
 section "PX4Sim container"
 if [[ -x "$STACK/px4sim" ]]; then
