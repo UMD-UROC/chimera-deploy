@@ -40,6 +40,11 @@
 # rebuilds and restarts each stack through its px4sim front door. Nothing is
 # ever force-pushed or merged over a dirty tree: anything that cannot be
 # fast-forwarded is reported and left for a human.
+#
+# A stack whose inputs have not moved since its last good restart is left
+# running. "Its inputs" means exactly what stack_fingerprint hashes, so a new
+# feature that a restart must pick up has to be added to that hash, or sync
+# will leave stale stacks up. See the note above stack_fingerprint.
 
 set -euo pipefail
 
@@ -335,6 +340,8 @@ Options:
   --submodules         update chimera-deploy submodules
   --no-upstream         skip publishing to GitHub
   --push-new            push new branches upstream and to drones
+  --force-restart       restart every stack, even one that already runs
+                        this deployment (see stack_fingerprint)
   --no-local            skip local working-copy updates and builds
   --clean-dependabot    remove obsolete Dependabot mirror branches
   --branch NAME         use NAME where available
@@ -345,6 +352,7 @@ EOF
         ;;
       --local)       local_only=1; do_push=0 ;;
       --no-build)    no_build=1 ;;
+      --force-restart) FORCE_RESTART=1 ;;
       --no-push)     do_push=0 ;;
       --submodules)  subs=1 ;;
       --no-upstream) upstream=0 ;;
@@ -920,6 +928,7 @@ cmd_push() {
     case "$arg" in
       --submodules) subs=1 ;;
       --no-restart) no_restart=1 ;;
+      --force-restart) FORCE_RESTART=1 ;;
       --branch)
         [ "$#" -ge 2 ] || die "--branch requires a branch name"
         branch="$2"; shift
@@ -991,14 +1000,90 @@ cmd_push() {
   [ "$failed" = 0 ] || return 1
 }
 
+###############################################################################
+# What a running px4sim stack was built from, as one hash. Sync restarts a
+# stack only when this differs from the hash stored after that stack's last
+# successful restart (~/.px4sim-sync-deployed on each machine).
+#
+# >>> EXTEND THIS HASH WHEN YOU ADD ANYTHING A RESTART MUST PICK UP. <<<
+# If a new feature adds an input the running stack depends on and git does not
+# carry in the repos below (a file outside the repos, a gitignored config, a
+# generated artifact, a device setting, a new selector), add it here. If you
+# do not, sync will call the stack current, leave it running, and the drones
+# will silently disagree with the ground until someone passes --force-restart.
+#
+# Hashed today:
+#   - every repo's checked-out branch and commit (the arguments)
+#   - the submodules each repo pins (git submodule status)
+#   - px4-sim-stack/.env, which carries the selectors
+#   - the built scenes under modules/sim/scenes (build product, not in git)
+#   - the IDs of the stack containers that are up, so a stack that is down,
+#     crashed, or restarted by hand from another checkout never matches
+#
+# Runs on the ground, and on a drone after being shipped there by declare -f,
+# so it may only use what both carry. Anything it cannot read makes the hash
+# unique, which costs a restart and never skips one.
+###############################################################################
+stack_fingerprint() {
+  local stack="$HOME/px4-sim-stack" dir
+  {
+    for dir in "$@"; do
+      printf '%s %s %s\n' "$dir" \
+        "$(git -C "$dir" symbolic-ref -q --short HEAD 2>/dev/null || echo detached)" \
+        "$(git -C "$dir" rev-parse -q --verify HEAD 2>/dev/null || echo missing)"
+      if [ -f "$dir/.gitmodules" ]; then
+        git -C "$dir" submodule status --recursive 2>/dev/null || echo "submodules unreadable $RANDOM$RANDOM"
+      fi
+    done
+    sha256sum "$stack/.env" 2>/dev/null || echo "no .env"
+    find "$stack/modules/sim/scenes" -type f -printf '%P %s %T@\n' 2>/dev/null | LC_ALL=C sort || true
+    docker ps --no-trunc -q --filter "label=com.docker.compose.project.working_dir=$stack" 2>/dev/null \
+      | LC_ALL=C sort | grep . || echo "no containers $RANDOM$RANDOM"
+  } | sha256sum | cut -d' ' -f1
+}
+
+# stack_fingerprint on a drone, then the stamp its last good restart left.
+remote_stack_fingerprint() {
+  local ip="$1" stamp_file="$2"; shift 2
+  # The function body and stamp path expand here on purpose; \$@ is the drone's.
+  # shellcheck disable=SC2087
+  ssh -o BatchMode=yes -o ConnectTimeout=5 "$SERVER_USER@$ip" "bash -s -- $(printf '%q ' "$@")" <<EOF
+$(declare -f stack_fingerprint)
+stack_fingerprint "\$@"
+cat $(printf '%q' "$stamp_file") 2>/dev/null || true
+EOF
+}
+
+write_remote_stack_stamp() {
+  local ip="$1" stamp_file="$2"; shift 2
+  # shellcheck disable=SC2087
+  ssh -o BatchMode=yes -o ConnectTimeout=5 "$SERVER_USER@$ip" "bash -s -- $(printf '%q ' "$@")" <<EOF
+$(declare -f stack_fingerprint)
+stack_fingerprint "\$@" >$(printf '%q' "$stamp_file")
+EOF
+}
+
 refresh_local_stack() {
-  local stack="$HOME/px4-sim-stack"
+  local stack="$HOME/px4-sim-stack" stamp_file="$HOME/.px4sim-sync-deployed" entry name
+  local -a dirs=()
   [ -x "$stack/px4sim" ] || { warn "local px4-sim-stack is missing - skipped build"; return 1; }
-  say "building and restarting the local stack"
+  for entry in "${REPOS[@]}"; do
+    IFS='|' read -r name _ _ <<< "$entry"
+    dirs+=("$(local_source_for "$name")")
+  done
   # A sync can change a Docker build context, configuration, or a bind-mounted
-  # runtime input outside the set of files Git reports as updated. Always use
-  # the disruptive front door here; `start` deliberately no-ops when running.
-  (cd "$stack" && ./px4sim restart)
+  # runtime input outside the set of files Git reports as updated, and `start`
+  # deliberately no-ops when running, so a restart is the disruptive front
+  # door. It is skipped only when stack_fingerprint (extend it, see above) says
+  # nothing has moved since the last restart that succeeded here.
+  if [ "${FORCE_RESTART:-0}" != 1 ] \
+      && [ "$(stack_fingerprint "${dirs[@]}")" = "$(cat "$stamp_file" 2>/dev/null)" ]; then
+    say "local stack already runs this deployment; left running"
+    return 0
+  fi
+  say "building and restarting the local stack"
+  (cd "$stack" && ./px4sim restart) || return 1
+  stack_fingerprint "${dirs[@]}" >"$stamp_file"
 }
 
 # Sync is a propagation operation, not a way to hide local work. Check every
@@ -1120,15 +1205,19 @@ push_to_client() {
     return 1
   }
 
-  # A successful push is deliberately sufficient to restart. Git may say a
-  # ref is up to date while a generated input, image context, or a previous
-  # partial deployment still warrants recreating the runtime stack. Err toward
-  # a safe restart; dirty/rejected trees are still left untouched.
+  # The stack restarts when anything it was built from has moved: a commit, a
+  # submodule, .env, the scenes, or its containers. stack_fingerprint hashes
+  # all of that, and the hash is stored on the drone after each successful
+  # restart. A deferred scene change, a selector change or --force-restart
+  # restarts regardless, and a failed restart stores nothing, so the next sync
+  # tries again. A new restart input belongs in stack_fingerprint, not here.
   local entry name url dir rdir mirror state branch tree out restart_required=0 repo_branch
+  local -a rdirs=()
   for entry in "${REPOS[@]}"; do
     IFS='|' read -r name url dir <<< "$entry"
     # REPOS paths are laptop-side; the Orin's home may sit elsewhere
     rdir="${dir/#$HOME/$rhome}"
+    rdirs+=("$rdir")
     mirror="$SERVE_ROOT/$name.git"
     repo_branch="$desired_branch"
     if [ -z "$repo_branch" ] || ! git -C "$mirror" show-ref --verify --quiet "refs/heads/$repo_branch"; then
@@ -1184,7 +1273,6 @@ push_to_client() {
       else
         echo "ok ($repo_branch)"
       fi
-      restart_required=1
     else
       # report why git actually refused, not why we guess it refused - a dirty
       # tree and a non-fast-forward need completely different fixes
@@ -1220,6 +1308,15 @@ push_to_client() {
     [ "$?" = 2 ] && restart_required=1 || return 1
   }
 
+  local stamp_file="$rhome/.px4sim-sync-deployed" fingerprint='' stamp=''
+  if [ "${FORCE_RESTART:-0}" = 1 ]; then
+    restart_required=1
+  elif [ "${NO_RESTART:-0}" != 1 ] && [ "$restart_required" = 0 ]; then
+    { read -r fingerprint; read -r stamp; } \
+      < <(remote_stack_fingerprint "$ip" "$stamp_file" "${rdirs[@]}") || true
+    [ -n "$fingerprint" ] && [ "$fingerprint" = "$stamp" ] || restart_required=1
+  fi
+
   if [ "${NO_RESTART:-0}" = 1 ]; then
     echo "  restart: skipped (--no-restart)"
   elif [ "$restart_required" = 1 ]; then
@@ -1235,8 +1332,10 @@ push_to_client() {
       "rm -f '$rhome/.px4sim-sync-restart-needed'" || {
       warn "$ip: could not clear deferred restart marker"; return 1;
     }
+    write_remote_stack_stamp "$ip" "$stamp_file" "${rdirs[@]}" \
+      || warn "$ip: could not record this deployment; the next sync restarts it again"
   else
-    echo "  no repository updates; stack left running"
+    echo "  stack already runs this deployment; left running"
   fi
   return 0
 }
