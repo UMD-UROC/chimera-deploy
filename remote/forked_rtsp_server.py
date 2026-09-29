@@ -16,12 +16,37 @@ SESSION_CLEANUP_INTERVAL_SECONDS = 5
 PRODUCER_STALL_TIMEOUT_SECONDS = 15
 PRODUCER_WATCHDOG_INTERVAL_SECONDS = 2
 
+# The nvarguscamerasrc settings worth seeing in the journal at startup.
+ARGUS_SETTINGS = (
+    "wbmode",
+    "awblock",
+    "aelock",
+    "exposuretimerange",
+    "gainrange",
+    "ispdigitalgainrange",
+    "exposurecompensation",
+)
+
 
 def set_property_if_present(element, name, value):
     if element is not None and element.find_property(name):
         element.set_property(name, value)
         return True
     return False
+
+
+def find_by_factory(bin_element, factory_name):
+    iterator = bin_element.iterate_recurse()
+    while True:
+        result, child = iterator.next()
+        if result == Gst.IteratorResult.OK:
+            factory = child.get_factory()
+            if factory is not None and factory.get_name() == factory_name:
+                return child
+        elif result == Gst.IteratorResult.RESYNC:
+            iterator.resync()
+        else:
+            return None
 
 
 def find_rtpbin(media_element):
@@ -33,17 +58,31 @@ def find_rtpbin(media_element):
         if rtpbin is not None:
             return rtpbin
 
-    iterator = media_element.iterate_recurse()
-    while True:
-        result, child = iterator.next()
-        if result == Gst.IteratorResult.OK:
-            factory = child.get_factory()
-            if factory is not None and factory.get_name() == "rtpbin":
-                return child
-        elif result == Gst.IteratorResult.RESYNC:
-            iterator.resync()
-        else:
-            return None
+    return find_by_factory(media_element, "rtpbin")
+
+
+def log_camera_settings(name, producer):
+    """Say what the CSI camera was really started with.
+
+    The rtsp_config.py on disk is not always the one on the air. A commit that
+    never reached the aircraft, or a sync that landed after the restart, leaves
+    the old settings running while the file says otherwise. On 2026-09-28
+    wbmode=5 and wbmode=2 were committed and never reached d3, and every rcam
+    restart for half an hour kept running wbmode=0. This line is read back from
+    the element the pipeline built, so it is what the camera got, whatever the
+    file says.
+    """
+    camera = find_by_factory(producer, "nvarguscamerasrc")
+    if camera is None:
+        return
+
+    settings = []
+    for prop in ARGUS_SETTINGS:
+        if camera.find_property(prop) is None:
+            continue
+        value = camera.get_property(prop)
+        settings.append(f"{prop}={getattr(value, 'value_nick', value)}")
+    print(f"{name} camera: {' '.join(settings)}")
 
 
 def configure_media(_factory, media):
@@ -241,6 +280,7 @@ def main():
     for name, pipe in conf.PRODUCERS.items():
         print(f"{name} producer starting...")
         producer = Gst.parse_launch(pipe)
+        log_camera_settings(name, producer)
         watch_producer(name, producer, mounts, retired)
         producer_watchdog.watch(name, producer)
         result = producer.set_state(Gst.State.PLAYING)
