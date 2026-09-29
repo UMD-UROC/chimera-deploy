@@ -45,8 +45,14 @@ def main() -> int:
 
     env = os.environ.copy()
     env["SYNC_UI"] = "1"
+    # The UI command is the operator's full refresh entry point.  Always make
+    # the underlying sync rebuild/restart stacks even when their deployment
+    # fingerprints have not changed.
+    command = [os.path.join(ROOT, "setup_git_server.sh"), *args]
+    if args[0] == "sync" and "--no-build" not in args:
+        command.append("--force-restart")
     proc = subprocess.Popen(
-        [os.path.join(ROOT, "setup_git_server.sh"), *args],
+        command,
         cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, bufsize=1,
     )
