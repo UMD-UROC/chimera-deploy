@@ -19,12 +19,16 @@ PRODUCER_WATCHDOG_INTERVAL_SECONDS = 2
 # The nvarguscamerasrc settings worth seeing in the journal at startup.
 ARGUS_SETTINGS = (
     "wbmode",
+    "saturation",
     "awblock",
     "aelock",
     "exposuretimerange",
     "gainrange",
     "ispdigitalgainrange",
     "exposurecompensation",
+    "aeantibanding",
+    "tnr-mode",
+    "ee-mode",
 )
 
 

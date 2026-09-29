@@ -16,6 +16,32 @@ PILOT_FRAMERATE = "30/1"
 PILOT_BITRATE = 200000000 # nv recording bitrate set in record_nv_streams.sh
 PILOT_FLIP_METHOD = 2
 
+# nvarguscamerasrc options for the pilot camera. The ISP runs NVIDIA's stock
+# tuning (nvargus logs "No override file found"), and d3's lens has no IR-cut
+# filter: a TV remote shows up bright. Infrared lifts red and blue, so the
+# picture goes purple and no wbmode brings it back. These settings soften it.
+# Measured through rcam on d3, 2026-09-29, warm indoor light at night, whole
+# frame, where R/G = B/G = 1.00 is neutral and "white" is the 99.5th
+# percentile of luma:
+#
+#   options                                          R/G   B/G   white  clipped
+#   wbmode=1 (auto, the old default)                 1.37  1.37   160    0.00%
+#   wbmode=3,4,5,6,8 (presets)                       all further from neutral
+#   feature/pilot-cam-tuning (EV -1, 8 ms cap)       1.53  1.52   107    0.00%
+#   saturation=0.8 exposurecompensation=1.0          1.24  1.24   219    0.28%
+#   saturation=0.6 exposurecompensation=1.25 (used)  1.17  1.16   232    0.17%
+#   saturation=0.7 exposurecompensation=1.5          1.19  1.17   250   18.05%
+#
+# The exposure cap is 1/60 s: it bounds motion blur, and it is a whole number
+# of 60 Hz mains cycles, so lamps do not band. EV +1.25 was set in a dim room;
+# check it outdoors before trusting it there. An aircraft with an IR-cut lens
+# wants saturation back at 1.0. PILOT_CAMERA in rcam's environment replaces
+# this string without an edit; remote/CAMERA_TUNING.md has the workflow.
+PILOT_CAMERA = os.environ.get(
+    "PILOT_CAMERA",
+    'wbmode=1 saturation=0.6 exposurecompensation=1.25 exposuretimerange="13000 16666666"',
+)
+
 PILOT_LOWRES_WIDTH = 640
 PILOT_LOWRES_HEIGHT = 360
 PILOT_LOWRES_BITRATE = 1000000
@@ -154,7 +180,7 @@ THERMAL_CAPS_RATE = f",framerate={THERMAL_FRAMERATE}" if THERMAL_FRAMERATE else 
 
 PRODUCERS = {
     "pilot-fork": f"""
-        nvarguscamerasrc sensor-id=0 wbmode=1 do-timestamp=true !
+        nvarguscamerasrc sensor-id=0 {PILOT_CAMERA} do-timestamp=true !
         video/x-raw(memory:NVMM),width={PILOT_WIDTH},height={PILOT_HEIGHT},framerate={PILOT_FRAMERATE} !
         nvvidconv flip-method={PILOT_FLIP_METHOD} interpolation-method=1 !
         video/x-raw(memory:NVMM),format=NV12 !
