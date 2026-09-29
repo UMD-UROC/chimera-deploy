@@ -866,7 +866,10 @@ cmd_push() {
     # together.  The completed log is printed under its aircraft heading.
     (NO_RESTART="$no_restart" push_to_client "$ip" "$subs" "$branch") >"${logs[-1]}" 2>&1 &
     jobs+=("$!")
-    (stdbuf -oL tail -n +1 -f "${logs[-1]}" 2>/dev/null |
+    # --pid ends the follower once its job is reaped. Killing the subshell
+    # instead left tail -f running forever, and its sed kept holding whatever
+    # stdout sync had, so a caller reading to EOF never got there.
+    (stdbuf -oL tail -n +1 -f --pid="${jobs[-1]}" "${logs[-1]}" 2>/dev/null |
       stdbuf -oL sed "s/^/[$ip] /") &
     log_tails+=("$!")
     sync_status "$ip: BUILDING"
@@ -876,7 +879,7 @@ cmd_push() {
     say "${clients[$index]}"
     rc=0
     wait "${jobs[$index]}" || rc=$?
-    kill "${log_tails[$index]}" 2>/dev/null || true
+    wait "${log_tails[$index]}" 2>/dev/null || true
     if [ "$rc" != 0 ]; then
       printf '\nERROR\n' >>"${logs[$index]}"
       echo "[${clients[$index]}] ERROR (see the preceding live lines)"
