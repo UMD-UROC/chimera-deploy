@@ -257,6 +257,8 @@ PRODUCERS = {
     "thermal-fork": f"""
         v4l2src device={THERMAL_DEVICE} io-mode=2 do-timestamp=true !
         video/x-raw,width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=I420{THERMAL_CAPS_RATE} !
+        videoconvert !
+        coloreffects preset=xray !
         nvvidconv !
         video/x-raw(memory:NVMM),format=NV12 !
         tee name=t
