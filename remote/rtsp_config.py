@@ -39,7 +39,7 @@ PILOT_FLIP_METHOD = 2
 # this string without an edit; remote/CAMERA_TUNING.md has the workflow.
 PILOT_CAMERA = os.environ.get(
     "PILOT_CAMERA",
-    'wbmode=1 saturation=0.6 exposurecompensation=1.25 exposuretimerange="13000 16666666"',
+    'wbmode=1',
 )
 
 PILOT_LOWRES_WIDTH = 640
