@@ -154,7 +154,7 @@ THERMAL_CAPS_RATE = f",framerate={THERMAL_FRAMERATE}" if THERMAL_FRAMERATE else 
 
 PRODUCERS = {
     "pilot-fork": f"""
-        nvarguscamerasrc sensor-id=0 wbmode=0 exposuretimerange="100000 10000000" gainrange="1 16" ispdigitalgainrange="1 4" exposurecompensation=0.0 aeantibanding=0 do-timestamp=true !
+        nvarguscamerasrc sensor-id=0 wbmode=0 exposuretimerange="13000 8000000" gainrange="1 8" ispdigitalgainrange="1 2" exposurecompensation=-1.0 aeantibanding=0 do-timestamp=true !
         video/x-raw(memory:NVMM),width={PILOT_WIDTH},height={PILOT_HEIGHT},framerate={PILOT_FRAMERATE} !
         nvvidconv flip-method={PILOT_FLIP_METHOD} interpolation-method=1 !
         video/x-raw(memory:NVMM),format=NV12 !
