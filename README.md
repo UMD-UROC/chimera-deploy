@@ -280,19 +280,27 @@ roll the winner out with `sync`.
 
 # Thermal camera setup
 
-The Boson's palette (black hot), gain mode and noise filters are settings in
-the camera's flash, not in the repo. Set each camera once, and again after a
-camera swap. On the drone, after a `sync`:
+The Boson's palette (black hot, which our detectors do much better on), AGC
+tuning, gain mode and noise filters are settings in the camera's flash, not in
+the repo. Set each camera once, and again after a camera swap. On the drone,
+after a `sync`:
 
 ```
 cd ~/chimera-deploy/remote
 ./boson_setup.py            # report, and what --apply would change
 ./boson_setup.py --apply    # apply and save to camera flash; the stream changes at once
+./boson_setup.py --factory  # undo: FLIR's factory settings (white hot), saved
 ```
 
+`--apply` sets black hot and moves two AGC settings as FLIR's datasheet
+suggests for black hot and people: ACE 0.97 -> 1.03 and linear percent 20 -> 30.
+Everything else stays at the camera's factory tuning. Add `--no-save` to either
+command to try it until the camera loses power. `--factory` keeps the averager
+as it was.
+
 Chimera v3 (UAS 1–2) also needs `./boson_averager.py --on`, then a camera power
-cycle. The docstring in `remote/boson_setup.py` says what each setting does, and
-why it leaves the AGC and radiometry alone.
+cycle. The docstring in `remote/boson_setup.py` says what each setting does, what
+the AGC changes measured, and why radiometry needs pipeline work instead.
 
 Both scripts use flirpy, which `deploy.sh` installs. On a drone deployed before
 that, install it once. Keep `--no-deps`: flirpy's own dependencies pull in

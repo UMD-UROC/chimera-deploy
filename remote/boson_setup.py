@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """Report the Boson's image and radiometry settings, or apply the Chimera ones.
 
-Chimera flies black hot, and the inversion is the camera's own palette. The
-Boson applies it to the 8-bit video after its AGC, so the stream arrives
-already inverted and every consumer of thermal-fork gets it. coloreffects
-preset=xray in the pipeline inverts too, but also shades the frame blue, and
-costs a videoconvert on the CPU.
+Chimera flies black hot, because the detectors we run do much better on it.
+The inversion is the camera's own palette. The Boson applies it to the 8-bit
+video after its AGC, so the stream arrives already inverted and every consumer
+of thermal-fork gets it. coloreffects preset=xray in the pipeline inverts too,
+but also shades the frame blue, and costs a videoconvert on the CPU.
 
     ./boson_setup.py                     # report, and what --apply would change
     ./boson_setup.py --apply             # apply PROFILE and save it to camera flash
     ./boson_setup.py --apply --no-save   # try it until the camera loses power
+    ./boson_setup.py --factory           # back to FLIR's factory settings, saved
 
-The palette changes the live stream at once. Nothing has to restart.
+Every change shows in the live stream at once. Nothing has to restart.
 
 Setting up a drone. The settings live in the camera, so this is once per
 camera, and again after a camera swap:
@@ -26,15 +27,40 @@ numpy 2 (deploy.sh pins numpy<2 for torch) and would shadow JetPack's cv2, the
 one built with GStreamer. flirpy's Boson class needs only cv2 and pyserial,
 and JetPack already has cv2.
 
+To undo it, --factory loads FLIR's factory settings (white hot and the factory
+AGC) and saves them. It keeps the averager as it was. Then --apply puts the
+Chimera settings back.
+
 On Chimera v3, also run ./boson_averager.py --on and power cycle the camera.
 v3 needs the smart averager to share the USB bus with the C1 PRO, and v2 does
 not, so this script leaves the frame rate alone.
 
-It also leaves the AGC alone. A camera arrives with FLIR's tuning for its
-model and lens. The IDD says sigmaR "should be proportional to imager
-responsivity", so one camera's numbers are not an improvement on another's.
-The report prints them, so a change can be made on purpose, in PROFILE, after
-looking at flight footage.
+The AGC. PROFILE moves two AGC settings, both following the Boson datasheet
+(102-2013-40 rev340, section 6.8), to suit black hot and warm people 30-60 m
+out, who span 10-20 pixels:
+
+  ACE (agcSetGamma), 0.97 -> 1.03. The factory 0.97 is tuned for white hot,
+  where values under 1 give the warm end of the scene more contrast. The
+  datasheet says to mirror it around 1 when switching to black hot.
+
+  Linear percent, 20 -> 30. The histogram mapping closes up empty levels, so a
+  person in front of something a little cooler can end up a shade or two away
+  from it. A more linear mapping keeps them apart; the datasheet's example of
+  exactly this uses 30.
+
+Measured on d3's live stream on 2026-09-29, in a bench scene with people in
+view, three frames per setting. Linear 30 raised person contrast-to-noise by
+8-10% over the factory 20, with slightly less noise on the ground. 50 went
+further (16-19%) but flattens the rest of the picture and is past anything
+FLIR documents. ACE from 0.90 to 1.10 moved it by less than the frame-to-frame
+spread, so FLIR's black hot pairing costs nothing. Max gain 2 made it worse.
+
+The rest stays as FLIR set it for the unit. On d3, the factory header matches
+what the camera ran apart from the palette (checked 2026-09-29), including
+DDE 1.05 and smoothing 5000 where the datasheet's generic values are 0.95 and
+1250. FLIR says to leave the smoothing factor alone. Tail rejection stays at 0:
+it would flatten a person into one grey level ("completely washed out", per
+FLIR's Camera Adjustments note).
 
 Radiometry. Only part numbers with an R second to last have it. d3's
 20640A032-6IARX does, and arrived with it running (TLinear on). None of it
@@ -54,6 +80,8 @@ import logging
 import struct
 import sys
 
+GAO_SETAVERAGERSTATE = 0x0000000B
+BOSON_RESTOREFACTORYDEFAULTSFROMFLASH = 0x0005001B
 SYSCTRL_GETCAMERAFRAMERATE = 0x000E0007
 RADIOMETRY_GETRADIOMETRYCAPABLE = 0x0042007D
 
@@ -66,33 +94,34 @@ PALETTES = {
 GAIN_MODES = {0: "high", 1: "low", 2: "auto", 3: "dual", 4: "manual"}
 FFC_MODES = {0: "manual", 1: "auto", 2: "external", 3: "shutter test"}
 
-# What --apply sets. Every value is a 4-byte enum.
-#   (label, get, set, wanted, names, radiometric cameras only)
+# What --apply sets. See the docstring for why.
+#   (label, get, set, wanted, struct format, names, radiometric cameras only)
 PROFILE = [
     # colorLut. The palette only applies while colorization is on.
-    ("palette enabled", 0x000B0002, 0x000B0001, 1, OFF_ON, False),
-    ("palette", 0x000B0004, 0x000B0003, 1, PALETTES, False),
+    ("palette enabled", 0x000B0002, 0x000B0001, 1, ">i", OFF_ON, False),
+    ("palette", 0x000B0004, 0x000B0003, 1, ">i", PALETTES, False),
+    # agcGamma and agcLinearPercent. Back to 0.97 and 20 for white hot.
+    ("ACE (gamma)", 0x0009000E, 0x0009000D, 1.03, ">f", None, False),
+    ("linear percent", 0x00090004, 0x00090003, 30.0, ">f", None, False),
     # bosonGain/FFCMode. High is the low noise range. Auto drops to low gain,
     # which reaches hotter scenes at the cost of noise, whenever enough of the
     # frame is hot. Auto FFC because nothing on the drone triggers one.
-    ("gain mode", 0x00050015, 0x00050014, 0, GAIN_MODES, False),
-    ("FFC mode", 0x00050013, 0x00050012, 1, FFC_MODES, False),
+    ("gain mode", 0x00050015, 0x00050014, 0, ">i", GAIN_MODES, False),
+    ("FFC mode", 0x00050013, 0x00050012, 1, ">i", FFC_MODES, False),
     # tf, spnr, scnr: the noise filters, on as they ship.
-    ("temporal filter", 0x000A0002, 0x000A0001, 1, OFF_ON, False),
-    ("spatial filter", 0x000C0002, 0x000C0001, 1, OFF_ON, False),
-    ("column filter", 0x00080002, 0x00080001, 1, OFF_ON, False),
+    ("temporal filter", 0x000A0002, 0x000A0001, 1, ">i", OFF_ON, False),
+    ("spatial filter", 0x000C0002, 0x000C0001, 1, ">i", OFF_ON, False),
+    ("column filter", 0x00080002, 0x00080001, 1, ">i", OFF_ON, False),
     # Makes Y16 frames linear in temperature. Does nothing to the 8-bit video.
-    ("TLinear", 0x003E0002, 0x003E0001, 1, OFF_ON, True),
+    ("TLinear", 0x003E0002, 0x003E0001, 1, ">i", OFF_ON, True),
 ]
 
-# Reported, never set. (label, get, struct format)
+# Reported, never set: the rest of the AGC. (label, get, struct format)
 AGC = [
     ("plateau (percentPerBin)", 0x00090002, ">f"),
-    ("linearPercent", 0x00090004, ">f"),
     ("outlierCut", 0x00090006, ">f"),
     ("maxGain", 0x0009000A, ">f"),
     ("damping (df)", 0x0009000C, ">f"),
-    ("gamma", 0x0009000E, ">f"),
     ("detailHeadroom", 0x00090014, ">f"),
     ("DDE (d2br)", 0x00090016, ">f"),
     ("sigmaR", 0x00090018, ">f"),
@@ -142,14 +171,29 @@ def radiometric(camera):
         camera.logger.setLevel(level)
 
 
+def same(value, wanted):
+    # Floats come back as float32: 1.03 reads 1.0299999713897705.
+    if value is None:
+        return False
+    if isinstance(wanted, float):
+        return abs(value - wanted) < 1e-3
+    return value == wanted
+
+
 def name(names, value):
     if value is None:
         return "no answer"
-    return names.get(value, str(value))
+    if isinstance(value, float):
+        return f"{value:g}"
+    return names.get(value, str(value)) if names else str(value)
 
 
 def settings(capable):
-    return [s for s in PROFILE if capable or not s[5]]
+    return [s for s in PROFILE if capable or not s[6]]
+
+
+def snapshot(camera, capable):
+    return {s[0]: get(camera, s[1], s[4]) for s in settings(capable)}
 
 
 def report(camera, capable):
@@ -165,33 +209,38 @@ def report(camera, capable):
 
     print()
     print(f"{'':18s}{'camera':14s}--apply")
-    for label, get_fid, _, wanted, names, _ in settings(capable):
-        now = get(camera, get_fid)
-        mark = "" if now == wanted else "   <- changes"
-        print(f"{label:18s}{name(names, now):14s}{name(names, wanted)}{mark}")
+    now = snapshot(camera, capable)
+    for label, _, _, wanted, _, names, _ in settings(capable):
+        mark = "" if same(now[label], wanted) else "   <- changes"
+        print(f"{label:18s}{name(names, now[label]):14s}{name(names, wanted)}{mark}")
 
     print()
-    print("AGC as the camera has it (--apply leaves it alone):")
+    print("Rest of the AGC, as FLIR set it (--apply leaves it alone):")
     for label, get_fid, fmt in AGC:
         value = get(camera, get_fid, fmt)
-        if value is not None and fmt == ">f":
-            value = f"{value:g}"
-        elif fmt == ">i":
-            value = name(OFF_ON, value)
-        print(f"  {label:24s}{value}")
+        print(f"  {label:24s}{name(OFF_ON if fmt == '>i' else None, value)}")
     return 0
+
+
+def save_or_not(camera, save):
+    if save:
+        # bosonWriteDynamicHeaderToFlash
+        camera.set_pwr_on_defaults()
+        print("Saved to camera flash. It survives a power cycle.")
+    else:
+        print("Not saved. The camera goes back to its flash settings when it loses power.")
 
 
 def apply(camera, capable, save):
     changed = []
-    for label, get_fid, set_fid, wanted, names, _ in settings(capable):
-        now = get(camera, get_fid)
-        if now == wanted:
+    for label, get_fid, set_fid, wanted, fmt, names, _ in settings(capable):
+        now = get(camera, get_fid, fmt)
+        if same(now, wanted):
             continue
-        camera._send_packet(set_fid, data=struct.pack(">i", wanted))
+        camera._send_packet(set_fid, data=struct.pack(fmt, wanted))
         # flirpy only logs a refusal, so read it back.
-        readback = get(camera, get_fid)
-        if readback != wanted:
+        readback = get(camera, get_fid, fmt)
+        if not same(readback, wanted):
             print(f"error: {label}: set {name(names, wanted)}, camera reports {name(names, readback)}",
                   file=sys.stderr)
             return 1
@@ -200,30 +249,50 @@ def apply(camera, capable, save):
     for line in changed:
         print(line)
     if not changed:
-        print("Already set. Nothing written.")
-    elif save:
-        # bosonWriteDynamicHeaderToFlash
-        camera.set_pwr_on_defaults()
-        print("Saved to camera flash. It survives a power cycle.")
-    else:
-        print("Not saved. The camera goes back to its flash settings when it loses power.")
+        print("Already set.")
+    # Saved even when nothing changed: an earlier --no-save run may have left
+    # the camera ahead of its flash.
+    save_or_not(camera, save)
+    return 0
+
+
+def factory(camera, capable, save):
+    before = snapshot(camera, capable)
+    averager = camera.get_averager()
+    camera._send_packet(BOSON_RESTOREFACTORYDEFAULTSFROMFLASH)
+    # The factory averager is off, which on v3 costs the thermal camera its
+    # place on the USB bus. boson_averager.py owns it, so put it back.
+    if camera.get_averager() != averager:
+        camera._send_packet(GAO_SETAVERAGERSTATE, data=struct.pack(">i", averager))
+    after = snapshot(camera, capable)
+
+    names = {s[0]: s[5] for s in PROFILE}
+    for label, value in after.items():
+        if not same(value, before[label]):
+            print(f"{label} {name(names[label], before[label])} -> {name(names[label], value)}")
+    save_or_not(camera, save)
     return 0
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--apply", action="store_true", help="apply PROFILE and save it to flash")
-    parser.add_argument("--no-save", action="store_true", help="with --apply, leave flash alone")
+    action = parser.add_mutually_exclusive_group()
+    action.add_argument("--apply", action="store_true", help="apply PROFILE and save it to flash")
+    action.add_argument("--factory", action="store_true",
+                        help="restore FLIR's factory settings, except the averager, and save them")
+    parser.add_argument("--no-save", action="store_true", help="with --apply or --factory, leave flash alone")
     parser.add_argument("--port", help="serial port (default: found by USB id)")
     args = parser.parse_args()
-    if args.no_save and not args.apply:
-        parser.error("--no-save only goes with --apply")
+    if args.no_save and not (args.apply or args.factory):
+        parser.error("--no-save only goes with --apply or --factory")
 
     camera = open_camera(args.port)
     try:
         capable = radiometric(camera)
         if args.apply:
             return apply(camera, capable, save=not args.no_save)
+        if args.factory:
+            return factory(camera, capable, save=not args.no_save)
         return report(camera, capable)
     finally:
         camera.close()
