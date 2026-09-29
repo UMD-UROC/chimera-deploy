@@ -80,6 +80,64 @@ say()  { echo -e "\n\033[1;36m==> $*\033[0m"; }
 warn() { echo -e "\033[1;33m[warn]\033[0m $*"; }
 die()  { echo -e "\033[1;31m[error]\033[0m $*" >&2; exit 1; }
 
+# A sync talks to each drone about fifty times, one ssh after another. A fresh
+# handshake costs ~270 ms on the wired LAN and more over the radio; riding an
+# open master costs ~10 ms. So every call to a drone shares one connection per
+# drone for the whole run. git and rsync spawn the ssh binary rather than this
+# function, so they are handed SSH_MUX_OPTS explicitly. A master detaches from
+# its caller's stdio, so it cannot hold a pipe open the way a stray tail did.
+SSH_MUX_DIR=''
+SSH_MUX_OPTS=()
+
+ssh() { command ssh "${SSH_MUX_OPTS[@]}" "$@"; }
+
+ssh_mux_start() {
+  [ -z "$SSH_MUX_DIR" ] || return 0
+  SSH_MUX_DIR="$(mktemp -d -t chimera-ssh.XXXXXX)"
+  SSH_MUX_OPTS=(-o ControlMaster=auto -o "ControlPath=$SSH_MUX_DIR/%C" -o ControlPersist=120)
+  trap ssh_mux_stop EXIT
+}
+
+ssh_mux_stop() {
+  local sock
+  for sock in "$SSH_MUX_DIR"/*; do
+    [ -S "$sock" ] && command ssh -o "ControlPath=$sock" -O exit mux >/dev/null 2>&1
+  done
+  rm -rf "$SSH_MUX_DIR"
+}
+
+# Which drones answer, asked once per run and all at once. An offline drone
+# costs a one second ping timeout, and preflight, deploy and push each paid it
+# again in turn, while scenes waited out an ssh ConnectTimeout instead. A drone
+# that answers gets its ssh master opened here, alongside the others.
+declare -A CLIENT_UP=()
+
+probe_clients() {
+  local ip index
+  local -a pids=()
+  for ip in "${CLIENTS[@]}"; do
+    (ping -c1 -W1 "$ip" >/dev/null 2>&1 || exit 1
+     ssh -o BatchMode=yes -o ConnectTimeout=5 "$SERVER_USER@$ip" true </dev/null >/dev/null 2>&1
+     exit 0) &
+    pids+=("$!")
+  done
+  for index in "${!pids[@]}"; do
+    if wait "${pids[$index]}"; then
+      CLIENT_UP[${CLIENTS[$index]}]=1
+    else
+      CLIENT_UP[${CLIENTS[$index]}]=0
+    fi
+  done
+}
+
+client_up() {
+  case "${CLIENT_UP[$1]:-}" in
+    1) return 0 ;;
+    0) return 1 ;;
+  esac
+  ping -c1 -W1 "$1" >/dev/null 2>&1
+}
+
 # A sync keeps the noisy Docker output in per-job logs.  Its foreground shell
 # tails this compact status stream so an operator knows which independent
 # rebuild is alive without waiting for a whole image build to finish.
@@ -310,6 +368,8 @@ EOF
   fi
 
   [[ "$branch" != -* ]] || die "invalid sync branch: $branch"
+  ssh_mux_start
+  probe_clients
   check_sync_trees_clean
   prepare_ground_branches "$branch"
 
@@ -727,87 +787,31 @@ push_mirrors_upstream() {
   local push_new="$1" clean_dependabot="$2"
   say "sending drone commits on to GitHub"
 
-  local d name url remote_heads sha ref branch gh out rc pushed=0 held=0 cleaned=0
+  # Each mirror only talks to its own GitHub repo, so they go up in parallel.
+  # Asked one after another, fifteen ls-remotes were most of this stage. The
+  # logs are printed in mirror order afterwards, so the output reads the same.
+  local d index rc tmp p h c pushed=0 held=0 cleaned=0
+  local -a dirs=() pids=()
+  tmp="$(mktemp -d -t chimera-sync-upstream.XXXXXX)"
   for d in "$SERVE_ROOT"/*.git; do
     [ -d "$d" ] || continue
     [ -L "$d" ] && continue
-    name="$(basename "$d" .git)"
-
-    url="$(git -C "$d" config --get remote.origin.url 2>/dev/null || true)"
-    [ -n "$url" ] || continue
-
-    remote_heads="$(timeout 30 git ls-remote --heads "$url" 2>/dev/null)" || {
-      warn "  $name: cannot reach $url - skipped"
-      continue
-    }
-
-    while read -r sha ref; do
-      branch="${ref#refs/heads/}"
-      gh="$(printf '%s\n' "$remote_heads" | awk -v r="$ref" '$2 == r { print $1 }')"
-
-      if [ -z "$gh" ]; then
-        if [ "$clean_dependabot" = 1 ] && [[ "$branch" == dependabot/* ]]; then
-          if git -C "$d" update-ref -d "$ref" "$sha"; then
-            printf '  %-22s %-34s %s\n' "$name" "$branch" "removed obsolete Dependabot branch"
-            cleaned=$((cleaned + 1))
-          else
-            printf '  %-22s %-34s %s\n' "$name" "$branch" "FAILED to remove obsolete Dependabot branch"
-            held=$((held + 1))
-          fi
-          continue
-        fi
-        if [ "$push_new" != 1 ]; then
-          printf '  %-22s %-34s %s\n' "$name" "$branch" "mirror only - use --push-new"
-          held=$((held + 1))
-          continue
-        fi
-      else
-        [ "$gh" = "$sha" ] && continue      # already there
-
-        # The ancestry tests below need GitHub's tip in the object store, and
-        # we will not have it when GitHub has moved on. Fetch just that one
-        # ref: an explicit refspec replaces the configured +refs/*:refs/*, so
-        # this cannot overwrite refs/heads the way 'remote update' does.
-        if ! git -C "$d" cat-file -e "${gh}^{commit}" 2>/dev/null; then
-          if ! git -C "$d" fetch -q origin "refs/heads/$branch" 2>/dev/null; then
-            git -C "$d" update-ref "refs/sync-backup/$branch" "$sha"
-            printf '  %-22s %-34s %s\n' "$name" "$branch" "cannot compare with GitHub"
-            echo "      kept as refs/sync-backup/$branch (the refresh may drop it)"
-            held=$((held + 1))
-            continue
-          fi
-        fi
-
-        git -C "$d" merge-base --is-ancestor "$sha" "$gh" && continue  # behind
-
-        if ! git -C "$d" merge-base --is-ancestor "$gh" "$sha"; then
-          git -C "$d" update-ref "refs/sync-backup/$branch" "$sha"
-          printf '  %-22s %-34s %s\n' "$name" "$branch" "DIVERGED - not pushed"
-          echo "      kept as refs/sync-backup/$branch (the refresh would drop it)"
-          echo "      reconcile it by hand, then re-run sync"
-          held=$((held + 1))
-          continue
-        fi
-      fi
-
-      printf '  %-22s %-34s ' "$name" "$branch"
-      rc=0
-      # explicit refspec, so remote.origin.mirror=true does not turn this into
-      # a --mirror push (which would delete GitHub branches we do not carry)
-      out="$(git -C "$d" -c remote.origin.mirror=false push origin \
-               "refs/heads/$branch:refs/heads/$branch" 2>&1)" || rc=$?
-      if [ "$rc" = 0 ]; then
-        echo "-> GitHub"
-        pushed=$((pushed + 1))
-      else
-        echo "FAILED"
-        printf '%s\n' "$out" | sed 's/^/      /'
-        git -C "$d" update-ref "refs/sync-backup/$branch" "$sha"
-        echo "      kept as refs/sync-backup/$branch (the refresh would drop it)"
-        held=$((held + 1))
-      fi
-    done < <(git -C "$d" for-each-ref --format='%(objectname) %(refname)' refs/heads)
+    index="${#dirs[@]}"
+    dirs+=("$d")
+    publish_mirror_upstream "$d" "$push_new" "$clean_dependabot" "$tmp/$index.counts" \
+      >"$tmp/$index.log" 2>&1 &
+    pids+=("$!")
   done
+  for index in "${!pids[@]}"; do
+    rc=0; wait "${pids[$index]}" || rc=$?
+    cat "$tmp/$index.log"
+    [ "$rc" = 0 ] || { rm -rf "$tmp"; die "upstream publish failed for $(basename "${dirs[$index]}")"; }
+    if [ -r "$tmp/$index.counts" ]; then
+      read -r p h c <"$tmp/$index.counts"
+      pushed=$((pushed + p)); held=$((held + h)); cleaned=$((cleaned + c))
+    fi
+  done
+  rm -rf "$tmp"
 
   if [ "$pushed" = 0 ] && [ "$held" = 0 ] && [ "$cleaned" = 0 ]; then
     echo "  nothing to send - GitHub already has every mirror branch"
@@ -815,6 +819,91 @@ push_mirrors_upstream() {
     echo "  sent $pushed branch(es) to GitHub, $held held back, $cleaned obsolete Dependabot branch(es) removed"
   fi
   return 0
+}
+
+# One mirror's half of push_mirrors_upstream. Writes "pushed held cleaned" to
+# the counts file once it has looked at every branch.
+publish_mirror_upstream() {
+  local d="$1" push_new="$2" clean_dependabot="$3" counts="$4"
+  local name url remote_heads sha ref branch gh out rc pushed=0 held=0 cleaned=0
+  name="$(basename "$d" .git)"
+
+  url="$(git -C "$d" config --get remote.origin.url 2>/dev/null || true)"
+  [ -n "$url" ] || return 0
+
+  remote_heads="$(timeout 30 git ls-remote --heads "$url" 2>/dev/null)" || {
+    warn "  $name: cannot reach $url - skipped"
+    return 0
+  }
+
+  while read -r sha ref; do
+    branch="${ref#refs/heads/}"
+    gh="$(printf '%s\n' "$remote_heads" | awk -v r="$ref" '$2 == r { print $1 }')"
+
+    if [ -z "$gh" ]; then
+      if [ "$clean_dependabot" = 1 ] && [[ "$branch" == dependabot/* ]]; then
+        if git -C "$d" update-ref -d "$ref" "$sha"; then
+          printf '  %-22s %-34s %s\n' "$name" "$branch" "removed obsolete Dependabot branch"
+          cleaned=$((cleaned + 1))
+        else
+          printf '  %-22s %-34s %s\n' "$name" "$branch" "FAILED to remove obsolete Dependabot branch"
+          held=$((held + 1))
+        fi
+        continue
+      fi
+      if [ "$push_new" != 1 ]; then
+        printf '  %-22s %-34s %s\n' "$name" "$branch" "mirror only - use --push-new"
+        held=$((held + 1))
+        continue
+      fi
+    else
+      [ "$gh" = "$sha" ] && continue      # already there
+
+      # The ancestry tests below need GitHub's tip in the object store, and
+      # we will not have it when GitHub has moved on. Fetch just that one
+      # ref: an explicit refspec replaces the configured +refs/*:refs/*, so
+      # this cannot overwrite refs/heads the way 'remote update' does.
+      if ! git -C "$d" cat-file -e "${gh}^{commit}" 2>/dev/null; then
+        if ! git -C "$d" fetch -q origin "refs/heads/$branch" 2>/dev/null; then
+          git -C "$d" update-ref "refs/sync-backup/$branch" "$sha"
+          printf '  %-22s %-34s %s\n' "$name" "$branch" "cannot compare with GitHub"
+          echo "      kept as refs/sync-backup/$branch (the refresh may drop it)"
+          held=$((held + 1))
+          continue
+        fi
+      fi
+
+      git -C "$d" merge-base --is-ancestor "$sha" "$gh" && continue  # behind
+
+      if ! git -C "$d" merge-base --is-ancestor "$gh" "$sha"; then
+        git -C "$d" update-ref "refs/sync-backup/$branch" "$sha"
+        printf '  %-22s %-34s %s\n' "$name" "$branch" "DIVERGED - not pushed"
+        echo "      kept as refs/sync-backup/$branch (the refresh would drop it)"
+        echo "      reconcile it by hand, then re-run sync"
+        held=$((held + 1))
+        continue
+      fi
+    fi
+
+    printf '  %-22s %-34s ' "$name" "$branch"
+    rc=0
+    # explicit refspec, so remote.origin.mirror=true does not turn this into
+    # a --mirror push (which would delete GitHub branches we do not carry)
+    out="$(git -C "$d" -c remote.origin.mirror=false push origin \
+             "refs/heads/$branch:refs/heads/$branch" 2>&1)" || rc=$?
+    if [ "$rc" = 0 ]; then
+      echo "-> GitHub"
+      pushed=$((pushed + 1))
+    else
+      echo "FAILED"
+      printf '%s\n' "$out" | sed 's/^/      /'
+      git -C "$d" update-ref "refs/sync-backup/$branch" "$sha"
+      echo "      kept as refs/sync-backup/$branch (the refresh would drop it)"
+      held=$((held + 1))
+    fi
+  done < <(git -C "$d" for-each-ref --format='%(objectname) %(refname)' refs/heads)
+
+  echo "$pushed $held $cleaned" >"$counts"
 }
 
 ###############################################################################
@@ -848,7 +937,7 @@ cmd_push() {
   local ip ok=0 index rc
   local -a clients=() jobs=() logs=() log_tails=()
   for ip in "${CLIENTS[@]}"; do
-    if ! ping -c1 -W1 "$ip" >/dev/null 2>&1; then
+    if ! client_up "$ip"; then
       if [ -n "${SYNC_CLIENT_LOG_DIR:-}" ]; then
         printf 'OFFLINE - not reachable; skipped\n' >"$SYNC_CLIENT_LOG_DIR/$ip.log"
       fi
@@ -934,7 +1023,7 @@ check_sync_trees_clean() {
   done
 
   for ip in "${CLIENTS[@]}"; do
-    ping -c1 -W1 "$ip" >/dev/null 2>&1 || continue
+    client_up "$ip" || continue
     rhome="$(ssh -o BatchMode=yes -o ConnectTimeout=5 "$SERVER_USER@$ip" 'echo "$HOME"' 2>/dev/null)" || {
       warn "preflight: $ip is reachable but SSH failed"
       rc=1
@@ -1066,7 +1155,7 @@ push_to_client() {
     read -r _ branch tree <<< "$state"
 
     local rc=0 target="$SERVER_USER@$ip:$rdir"
-    export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=5"
+    export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=5 ${SSH_MUX_OPTS[*]}"
 
     # no force here: a rejected ref means the Orin has commits we would destroy
     out="$(git -C "$mirror" push --quiet "$target" \
@@ -1269,13 +1358,13 @@ cmd_deploy() {
     ips+=("$ip") logs+=("$log")
     (
       echo "$ip"
-      if ! ping -c1 -W1 "$ip" >/dev/null 2>&1; then
+      if ! client_up "$ip"; then
         echo "unreachable - skipped"
         exit 2
       fi
       # let the Orin push back over ssh
       install_client_key "$ip"
-      scp -q -o BatchMode=yes "${BASH_SOURCE[0]}" "$SERVER_USER@$ip:/tmp/setup_git_server.sh"
+      scp -q -o BatchMode=yes "${SSH_MUX_OPTS[@]}" "${BASH_SOURCE[0]}" "$SERVER_USER@$ip:/tmp/setup_git_server.sh"
       # shellcheck disable=SC2029
       ssh -o BatchMode=yes "$SERVER_USER@$ip" \
         "SERVER_IP=$SERVER_IP SERVE_ROOT=$SERVE_ROOT GIT_PORT=$GIT_PORT bash /tmp/setup_git_server.sh remote"
@@ -1385,7 +1474,12 @@ scenes_to_client() {
   local ip="$1" count out changed=0
   local src="$HOME/$SCENES_REL"
   local ssh_opts=(-o BatchMode=yes -o ConnectTimeout=5)
+  local rsh="ssh ${ssh_opts[*]} ${SSH_MUX_OPTS[*]}"
 
+  if ! client_up "$ip"; then
+    echo "unreachable - skipped"
+    return 2
+  fi
   if ! ssh "${ssh_opts[@]}" "$SERVER_USER@$ip" "[ -d ~/$SCENES_REL ]" 2>/dev/null; then
     warn "no ~/$SCENES_REL there - run deploy_onboard.sh on it first"
     return 1
@@ -1394,13 +1488,13 @@ scenes_to_client() {
   # The generated directories only. The vehicle models and spawn_scenario.py
   # are tracked, so they arrive with the checkout and must survive this.
   # --delete drops what a rebuilt scene no longer writes.
-  out="$(rsync -ai --delete -e "ssh ${ssh_opts[*]}" \
+  out="$(rsync -ai --delete -e "$rsh" \
       "$src/worlds/" "$SERVER_USER@$ip:$SCENES_REL/worlds/")" || { warn "worlds failed"; return 1; }
   [ -z "$out" ] || changed=1
-  out="$(rsync -ai --delete -e "ssh ${ssh_opts[*]}" \
+  out="$(rsync -ai --delete -e "$rsh" \
       "$src/scenarios/" "$SERVER_USER@$ip:$SCENES_REL/scenarios/")" || { warn "scenarios failed"; return 1; }
   [ -z "$out" ] || changed=1
-  out="$(rsync -ai -e "ssh ${ssh_opts[*]}" \
+  out="$(rsync -ai -e "$rsh" \
       --include='*_terrain/***' --include='*_buildings/***' --exclude='*' \
       "$src/models/" "$SERVER_USER@$ip:$SCENES_REL/models/")" || { warn "models failed"; return 1; }
   [ -z "$out" ] || changed=1
@@ -1441,11 +1535,11 @@ scenes_to_client() {
 
 case "${1:-}" in
   local)  cmd_local ;;
-  scenes) cmd_scenes ;;
+  scenes) ssh_mux_start; probe_clients; cmd_scenes ;;
   sync)   shift || true; cmd_sync "$@" ;;
-  push)   shift || true; cmd_push "$@" ;;
+  push)   shift || true; ssh_mux_start; probe_clients; cmd_push "$@" ;;
   remote) shift || true; cmd_remote "${1:-}" ;;
-  deploy) cmd_deploy ;;
+  deploy) ssh_mux_start; probe_clients; cmd_deploy ;;
   status) cmd_status ;;
   *)
     sed -n '2,28p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'
