@@ -182,9 +182,10 @@ filter and stock ISP tuning:
 | `saturation=0.7 exposurecompensation=1.25`, 1/60 s cap | 1.21 | 1.20 | 232 | 1.94% |
 | `saturation=0.7 exposurecompensation=1.5`, 1/60 s cap | 1.19 | 1.17 | 250 | 18.05% |
 
-All of those frames are the same view of a couch. Later the committed
-settings, pointed at a dim wall next to a brightly lit doorway, clipped 27%
-of the frame. EV +1.25 suits a flat, dim scene. Check it on the real one,
+All of those frames are the same lamp-lit view of a couch. With the room
+lights later switched off and only a lit doorway left bright, the committed
+settings clipped 27% of the frame. That frame is not a fair score, but it
+shows EV +1.25 was fitted to one flat, dim scene. Check it on the real one,
 outdoors, before flight.
 
 These settings soften the purple; they cannot remove it. That takes one of the
