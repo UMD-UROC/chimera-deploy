@@ -29,17 +29,30 @@ PILOT_FLIP_METHOD = 2
 #   wbmode=3,4,5,6,8 (presets)                       all further from neutral
 #   feature/pilot-cam-tuning (EV -1, 8 ms cap)       1.53  1.52   107    0.00%
 #   saturation=0.8 exposurecompensation=1.0          1.24  1.24   219    0.28%
-#   saturation=0.6 exposurecompensation=1.25 (used)  1.17  1.16   232    0.17%
+#   saturation=0.6 exposurecompensation=1.25         1.17  1.16   232    0.17%
 #   saturation=0.7 exposurecompensation=1.5          1.19  1.17   250   18.05%
 #
 # The exposure cap is 1/60 s: it bounds motion blur, and it is a whole number
-# of 60 Hz mains cycles, so lamps do not band. EV +1.25 was set in a dim room;
-# check it outdoors before trusting it there. An aircraft with an IR-cut lens
-# wants saturation back at 1.0. PILOT_CAMERA in rcam's environment replaces
-# this string without an edit; remote/CAMERA_TUNING.md has the workflow.
+# of 60 Hz mains cycles, so lamps do not band. EV +1.25 was set in a dim room
+# and blew out the sky outdoors, so it was reverted (4e8c3bc).
+#
+# Outdoors on d3, 2026-09-29 morning, sun, trees and sky, stock ISP otherwise.
+# "ground" is the mean luma of the bottom half, "sky" the clipped share of the
+# top third. The view changed between frames, so ranges span several grabs:
+#
+#   options                             ground  sky clipped  all clipped  white
+#   wbmode=1 (auto)                     83-85   3.4-6.3%     2.9-4.1%   239-253
+#   wbmode=1 exposurecompensation=-0.5  62-66   0.2-2.8%     0.3-1.3%   210-216 (used)
+#   wbmode=1 exposurecompensation=-1      54    0.1%         0.1%         198
+#
+# EV -1 saved almost no more sky and lost shadow detail in the trees.
+#
+# An aircraft with an IR-cut lens wants saturation at 1.0. PILOT_CAMERA in
+# rcam's environment replaces this string without an edit;
+# remote/CAMERA_TUNING.md has the workflow.
 PILOT_CAMERA = os.environ.get(
     "PILOT_CAMERA",
-    'wbmode=1',
+    'wbmode=1 exposurecompensation=-0.5',
 )
 
 PILOT_LOWRES_WIDTH = 640
