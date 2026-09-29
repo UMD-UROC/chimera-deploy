@@ -85,6 +85,8 @@ def log_camera_settings(name, producer):
         if camera.find_property(prop) is None:
             continue
         value = camera.get_property(prop)
+        if isinstance(value, float):
+            value = f"{value:g}"  # 0.6, not the float32 0.6000000238418579
         settings.append(f"{prop}={getattr(value, 'value_nick', value)}")
     print(f"{name} camera: {' '.join(settings)}")
 

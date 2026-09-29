@@ -269,3 +269,11 @@ lives in this repo.
 
 See [`local/qgc/README.md`](local/qgc/README.md) for the options, rebuilding,
 and how to bump the pinned version.
+
+# Pilot camera tuning
+
+The IMX477 pilot camera's white balance, saturation and exposure come from
+`PILOT_CAMERA` in `remote/rtsp_config.py`. See
+[`remote/CAMERA_TUNING.md`](remote/CAMERA_TUNING.md) for how to try settings
+without editing the repo, measure them with `local/tune_pilot_camera.sh`, and
+roll the winner out with `sync`.
