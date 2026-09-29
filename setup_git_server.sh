@@ -271,7 +271,8 @@ Usage: ./setup_git_server.sh sync [options]
 
 Options:
   --local              update only the local working copies
-  --no-build           skip all local and drone builds
+  --no-build           skip all local and drone builds and restarts;
+                       drones still get the new commits
   --no-push            update mirrors without pushing to drones
   --submodules         update chimera-deploy submodules
   --no-upstream         skip publishing to GitHub
@@ -374,6 +375,17 @@ EOF
   [ "$dashboard_width" -gt 20 ] || dashboard_width=120
   if [ "$no_build" = 1 ]; then
     echo "  builds: skipped"
+    # --no-build skips the rebuild, not the delivery. Returning before the push
+    # left the drones on their old commits while the mirrors moved on, so a
+    # rtsp_config.py change could be committed, synced and never reach rcam.
+    if [ "$do_push" = 1 ]; then
+      say "stage 5/5: updating drone checkouts (no build, no restart)"
+      if [ -n "${SYNC_UI:-}" ]; then
+        for ip in "${CLIENTS[@]}"; do echo "[$ip] SYNC_START"; done
+      fi
+      cmd_push --no-restart --branch "$branch" $([ "$subs" = 1 ] && echo --submodules) \
+        || die "drone checkout update failed"
+    fi
     return 0
   fi
   status_log="$(mktemp -t chimera-sync-status.XXXXXX)"
