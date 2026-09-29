@@ -69,6 +69,59 @@ REPOS=(
   "chimera-deploy|git@github.com:UMD-UROC/chimera-deploy.git|$HOME/chimera-deploy"
 )
 
+# Message packages the HOST workspace must hold built. The field recorder
+# (remote/record_all_common.sh, local/local_record_all.sh) runs natively and
+# sources ~/ros2_ws/install, while the flight stack runs in the container
+# with its own build. A host build older than the source cannot load newer
+# types ("typesupport library ... could not be found") and decodes changed
+# ones with the old layout, so every sync rebuilds these on the ground and on
+# each drone when their commit moved. px4_msgs is pinned and not rebuilt here.
+HOST_MSG_PACKAGES=(${HOST_MSG_PACKAGES:-cdcl_umd_msgs})
+
+# The script that brings a host workspace up to date, run with the package
+# names as arguments: locally on the ground, over ssh on a drone. It builds a
+# package only when its commit differs from the last successful host build
+# (~/.px4sim-sync-host-msgs) or its install is missing, so a sync that moved
+# nothing costs nothing. It writes build/, install/ and log/ at the workspace
+# root, never inside a checkout, so the trees stay clean for the next sync.
+host_messages_script() {
+  cat <<'EOF'
+set -uo pipefail
+ws="$HOME/ros2_ws" stamp="$HOME/.px4sim-sync-host-msgs" log="$HOME/.px4sim-sync-host-msgs.log"
+[ -d "$ws/src" ] || { echo "no $ws/src - skipped"; exit 0; }
+cd "$ws" || exit 1
+have=$(cat "$stamp" 2>/dev/null || true) want="" build=()
+for p in "$@"; do
+  [ -d "src/$p/.git" ] || continue
+  c=$(git -C "src/$p" rev-parse HEAD) || exit 1
+  want+="$p=$c "
+  case " $have " in *" $p=$c "*) [ -f "install/$p/share/$p/package.xml" ] && continue ;; esac
+  build+=("$p")
+done
+[ "${#build[@]}" -gt 0 ] || { echo "current"; exit 0; }
+set +u; . /opt/ros/humble/setup.bash; set -u
+[ -x /usr/bin/cmake ] && export CMAKE_COMMAND=/usr/bin/cmake CTEST_COMMAND=/usr/bin/ctest
+if MAKEFLAGS=-j4 colcon build --packages-select "${build[@]}" \
+     --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF >"$log" 2>&1; then
+  printf '%s\n' "$want" >"$stamp"
+  echo "rebuilt ${build[*]}"
+else
+  echo "FAILED building ${build[*]} - see $log"
+  exit 1
+fi
+EOF
+}
+refresh_local_host_messages() {
+  printf '  %-18s ' "host messages"
+  bash -s -- "${HOST_MSG_PACKAGES[@]}" < <(host_messages_script)
+}
+refresh_client_host_messages() {
+  local ip="$1"
+  printf '  %-18s ' "host messages"
+  ssh -o BatchMode=yes -o ConnectTimeout=5 "$SERVER_USER@$ip" \
+    bash -s -- "${HOST_MSG_PACKAGES[@]}" < <(host_messages_script)
+}
+
 # chimera-deploy submodules, mirrored so 'git submodule update' works offline
 SUBMODULES=(
   "rtw88|https://github.com/lwfinger/rtw88"
@@ -413,6 +466,7 @@ EOF
       say "stage 3/5: synchronizing ground working copies (parallel)"
       sync_local_worktrees_parallel 1 "$push_new"
       echo "  ground working copies: done"
+      refresh_local_host_messages || die "ground host message build failed"
     else
       echo "  ground working copies: skipped"
     fi
@@ -428,6 +482,7 @@ EOF
     # laptop can pick those up without wifi
     if [ "$do_local" = 1 ]; then
       sync_local_worktrees_parallel 0 "$push_new"
+      refresh_local_host_messages || die "ground host message build failed"
     fi
   else
     die "GitHub unreachable - connect to wifi first"
@@ -1297,6 +1352,9 @@ push_to_client() {
       update_client_submodules "$ip" "$rdir"
     fi
   done
+
+  # The native recorder decodes with the host workspace, not the container.
+  refresh_client_host_messages "$ip" || { warn "$ip: host message build failed"; return 1; }
 
   # Keep the onboard selectors aligned even when no repository changed. A
   # selector-only change must still trigger the same restart as a code change.
