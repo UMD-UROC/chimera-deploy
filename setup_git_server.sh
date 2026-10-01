@@ -1190,14 +1190,19 @@ check_sync_trees_clean() {
 }
 
 sync_selectors_to_client() {
-  local ip="$1" rhome="$2" scene scenario conops roles role result remote_command
+  local ip="$1" rhome="$2" scene scenario conops roles role camera result remote_command
   local ground_env="$HOME/px4-sim-stack/.env"
   [ -r "$ground_env" ] || { warn "ground .env is missing - cannot sync selectors"; return 1; }
   scene="$(sed -n 's/^SCENE=//p' "$ground_env" | head -1)"
   scenario="$(sed -n 's/^SCENARIO=//p' "$ground_env" | head -1)"
   conops="$(sed -n 's/^CONOPS=//p' "$ground_env" | head -1)"
   roles="$(sed -n 's/^UAS_ROLES=//p' "$ground_env" | head -1)"
+  camera="$(sed -n 's/^ONBOARD_CAMERA=//p' "$ground_env" | head -1)"
   conops=${conops:-option1}
+  # Day or night: which camera the detector reads. Set on the ground with key n
+  # in ./px4sim ui, or ./px4sim camera day|night. Unset reads as day, the way
+  # the console shows it.
+  camera=${camera:-rgb}
   roles=${roles:-'assess assess search search'}
   roles=${roles#\"}; roles=${roles%\"}
   roles=${roles#\'}; roles=${roles%\'}
@@ -1205,14 +1210,15 @@ sync_selectors_to_client() {
     warn "ground .env has invalid SCENE or SCENARIO"; return 1;
   }
   case "$conops" in option1|option2) ;; *) warn "ground .env has invalid CONOPS"; return 1 ;; esac
+  case "$camera" in rgb|thermal) ;; *) warn "ground .env has invalid ONBOARD_CAMERA"; return 1 ;; esac
   [ -n "$roles" ] || { warn "ground .env has empty UAS_ROLES"; return 1; }
   for role in $roles; do
     case "$role" in search|assess) ;; *) warn "ground .env has invalid UAS_ROLES"; return 1 ;; esac
   done
   roles="\"$roles\""
 
-  printf -v remote_command 'env_file=%q; scene=%q; scenario=%q; conops=%q; roles=%q; ' \
-    "$rhome/px4-sim-stack/.env" "$scene" "$scenario" "$conops" "$roles"
+  printf -v remote_command 'env_file=%q; scene=%q; scenario=%q; conops=%q; roles=%q; camera=%q; ' \
+    "$rhome/px4-sim-stack/.env" "$scene" "$scenario" "$conops" "$roles" "$camera"
   # The selector variables expand on the aircraft when this command runs.
   # shellcheck disable=SC2016
   remote_command+='[ -f "$env_file" ] || exit 1
@@ -1238,15 +1244,16 @@ sync_selectors_to_client() {
     sync_key SCENARIO "$scenario"
     sync_key CONOPS "$conops"
     sync_key UAS_ROLES "$roles"
+    sync_key ONBOARD_CAMERA "$camera"
     printf "%s" "$changed"'
   result="$(ssh -o BatchMode=yes -o ConnectTimeout=5 "$SERVER_USER@$ip" "$remote_command" 2>/dev/null)" || {
     warn "$ip: could not sync selectors"; return 1;
   }
   if [ "$result" = 1 ]; then
-    echo "  selectors: updated SCENE=$scene SCENARIO=$scenario CONOPS=$conops UAS_ROLES=$roles"
+    echo "  selectors: updated SCENE=$scene SCENARIO=$scenario CONOPS=$conops UAS_ROLES=$roles ONBOARD_CAMERA=$camera"
     return 2
   fi
-  echo "  selectors: already SCENE=$scene SCENARIO=$scenario CONOPS=$conops UAS_ROLES=$roles"
+  echo "  selectors: already SCENE=$scene SCENARIO=$scenario CONOPS=$conops UAS_ROLES=$roles ONBOARD_CAMERA=$camera"
   return 0
 }
 

@@ -334,6 +334,8 @@ python3 -m pip install --user --no-cache-dir onnx onnxscript
 # and would shadow JetPack's cv2. Its Boson class needs only cv2 and pyserial.
 python3 -m pip install --user --no-cache-dir pyserial==3.5
 python3 -m pip install --user --no-cache-dir --no-deps flirpy==0.6.2
+# The Boson's serial port is root:dialout. Takes effect at the next login.
+sudo usermod -aG dialout "$(id -un)"
 
 # pyds
 # may not need these two lines

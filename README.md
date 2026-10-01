@@ -194,9 +194,10 @@ repository updates, it invokes `./px4sim restart` on the ground station and ever
 reachable Orin. `px4sim restart` always performs stop, build, and start, so a
 checkout cannot run with an older image. Cached builds are expected on every
 sync; dirty or diverged worktrees are left untouched and reported. The sync also
-reconciles `SCENE`, `SCENARIO`, `CONOPS`, and
-`UAS_ROLES` from the ground station's px4-sim-stack `.env`, so an aircraft that
-was offline when an operator changed a selector catches up when it reconnects.
+reconciles `SCENE`, `SCENARIO`, `CONOPS`, `UAS_ROLES`, and `ONBOARD_CAMERA`
+(day or night) from the ground station's px4-sim-stack `.env`, so an aircraft
+that was offline when an operator changed a selector catches up when it
+reconnects.
 The foreground sync command reports `BUILDING`, `SUCCESS`, `FAILURE`, or
 `UNREACHABLE` for the ground station and each aircraft while their full Docker
 logs remain grouped.
@@ -280,25 +281,63 @@ roll the winner out with `sync`.
 
 # Thermal camera setup
 
-The Boson's palette (black hot), gain mode and noise filters are settings in
-the camera's flash, not in the repo. Set each camera once, and again after a
-camera swap. On the drone, after a `sync`:
+The Boson's palette (black hot, which our detectors do much better on), AGC
+tuning, gain mode and noise filters are settings in the camera's flash, not in
+the repo. Which camera the detector reads is a fleet selector on the ground.
+
+## Day and night
+
+Night detects on the thermal camera. Day detects on the gimbal RGB camera (v3)
+or the pilot camera (v2). Choose on the ground laptop with `n` in
+`./px4sim ui`, or `./px4sim camera day|night` in `~/px4-sim-stack`. The choice
+is `ONBOARD_CAMERA` in the ground `.env`, and `sync` copies it to every drone
+the way it copies the scene, restarting a stack whose value changed (not with
+`--no-build`). Unset counts as day.
+
+## Each drone, once per camera
+
+1. Deploy, or `sync`. `deploy.sh` installs flirpy and adds the user to
+   `dialout`, which owns the Boson's serial port. On a drone deployed before
+   that, run these once, then log in again:
+
+   ```
+   python3 -m pip install --user pyserial==3.5
+   python3 -m pip install --user --no-deps flirpy==0.6.2
+   sudo usermod -aG dialout "$USER"
+   ```
+
+   Keep `--no-deps`: flirpy's own dependencies pull in numpy 2, which the
+   pinned torch cannot use.
+
+2. Apply the camera settings, on the drone:
+
+   ```
+   cd ~/chimera-deploy/remote
+   ./boson_setup.py            # report, and what --apply would change
+   ./boson_setup.py --apply    # apply and save to camera flash; the stream changes at once
+   ```
+
+3. Chimera v3 (UAS 1–2) only: `./boson_averager.py --on`, then power cycle the
+   camera.
+
+4. Check it. `./remote/deploy_doctor.sh` warns when the Boson is off these
+   settings, or a v3's averager is off. On the laptop, `thermall<N>` from lcam
+   (`rtsp://127.0.0.1:8554/thermall3` for UAS 3) should show people dark on a
+   lighter background.
+
+After a camera swap, repeat steps 2 to 4.
+
+## What --apply sets, and how to undo it
+
+`--apply` sets black hot and moves two AGC settings as FLIR's datasheet
+suggests for black hot and people: ACE 0.97 -> 1.03 and linear percent 20 -> 30.
+Everything else stays at the camera's factory tuning.
 
 ```
-cd ~/chimera-deploy/remote
-./boson_setup.py            # report, and what --apply would change
-./boson_setup.py --apply    # apply and save to camera flash; the stream changes at once
+./boson_setup.py --factory  # FLIR's factory settings (white hot), saved; keeps the averager
+./boson_setup.py --apply    # back to the Chimera settings
 ```
 
-Chimera v3 (UAS 1–2) also needs `./boson_averager.py --on`, then a camera power
-cycle. The docstring in `remote/boson_setup.py` says what each setting does, and
-why it leaves the AGC and radiometry alone.
-
-Both scripts use flirpy, which `deploy.sh` installs. On a drone deployed before
-that, install it once. Keep `--no-deps`: flirpy's own dependencies pull in
-numpy 2, which the pinned torch cannot use.
-
-```
-python3 -m pip install --user pyserial==3.5
-python3 -m pip install --user --no-deps flirpy==0.6.2
-```
+Add `--no-save` to either to try it until the camera loses power. The docstring
+in `remote/boson_setup.py` says what each setting does, what the AGC changes
+measured, and why radiometry needs pipeline work instead.

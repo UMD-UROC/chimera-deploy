@@ -7,6 +7,13 @@ STACK=${STACK:-$HOME/px4-sim-stack}
 WS=${WS:-$HOME/ros2_ws}
 UAS_NUM=${UAS_NUM:-$(sed -n 's/^UAS_NUM=//p' /etc/environment 2>/dev/null | tr -d '"' | tail -1)}
 UAS_MODEL=${CHIMERA_MODEL:-$(sed -n 's/^CHIMERA_MODEL=//p' /etc/environment 2>/dev/null | tr -d '"' | tail -1)}
+DECLARED_MODEL=$UAS_MODEL
+# A drone deployed before deploy.sh wrote CHIMERA_MODEL has none. Take the
+# model from the number, as onboard.launch.py's MODEL_FOR_UAS does, so the
+# checks that depend on it still run.
+if [[ -z "$UAS_MODEL" ]]; then
+    case "$UAS_NUM" in 1|2) UAS_MODEL=v3 ;; 3|4) UAS_MODEL=v2 ;; esac
+fi
 
 PASS=0
 WARN=0
@@ -20,7 +27,10 @@ have() { command -v "$1" >/dev/null 2>&1; }
 
 ros_exec() {
     local command=${1:?command required}
-    docker exec "$CONTAINER" bash -lc ". /opt/ros/humble/setup.bash; . /home/user/ros2_ws/install/setup.bash; $command"
+    # ros-env.sh is the image's list of overlays: /opt/ros, the patched MAVROS
+    # in /opt/mavros, then the workspace. Without MAVROS, mavros_msgs has no
+    # type support here and every MAVROS topic looks silent.
+    docker exec "$CONTAINER" bash -lc ". /usr/local/bin/ros-env.sh; $command"
 }
 
 topic_has_samples() {
@@ -30,15 +40,22 @@ topic_has_samples() {
     printf '%s\n' "$output" | grep -q 'average rate:'
 }
 
+topic_has_message() {
+    # For a latched topic (transient local, published once), which never
+    # shows a rate.
+    local topic=${1:?topic required}
+    ros_exec "timeout 10 ros2 topic echo --once '$topic'" >/dev/null 2>&1
+}
+
 section "deployment identity"
 if [[ "$UAS_NUM" =~ ^[1-9]$ ]]; then
     pass "UAS_NUM=$UAS_NUM"
 else
     fail "UAS_NUM is missing or invalid: '${UAS_NUM:-unset}'"
 fi
-case "$UAS_MODEL" in
-    v2|v3) pass "CHIMERA_MODEL=$UAS_MODEL" ;;
-    *) fail "CHIMERA_MODEL is missing or invalid: '${UAS_MODEL:-unset}'" ;;
+case "$DECLARED_MODEL" in
+    v2|v3) pass "CHIMERA_MODEL=$DECLARED_MODEL" ;;
+    *) fail "CHIMERA_MODEL is missing or invalid: '${DECLARED_MODEL:-unset}'; deploy_onboard.sh needs it. Add it with: echo CHIMERA_MODEL=${UAS_MODEL:-v2 or v3} | sudo tee -a /etc/environment" ;;
 esac
 
 section "network"
@@ -120,6 +137,23 @@ fi
 if printf '%s\n' "$thermal_log" | grep -Eqi 'No frames from thermal-fork|Boson is off the air|no capture device'; then
     warn "thermal stream later failed as expected under shared USB-hub congestion"
 fi
+# The palette and AGC live in the camera, so a swapped camera arrives on FLIR's
+# factory settings: white hot, which the detectors do much worse on.
+if have lsusb && lsusb | grep -Eqi 'FLIR|Boson'; then
+    here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    if boson=$(timeout 30 python3 "$here/boson_setup.py" --check 2>&1); then
+        pass "Boson is on the Chimera settings (black hot, AGC)"
+    else
+        warn "Boson is not on the Chimera settings: ${boson##*$'\n'}. Run remote/boson_setup.py --apply"
+    fi
+    if [[ "$UAS_MODEL" == v3 ]]; then
+        if timeout 30 python3 "$here/boson_averager.py" 2>/dev/null | grep -Eq '^averager +: 1'; then
+            pass "Boson averager is on (30 Hz), as a v3 needs"
+        else
+            warn "Boson averager is off or unreadable; a v3 then loses the thermal camera off USB. Run remote/boson_averager.py --on, then power cycle the camera"
+        fi
+    fi
+fi
 
 section "PX4Sim container"
 if [[ -x "$STACK/px4sim" ]]; then
@@ -149,10 +183,10 @@ if [[ -n "${CONTAINER:-}" ]]; then
     else
         fail "/uas${UAS_NUM}/image has no samples"
     fi
-    if topic_has_samples "/uas${UAS_NUM}/camera/camera_info"; then
-        pass "/uas${UAS_NUM}/camera/camera_info is publishing"
+    if topic_has_message "/uas${UAS_NUM}/camera/camera_info"; then
+        pass "/uas${UAS_NUM}/camera/camera_info is latched"
     else
-        warn "/uas${UAS_NUM}/camera/camera_info has no samples"
+        warn "/uas${UAS_NUM}/camera/camera_info has no message"
     fi
     if topic_has_samples "/uas${UAS_NUM}/state"; then
         pass "/uas${UAS_NUM}/state has MAVROS samples"
@@ -171,11 +205,21 @@ if [[ -n "${CONTAINER:-}" ]]; then
     fi
 
     section "detector"
-    model_log=$(docker logs --since 10m "$CONTAINER" 2>&1 || true)
-    if printf '%s\n' "$model_log" | grep -q 'yolo12l-custom-960.onnx_b1_gpu0_fp16.engine'; then
-        pass "yolo12l-custom-960 TensorRT engine loaded"
+    detector=$(ros_exec "ros2 param get /uas${UAS_NUM}/ds_pipeline model.detector" 2>/dev/null \
+        | sed -n 's/^String value is: //p')
+    # The engine loads once, when the container starts, so read this whole run.
+    # <pgie...> is the detector; the injury classifier is <sgie...>.
+    started=$(docker inspect -f '{{.State.StartedAt}}' "$CONTAINER" 2>/dev/null)
+    engine=$(docker logs --since "$started" "$CONTAINER" 2>&1 \
+        | grep '<pgie' \
+        | grep -oE '(deserialized trt engine from|serialize cuda engine to file) *:? *[^ ]+\.engine' \
+        | grep -oE '[^/ :]+\.engine$' | tail -1)
+    if [[ -z "$engine" ]]; then
+        fail "no detector TensorRT engine loaded in this container run${detector:+ (configured: $detector)}"
+    elif [[ -n "$detector" && "$engine" != "$detector".onnx_* ]]; then
+        fail "detector engine $engine does not match the configured model $detector"
     else
-        fail "yolo12l-custom-960 engine load was not found in onboard logs"
+        pass "detector TensorRT engine loaded: $engine"
     fi
 fi
 
@@ -193,10 +237,11 @@ if [[ -r "$router_config" ]]; then
     else
         fail "router UART endpoint is not ttyTHS1 at 500000 baud"
     fi
-    if grep -q 'AllowSrcSysIn = 2,255' "$router_config"; then
-        pass "router allows UAS2 source sysid 2"
+    # PX4's MAV_SYS_ID is the UAS number (local/main.conf filters the same way).
+    if grep -Eq "^AllowSrcSysIn *= *${UAS_NUM},255" "$router_config"; then
+        pass "router allows UAS${UAS_NUM} source sysid ${UAS_NUM}"
     else
-        warn "router does not explicitly allow UAS2 source sysid 2; confirm PX4 MAV_SYS_ID before changing filters"
+        warn "router does not explicitly allow UAS${UAS_NUM} source sysid ${UAS_NUM}; confirm PX4 MAV_SYS_ID before changing filters"
     fi
 else
     fail "cannot read $router_config"
