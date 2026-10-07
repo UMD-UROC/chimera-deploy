@@ -101,8 +101,12 @@ done
 [ "${#build[@]}" -gt 0 ] || { echo "current"; exit 0; }
 set +u; . /opt/ros/humble/setup.bash; set -u
 [ -x /usr/bin/cmake ] && export CMAKE_COMMAND=/usr/bin/cmake CTEST_COMMAND=/usr/bin/ctest
-if MAKEFLAGS=-j4 colcon build --packages-select "${build[@]}" \
-     --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF >"$log" 2>&1; then
+echo "building host messages: ${build[*]}"
+# Stream into the existing per-host UI log and retain diagnostics locally.
+# pipefail keeps a failed build (or log write) from marking the install current.
+if MAKEFLAGS=-j4 PYTHONUNBUFFERED=1 colcon build --packages-select "${build[@]}" \
+     --event-handlers console_direct+ console_cohesion- \
+     --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF 2>&1 | tee "$log"; then
   printf '%s\n' "$want" >"$stamp"
   echo "rebuilt ${build[*]}"
 else
