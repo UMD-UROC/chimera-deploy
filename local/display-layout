@@ -1,0 +1,494 @@
+#!/usr/bin/python3
+"""Mirror or join connected X11 monitors, preserving native laptop quality.
+
+Choose an advertised mode once; restore the previous layout on failure.
+"""
+
+import argparse
+import fcntl
+import json
+import os
+import pathlib
+import re
+import subprocess
+import sys
+import time
+import uuid
+from contextlib import suppress
+
+from gi.repository import Gio, GLib
+
+STATE = (
+    pathlib.Path(os.environ.get("XDG_STATE_HOME", pathlib.Path.home() / ".local/state"))
+    / "display-mirror"
+)
+READ_TIMEOUT = 5
+CHANGE_TIMEOUT = 8
+RECOVERY_DELAY = 15
+PREFERENCE = STATE / "preferred-layout"
+COMMAND_ERRORS = (OSError, RuntimeError, subprocess.SubprocessError)
+
+
+def run(*args, timeout=READ_TIMEOUT):
+    result = subprocess.run(
+        args,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
+        env={**os.environ, "LC_ALL": "C"},
+    )
+    if result.returncode or re.search(r"^ERROR:", result.stderr, re.MULTILINE):
+        raise RuntimeError(result.stderr.strip() or result.stdout.strip() or f"{args[0]} failed")
+    return result.stdout
+
+
+def parse_outputs(text):
+    outputs, output = [], None
+    for line in text.splitlines():
+        header = re.match(r"^(\S+) (connected|disconnected)\b(.*)", line)
+        if header:
+            output = None
+            if header[2] == "connected":
+                geometry = re.search(r"(\d+)x(\d+)([+-]\d+)([+-]\d+)", header[3])
+                output = {
+                    "name": header[1],
+                    "primary": "primary" in header[3],
+                    "geometry": tuple(map(int, geometry.groups())) if geometry else (),
+                    "modes": [],
+                }
+                outputs.append(output)
+        elif output:
+            mode = re.match(r"^\s+(\S*?(\d+)x(\d+)\S*)\s+(.+)", line)
+            if mode:
+                for rate in mode[4].split():
+                    rate = re.fullmatch(r"(\d+(?:\.\d+)?)([+*]*)", rate)
+                    if rate:
+                        output["modes"].append(
+                            {
+                                "name": mode[1],
+                                "width": int(mode[2]),
+                                "height": int(mode[3]),
+                                "rate": float(rate[1]),
+                                "preferred": "+" in rate[2],
+                                "current": "*" in rate[2],
+                            }
+                        )
+    return [output for output in outputs if output["modes"]]
+
+
+def preferred_mode(output):
+    return max(
+        output["modes"],
+        key=lambda mode: (
+            mode["preferred"],
+            mode["width"] * mode["height"],
+            mode["rate"],
+        ),
+    )
+
+
+def discover():
+    outputs = parse_outputs(run("xrandr", "--query"))
+    if not outputs:
+        raise RuntimeError("No connected display with advertised modes was found.")
+    builtin = set()
+    with suppress(GLib.Error):
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        state = bus.call_sync(
+            "org.gnome.Mutter.DisplayConfig",
+            "/org/gnome/Mutter/DisplayConfig",
+            "org.gnome.Mutter.DisplayConfig",
+            "GetCurrentState",
+            None,
+            None,
+            Gio.DBusCallFlags.NONE,
+            3000,
+            None,
+        ).unpack()
+        builtin.update(mode[0][0] for mode in state[1] if mode[2].get("is-builtin"))
+    with suppress(*COMMAND_ERRORS):
+        current = None
+        for line in run("xrandr", "--prop").splitlines():
+            header = re.match(r"^(\S+) (?:connected|disconnected)\b", line)
+            if header:
+                current = header[1]
+            elif current and re.search(r"ConnectorType:\s*Panel", line):
+                builtin.add(current)
+    anchor = next((output for output in outputs if output["name"] in builtin), None)
+    anchor = anchor or next(
+        (output for output in outputs if re.match(r"^(eDP|LVDS|DSI)", output["name"])),
+        None,
+    )
+    anchor = anchor or next((output for output in outputs if output["primary"]), outputs[0])
+    return [anchor] + [output for output in outputs if output is not anchor]
+
+
+def aspect_fit(source, target):
+    source_width, source_height = source
+    target_width, target_height = target
+    if target_width * source_height <= target_height * source_width:
+        width, height = (
+            target_width,
+            max(1, target_width * source_height // source_width),
+        )
+    else:
+        width, height = (
+            max(1, target_height * source_width // source_height),
+            target_height,
+        )
+    return width, height, (target_width - width) // 2, (target_height - height) // 2
+
+
+def nvidia_outputs():
+    try:
+        return set(
+            re.findall(
+                r"^\s*\[\d+\].*?\(([^()]+)\)",
+                run("nvidia-settings", "-q", "dpys"),
+                re.MULTILINE,
+            )
+        )
+    except COMMAND_ERRORS:
+        return set()
+
+
+def nvidia_plan(outputs, layout):
+    main = preferred_mode(outputs[0])
+    canvas = main["width"], main["height"]
+    parts, x = [], 0
+    for index, output in enumerate(outputs):
+        mode = preferred_mode(output)
+        size = mode["width"], mode["height"]
+        viewport = canvas if layout == "mirror" else size
+        box = (*size, 0, 0) if layout == "join" or index == 0 else aspect_fit(canvas, size)
+        parts.append(
+            f"{output['name']}: nvidia-auto-select +{x}+0 "
+            f"{{ViewPortIn={viewport[0]}x{viewport[1]}, "
+            f"ViewPortOut={box[0]}x{box[1]}+{box[2]}+{box[3]}}}"
+        )
+        if layout == "join":
+            x += mode["width"]
+    return ["nvidia-settings", "--assign", "CurrentMetaMode=" + ", ".join(parts)]
+
+
+def verify(outputs, layout):
+    actual = {output["name"]: output for output in parse_outputs(run("xrandr", "--query"))}
+    mode = preferred_mode(outputs[0])
+    canvas, x = (mode["width"], mode["height"]), 0
+    for index, output in enumerate(outputs):
+        mode = preferred_mode(output)
+        expected = (*canvas, 0, 0) if layout == "mirror" else (mode["width"], mode["height"], x, 0)
+        observed = actual.get(output["name"])
+        if not observed or observed["geometry"] != expected:
+            raise RuntimeError(f"{output['name']} did not reach the requested {layout} layout")
+        current = next((mode for mode in observed["modes"] if mode["current"]), None)
+        if not current or (current["width"], current["height"]) != (mode["width"], mode["height"]):
+            raise RuntimeError(f"{output['name']} did not retain its preferred resolution")
+        if index == 0 and abs(current["rate"] - mode["rate"]) > 0.1:
+            raise RuntimeError("The laptop did not retain its preferred refresh rate")
+        if layout == "join":
+            x += mode["width"]
+
+
+def notify(message):
+    with suppress(*COMMAND_ERRORS):
+        subprocess.run(["notify-send", "Display layout", message], check=False, timeout=5)
+
+
+def install():
+    home = pathlib.Path.home()
+    target = home / ".local/bin/display-layout"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    source = pathlib.Path(__file__).resolve()
+    if source != target.resolve():
+        if target.exists() and not (STATE / "installed-script.backup").exists():
+            STATE.joinpath("installed-script.backup").write_bytes(target.read_bytes())
+        target.write_bytes(source.read_bytes())
+        target.chmod(0o755)
+
+    config = pathlib.Path(os.environ.get("XDG_CONFIG_HOME", home / ".config"))
+    data = pathlib.Path(os.environ.get("XDG_DATA_HOME", home / ".local/share"))
+    applications = data / "applications"
+    autostart = config / "autostart"
+    applications.mkdir(parents=True, exist_ok=True)
+    autostart.mkdir(parents=True, exist_ok=True)
+    media_keys = Gio.Settings.new("org.gnome.settings-daemon.plugins.media-keys")
+    bindings = media_keys.get_strv("custom-keybindings")
+    executable = str(target).replace("\\", "\\\\").replace('"', '\\"')
+    for layout, key in [("mirror", "m"), ("join", "j")]:
+        name = f"{layout.title()} Displays"
+        command = f'"{executable}" {layout}'
+        path = f"/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/display-{layout}/"
+        settings = Gio.Settings.new_with_path(
+            "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding", path
+        )
+        settings.set_string("name", name)
+        settings.set_string("command", command)
+        settings.set_string("binding", f"<Control><Super>{key}")
+        if path not in bindings:
+            bindings.append(path)
+        applications.joinpath(f"display-{layout}.desktop").write_text(
+            f"[Desktop Entry]\nType=Application\nName={name}\nExec={command}\n"
+            "Icon=video-display\nTerminal=false\nCategories=Settings;\n"
+        )
+    media_keys.set_strv("custom-keybindings", bindings)
+    Gio.Settings.sync()
+    autostart.joinpath("display-mirror.desktop").write_text(
+        "[Desktop Entry]\nType=Application\nName=Saved Display Layout\n"
+        f'Exec="{executable}" auto\nX-GNOME-Autostart-enabled=true\n'
+        "X-GNOME-Autostart-Delay=5\n"
+    )
+    print(f"Installed {target}; Ctrl+Super+M mirrors, Ctrl+Super+J joins.")
+
+
+def output_properties(verbose):
+    result, name = {}, None
+    lines = verbose.splitlines()
+    for index, line in enumerate(lines):
+        header = re.match(r"^(\S+) (?:connected|disconnected)\b", line)
+        if header:
+            name = header[1]
+            result[name] = {}
+            orientation = re.search(r"\)\s+(normal|left|right|inverted)\b", line)
+            if orientation:
+                result[name]["rotation"] = orientation[1]
+            active_flags = line.split("(normal left", 1)[0]
+            reflected_x = "x axis" in active_flags or "x and y axis" in active_flags
+            reflected_y = "y axis" in active_flags or "x and y axis" in active_flags
+            result[name]["reflection"] = ("x" if reflected_x else "") + (
+                "y" if reflected_y else ""
+            ) or "normal"
+        elif name:
+            if line.strip().startswith("Border:"):
+                result[name]["border"] = ",".join(line.split(":", 1)[1].split())
+            if line.strip().startswith("Transform:"):
+                rows = [line.split(":", 1)[1]] + lines[index + 1 : index + 3]
+                result[name]["transform"] = ",".join(" ".join(rows).split())
+    return result
+
+
+def randr_plan(outputs, layout, properties):
+    main = preferred_mode(outputs[0])
+    canvas = main["width"], main["height"]
+    width = (
+        canvas[0]
+        if layout == "mirror"
+        else sum(preferred_mode(output)["width"] for output in outputs)
+    )
+    height = (
+        canvas[1]
+        if layout == "mirror"
+        else max(preferred_mode(output)["height"] for output in outputs)
+    )
+    # NVIDIA borders survive mode switches; reset them before RandR scaling.
+    command = ["xrandr", "--nograb", "--fb", f"{width}x{height}"]
+    x = 0
+    for index, output in enumerate(outputs):
+        mode = preferred_mode(output)
+        command += [
+            "--output",
+            output["name"],
+            "--mode",
+            mode["name"],
+            "--rate",
+            str(mode["rate"]),
+            "--pos",
+            f"{x}x0",
+            "--rotate",
+            "normal",
+            "--reflect",
+            "normal",
+        ]
+        if "border" in properties.get(output["name"], {}):
+            command += ["--set", "Border", "0,0,0,0"]
+        if layout == "mirror" and index:
+            command += ["--scale-from", f"{canvas[0]}x{canvas[1]}"]
+        else:
+            command += ["--scale", "1x1"]
+        if index == 0:
+            command += ["--primary"]
+        if layout == "join":
+            x += mode["width"]
+    return command
+
+
+def checkpoint(outputs, properties, nvidia_names):
+    query = run("xrandr", "--query")
+    dimensions = re.search(r"current (\d+) x (\d+)", query)
+    restore = ["xrandr", "--nograb", "--fb", f"{dimensions[1]}x{dimensions[2]}"]
+    for output in outputs:
+        restore += ["--output", output["name"]]
+        if not output["geometry"]:
+            restore += ["--off"]
+            continue
+        mode = next(mode for mode in output["modes"] if mode["current"])
+        x, y = output["geometry"][2:]
+        restore += [
+            "--mode",
+            mode["name"],
+            "--rate",
+            str(mode["rate"]),
+            "--pos",
+            f"{x}x{y}",
+        ]
+        properties_for_output = properties.get(output["name"], {})
+        restore += [
+            "--rotate",
+            properties_for_output.get("rotation", "normal"),
+            "--reflect",
+            properties_for_output.get("reflection", "normal"),
+        ]
+        if "border" in properties_for_output:
+            restore += ["--set", "Border", properties_for_output["border"]]
+        restore += ["--transform", properties_for_output.get("transform", "none")]
+        if output["primary"]:
+            restore += ["--primary"]
+    if {output["name"] for output in outputs}.issubset(nvidia_names):
+        with suppress(*COMMAND_ERRORS, IndexError):
+            saved = run("nvidia-settings", "-t", "-q", "CurrentMetaMode").split("::", 1)[1].strip()
+            restore = ["nvidia-settings", "--assign", "CurrentMetaMode=" + saved]
+    return {"restore": restore, "outputs": [output["name"] for output in outputs]}
+
+
+def execute_change(command):
+    run(*command, timeout=CHANGE_TIMEOUT)
+
+
+def recover(path):
+    data = json.loads(pathlib.Path(path).read_text())
+    execute_change(data["restore"])
+
+
+def apply(layout, dry_run=False, backend="auto"):
+    outputs = discover()
+    nvidia_names = nvidia_outputs()
+    properties = output_properties(run("xrandr", "--verbose"))
+    all_nvidia = {output["name"] for output in outputs}.issubset(nvidia_names)
+    selected = ("nvidia" if all_nvidia else "xrandr") if backend == "auto" else backend
+    if selected == "nvidia" and not all_nvidia:
+        raise RuntimeError(
+            "Some connected displays are not controlled by NVIDIA. Use the automatic or xrandr backend."
+        )
+    command = (
+        nvidia_plan(outputs, layout)
+        if selected == "nvidia"
+        else randr_plan(outputs, layout, properties)
+    )
+    details = {
+        "layout": layout,
+        "backend": selected,
+        "main_display": outputs[0]["name"],
+        "connected_displays": [output["name"] for output in outputs],
+        "command": command,
+    }
+    if dry_run:
+        print(json.dumps(details, indent=2))
+        return
+    saved = checkpoint(outputs, properties, nvidia_names)
+    checkpoint_path = STATE / f"recovery-{uuid.uuid4().hex}.json"
+    checkpoint_path.write_text(json.dumps(saved, indent=2))
+    STATE.joinpath("previous-working-layout.json").write_text(json.dumps(saved, indent=2))
+    cancel = STATE / ("recovery-cancel-" + uuid.uuid4().hex)
+    watchdog = subprocess.Popen(
+        [
+            sys.executable,
+            str(pathlib.Path(__file__).resolve()),
+            "--recover",
+            str(checkpoint_path),
+            "--cancel",
+            str(cancel),
+        ],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        execute_change(command)
+        verify(outputs, layout)
+        time.sleep(0.75)
+        verify(outputs, layout)
+    except BaseException as error:
+        try:
+            recover(checkpoint_path)
+            cancel.touch()
+        except COMMAND_ERRORS as restore_error:
+            raise RuntimeError(
+                f"Configuration failed: {error}. Recovery failed: {restore_error}; watchdog remains armed."
+            ) from error
+        raise RuntimeError(
+            f"Configuration failed; restored the previous working layout: {error}"
+        ) from error
+    else:
+        cancel.touch()
+        PREFERENCE.write_text(layout + "\n")
+        STATE.joinpath("last-result.json").write_text(json.dumps(details, indent=2))
+        print(
+            f"{layout} via {selected}: {outputs[0]['name']} at native resolution; "
+            f"{len(outputs) - 1} external display(s) configured."
+        )
+    finally:
+        if cancel.exists():
+            watchdog.wait(timeout=2)
+            cancel.unlink(missing_ok=True)
+            checkpoint_path.unlink(missing_ok=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("layout", nargs="?", choices=("mirror", "join", "auto", "install"))
+    parser.add_argument("--backend", choices=("auto", "nvidia", "xrandr"), default="auto")
+    parser.add_argument("--recover", help=argparse.SUPPRESS)
+    parser.add_argument("--cancel", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show the detected layout and command without changing displays",
+    )
+    args = parser.parse_args()
+    if args.recover:
+        if args.cancel:
+            deadline = time.monotonic() + RECOVERY_DELAY
+            while time.monotonic() < deadline:
+                if pathlib.Path(args.cancel).exists():
+                    return
+                time.sleep(0.1)
+        recover(args.recover)
+        return
+    if args.layout is None:
+        parser.error("mirror, join, auto, or install is required")
+    STATE.mkdir(parents=True, exist_ok=True)
+    if args.layout == "install":
+        if args.dry_run:
+            parser.error("install does not support --dry-run")
+        install()
+        return
+    if os.environ.get("XDG_SESSION_TYPE") == "wayland":
+        parser.error("Display configuration requires an X11 desktop session")
+    with STATE.joinpath("layout.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if args.layout == "auto":
+            if not PREFERENCE.exists() or PREFERENCE.read_text().strip() != "mirror":
+                return
+            for attempt in range(15):
+                try:
+                    ready = len(discover()) > 1
+                except COMMAND_ERRORS:
+                    if attempt == 14:
+                        raise
+                    ready = False
+                if ready:
+                    apply("mirror", args.dry_run, args.backend)
+                    return
+                time.sleep(2)
+        else:
+            apply(args.layout, args.dry_run, args.backend)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (*COMMAND_ERRORS, ValueError, GLib.Error) as error:
+        print(error, file=sys.stderr)
+        notify(str(error))
+        sys.exit(1)

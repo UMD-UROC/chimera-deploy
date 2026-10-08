@@ -271,6 +271,23 @@ lives in this repo.
 See [`local/qgc/README.md`](local/qgc/README.md) for the options, rebuilding,
 and how to bump the pinned version.
 
+# Ground-station displays
+
+Install the display command, GNOME shortcuts and login entry as the desktop user:
+
+```bash
+./local/display-layout install
+display-layout mirror  # Ctrl + Super + M
+display-layout join    # Ctrl + Super + J
+```
+
+Mirroring keeps the laptop at its native resolution and scales the image for
+each connected monitor. The command detects outputs and advertised modes,
+uses NVIDIA scaling when all outputs support it, and otherwise uses RandR.
+A failed change restores the previous layout without trying other resolutions.
+See [`local/DISPLAYS.md`](local/DISPLAYS.md) for dependencies, backend selection,
+login behavior and recovery.
+
 # Pilot camera tuning
 
 The IMX477 pilot camera's white balance, saturation and exposure come from

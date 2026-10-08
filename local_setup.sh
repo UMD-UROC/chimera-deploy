@@ -7,6 +7,11 @@ sudo apt upgrade
 nvidia-smi
 sudo prime-select nvidia
 
+## install display mirror/join command, shortcuts and login entry
+# Run as the desktop user in an X11 session. See local/DISPLAYS.md.
+sudo apt install -y x11-xserver-utils python3-gi libnotify-bin
+~/chimera-deploy/local/display-layout install
+
 
 ## git install
 # Use your GitHub email
