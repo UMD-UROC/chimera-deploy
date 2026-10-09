@@ -1,8 +1,34 @@
 # config.py
 
 import os
+import shlex
+from pathlib import Path
 
 from v4l2_devices import find_device
+
+
+def selected_cameras():
+    """Use the existing aircraft selector to keep v3 USB captures exclusive."""
+    env_file = Path.home() / "px4-sim-stack" / ".env"
+    if not env_file.exists():
+        return None
+    keys = {"UAS_FLEET", "UAS_BASE", "COMPOSE_PROFILES", "ONBOARD_CAMERA"}
+    values = {}
+    for line in env_file.read_text().splitlines():
+        key, separator, value = line.strip().partition("=")
+        if separator and key in keys:
+            values[key] = " ".join(shlex.split(value, comments=True))
+    if (values.get("UAS_FLEET", "").split() != ["chimera_v3"]
+            or values.get("UAS_BASE") != "0"
+            or "aircraft" not in values.get("COMPOSE_PROFILES", "").split(",")):
+        return None
+    camera = values.get("ONBOARD_CAMERA", "rgb")
+    if camera not in {"rgb", "thermal"}:
+        raise RuntimeError(f"Invalid ONBOARD_CAMERA={camera!r}")
+    return frozenset({"pilot", camera})
+
+
+SELECTED_CAMERAS = selected_cameras()
 
 # ----------------------------------------
 # PILOT (IMX477 CSI camera -- this was previously "rgb")
@@ -387,7 +413,6 @@ CAMERA_KEYS = {
     "thermal": "thermal-fork",
 }
 
-
 def _prune(producer, reason):
     group = CAMERA_GROUPS[producer]
     PRUNED_CAMERAS.append((group["card"], reason))
@@ -401,6 +426,11 @@ if RGB_DEVICE is None:
 
 if THERMAL_DEVICE is None:
     _prune("thermal-fork", "no capture device found")
+
+if SELECTED_CAMERAS is not None:
+    for _name, _producer in CAMERA_KEYS.items():
+        if _name not in SELECTED_CAMERAS and _producer in PRODUCERS:
+            _prune(_producer, "disabled by Chimera v3 day/night selection")
 
 # Run only the named cameras. The USB cameras share one bus powered hub, so a
 # camera can be healthy on its own and still fail next to another one. Naming a

@@ -258,6 +258,22 @@ def main():
     loop = GLib.MainLoop()
     producer_watchdog = ProducerFrameWatchdog(loop)
 
+    def check_camera_selection():
+        # sync and px4sim camera update .env; systemd restarts this native
+        # server after its producers stop, including existing RGB sessions.
+        try:
+            selection = conf.selected_cameras()
+        except (OSError, ValueError, RuntimeError) as error:
+            print(f"Cannot read aircraft camera selection; keeping current cameras: {error}")
+            return GLib.SOURCE_CONTINUE
+        if selection != conf.SELECTED_CAMERAS:
+            print("Aircraft camera selection changed; restarting rcam.")
+            loop.quit()
+            return GLib.SOURCE_REMOVE
+        return GLib.SOURCE_CONTINUE
+
+    GLib.timeout_add_seconds(2, check_camera_selection)
+
     for card, reason in conf.PRUNED_CAMERAS:
         print(f"[WARN] {card} is not being served: {reason}.")
 

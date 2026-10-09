@@ -369,6 +369,12 @@ is `ONBOARD_CAMERA` in the ground `.env`, and `sync` copies it to every drone
 the way it copies the scene, restarting a stack whose value changed (not with
 `--no-build`). Unset counts as day.
 
+On real Chimera v3 aircraft, rcam also uses this selector to run only one USB
+camera: RGB in day mode, Boson in night mode. The CSI pilot camera stays on.
+The inactive camera has no RTSP mounts, so requesting RGB through the ground
+relay in night mode cannot start RGB capture. Native rcam watches the selector
+and restarts itself when it changes. Chimera v2 capture is unchanged.
+
 ## Each drone, once per camera
 
 1. Deploy, or `sync`. `deploy.sh` installs flirpy and adds the user to
