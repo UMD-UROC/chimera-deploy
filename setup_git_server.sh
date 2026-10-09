@@ -58,7 +58,25 @@ CLIENTS=(${CLIENTS:-10.200.142.61 10.200.142.62 10.200.142.63 10.200.142.64})
 
 WS_SRC="$HOME/ros2_ws/src"
 
-# repos to serve: <mirror name>|<upstream url>|<checkout dir on the Orin>
+# Machine-local paths are resolved once, shared with the UI. The standalone
+# copy deployed to /tmp on an aircraft retains the historical defaults.
+GROUND_WS="$HOME/ros2_ws"
+GROUND_STACK="$HOME/px4-sim-stack"
+SYNC_CONFIG_FILE='(defaults)'
+STACK_ALIGNMENT_ERROR=''
+declare -A GROUND_REPOS=()
+config_loader="$SCRIPT_DIR/sync_config.py"
+if [ "${1:-}" = remote ] && [ ! -f "$config_loader" ]; then
+  config_loader="$HOME/chimera-deploy/sync_config.py"
+fi
+if [ -f "$config_loader" ]; then
+  sync_config=$(PYTHONDONTWRITEBYTECODE=1 python3 "$config_loader") || exit 1
+  eval "$sync_config"
+  unset sync_config
+fi
+
+# One repository inventory: <mirror name>|<upstream url>|<default checkout>.
+# Machine-local source paths are resolved by local_source_for.
 REPOS=(
   "cdcl_umd_msgs|git@github.com:UMD-CDCL/cdcl_umd_msgs.git|$WS_SRC/cdcl_umd_msgs"
   "MAVInsight|git@github.com:UMD-UROC/MAVInsight.git|$WS_SRC/MAVInsight"
@@ -87,24 +105,35 @@ HOST_MSG_PACKAGES=(${HOST_MSG_PACKAGES:-cdcl_umd_msgs})
 host_messages_script() {
   cat <<'EOF'
 set -uo pipefail
-ws="$HOME/ros2_ws" stamp="$HOME/.px4sim-sync-host-msgs" log="$HOME/.px4sim-sync-host-msgs.log"
+ws="${CHIMERA_HOST_WS:-$HOME/ros2_ws}" stamp="$HOME/.px4sim-sync-host-msgs" log="$HOME/.px4sim-sync-host-msgs.log"
 [ -d "$ws/src" ] || { echo "no $ws/src - skipped"; exit 0; }
 cd "$ws" || exit 1
-have=$(cat "$stamp" 2>/dev/null || true) want="" build=()
-for p in "$@"; do
-  [ -d "src/$p/.git" ] || continue
-  c=$(git -C "src/$p" rev-parse HEAD) || exit 1
-  want+="$p=$c "
-  case " $have " in *" $p=$c "*) [ -f "install/$p/share/$p/package.xml" ] && continue ;; esac
+have=$(cat "$stamp" 2>/dev/null || true) want="" build=() sources=() base_args=()
+for entry in "$@"; do
+  p="${entry%%|*}" source="src/${entry%%|*}"
+  [[ "$entry" != *'|'* ]] || source="${entry#*|}"
+  [ -e "$source/.git" ] || continue
+  c=$(git -C "$source" rev-parse HEAD) || exit 1
+  key="$p=$c"
+  if [ "$ws" != "$HOME/ros2_ws" ] || { [ "$source" != "src/$p" ] && [ "$source" != "$ws/src/$p" ]; }; then
+    key+="@$ws@$source"
+  fi
+  want+="$key "
+  case " $have " in *" $key "*) [ -f "install/$p/share/$p/package.xml" ] && continue ;; esac
   build+=("$p")
+  sources+=("$source")
+  if [ "$source" != "src/$p" ] && [ "$source" != "$ws/src/$p" ]; then
+    base_args=(--base-paths)
+  fi
 done
 [ "${#build[@]}" -gt 0 ] || { echo "current"; exit 0; }
 set +u; . /opt/ros/humble/setup.bash; set -u
 [ -x /usr/bin/cmake ] && export CMAKE_COMMAND=/usr/bin/cmake CTEST_COMMAND=/usr/bin/ctest
 echo "building host messages: ${build[*]}"
+[ "${#base_args[@]}" -eq 0 ] || base_args+=("${sources[@]}")
 # Stream into the existing per-host UI log and retain diagnostics locally.
 # pipefail keeps a failed build (or log write) from marking the install current.
-if MAKEFLAGS=-j4 PYTHONUNBUFFERED=1 colcon build --packages-select "${build[@]}" \
+if MAKEFLAGS=-j4 PYTHONUNBUFFERED=1 colcon build "${base_args[@]}" --packages-select "${build[@]}" \
      --event-handlers console_direct+ console_cohesion- \
      --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF 2>&1 | tee "$log"; then
   printf '%s\n' "$want" >"$stamp"
@@ -116,8 +145,13 @@ fi
 EOF
 }
 refresh_local_host_messages() {
+  local p
+  local -a sources=()
+  for p in "${HOST_MSG_PACKAGES[@]}"; do
+    sources+=("$p|$(local_source_for "$p")")
+  done
   printf '  %-18s ' "host messages"
-  bash -s -- "${HOST_MSG_PACKAGES[@]}" < <(host_messages_script)
+  CHIMERA_HOST_WS="$GROUND_WS" bash -s -- "${sources[@]}" < <(host_messages_script)
 }
 refresh_client_host_messages() {
   local ip="$1"
@@ -211,6 +245,10 @@ sync_status() {
 # the local working copy a mirror can be seeded from when GitHub is unreachable
 local_source_for() {
   local name="$1"
+  if [ -n "${GROUND_REPOS[$name]:-}" ]; then
+    echo "${GROUND_REPOS[$name]}"
+    return
+  fi
   case "$name" in
     chimera-deploy) echo "$SCRIPT_DIR" ;;
     5g_drone)       echo "$WS_SRC/5g_drone" ;;
@@ -254,7 +292,7 @@ prepare_ground_branches() {
 # the name an Orin checked this repo out under before the rename
 old_checkout_for() {
   case "$1" in
-    5g_drone) echo "$WS_SRC/umd_uas" ;;
+    5g_drone) echo "$(dirname "${GROUND_REPOS[5g_drone]:-$WS_SRC/5g_drone}")/umd_uas" ;;
   esac
 }
 
@@ -671,6 +709,8 @@ EOF
 
 cmd_sync_status() {
   local entry name url dir
+  printf 'Configuration: %s\nWorkspace: %s\n' "$SYNC_CONFIG_FILE" "$GROUND_WS"
+  [ -z "$STACK_ALIGNMENT_ERROR" ] || warn "$STACK_ALIGNMENT_ERROR"
   for entry in "${REPOS[@]}"; do
     IFS='|' read -r name url _ <<< "$entry"
     dir="$(local_source_for "$name")"
@@ -1084,7 +1124,7 @@ cmd_push() {
 # unique, which costs a restart and never skips one.
 ###############################################################################
 stack_fingerprint() {
-  local stack="$HOME/px4-sim-stack" dir
+  local stack="${GROUND_STACK:-$HOME/px4-sim-stack}" dir
   {
     for dir in "$@"; do
       printf '%s %s %s\n' "$dir" \
@@ -1123,7 +1163,7 @@ EOF
 }
 
 refresh_local_stack() {
-  local stack="$HOME/px4-sim-stack" stamp_file="$HOME/.px4sim-sync-deployed" entry name
+  local stack="$GROUND_STACK" stamp_file="$HOME/.px4sim-sync-deployed" entry name
   local -a dirs=()
   [ -x "$stack/px4sim" ] || { warn "local px4-sim-stack is missing - skipped build"; return 1; }
   for entry in "${REPOS[@]}"; do
@@ -1151,6 +1191,8 @@ refresh_local_stack() {
 # are intentionally skipped; a reachable drone with a dirty tree is fatal.
 check_sync_trees_clean() {
   local entry name url dir ip rhome rdir state rc=0 details
+
+  [ -z "$STACK_ALIGNMENT_ERROR" ] || die "$STACK_ALIGNMENT_ERROR"
 
   say "preflight: checking working trees"
   for entry in "${REPOS[@]}"; do
@@ -1195,7 +1237,7 @@ check_sync_trees_clean() {
 
 sync_selectors_to_client() {
   local ip="$1" rhome="$2" scene scenario conops roles role camera result remote_command
-  local ground_env="$HOME/px4-sim-stack/.env"
+  local ground_env="$GROUND_STACK/.env"
   [ -r "$ground_env" ] || { warn "ground .env is missing - cannot sync selectors"; return 1; }
   scene="$(sed -n 's/^SCENE=//p' "$ground_env" | head -1)"
   scenario="$(sed -n 's/^SCENARIO=//p' "$ground_env" | head -1)"
@@ -1281,7 +1323,8 @@ push_to_client() {
   local -a rdirs=()
   for entry in "${REPOS[@]}"; do
     IFS='|' read -r name url dir <<< "$entry"
-    # REPOS paths are laptop-side; the Orin's home may sit elsewhere
+    # REPOS retains default aircraft paths. Local overrides are resolved by
+    # local_source_for and must not become paths on a different machine.
     rdir="${dir/#$HOME/$rhome}"
     rdirs+=("$rdir")
     mirror="$SERVE_ROOT/$name.git"
@@ -1440,6 +1483,8 @@ cmd_remote() {
   local entry name url dir old
   for entry in "${REPOS[@]}"; do
     IFS='|' read -r name url dir <<< "$entry"
+
+    dir="${GROUND_REPOS[$name]:-$dir}"
 
     if [ "$restore" = 1 ]; then
       [ -d "$dir/.git" ] || continue
@@ -1612,10 +1657,11 @@ cmd_status() {
 # Only the built files move. modules/scenegen/data holds the sources and git
 # already carries those.
 ###############################################################################
+SCENES_SOURCE=${SCENES_SOURCE:-${SCENES_REL:+$HOME/$SCENES_REL}}
 SCENES_REL=${SCENES_REL:-px4-sim-stack/modules/sim/scenes}
 
 cmd_scenes() {
-  local src="$HOME/$SCENES_REL"
+  local src="${SCENES_SOURCE:-$GROUND_STACK/modules/sim/scenes}"
   [ -d "$src/worlds" ] || die "no scenes at $src. Build one on this machine:
   cd ~/px4-sim-stack && ./px4sim genscene --help"
   command -v rsync >/dev/null || die "rsync is not installed on this machine"
@@ -1640,7 +1686,7 @@ cmd_scenes() {
 
 scenes_to_client() {
   local ip="$1" count out changed=0
-  local src="$HOME/$SCENES_REL"
+  local src="${SCENES_SOURCE:-$GROUND_STACK/modules/sim/scenes}"
   local ssh_opts=(-o BatchMode=yes -o ConnectTimeout=5)
   local rsh="ssh ${ssh_opts[*]} ${SSH_MUX_OPTS[*]}"
 

@@ -150,6 +150,64 @@ sudo systemctl restart mavlink-router
 sudo systemctl status mavlink-router
 ```
 
+# Sync paths on each user's machine
+
+Sync reuses existing checkouts. With no configuration it keeps the existing
+defaults: `~/ros2_ws/src/<repo>`, `~/px4-sim-stack`, and this chimera-deploy
+checkout. No user configuration needs to be committed to Git.
+
+Install the UI/configuration dependencies, then copy the commented example
+outside the repository:
+
+```bash
+python3 -m pip install --user -r requirements-sync.txt
+mkdir -p ~/.config/chimera-deploy
+cp sync-config.example.toml ~/.config/chimera-deploy/config.toml
+```
+
+For a machine with an existing CDCL workspace and PX4 messages in a separate
+workspace, the file can contain just:
+
+```toml
+[ground]
+ros_workspace = "~/ros_workspaces/cdcl_ws"
+px4_msgs_repo = "~/ros_workspaces/uroc_ws/src/px4_msgs"
+```
+
+All other ROS repositories default to `<ros_workspace>/src/<repo>`. Set
+`ground.px4_sim_stack` if that checkout lives elsewhere. Individual paths can
+also be set under `[repos]`, using repository names such as `px4_msgs`,
+`5g_drone`, `MAVInsight`, or quoted `"px4-sim-stack"`. Paths must be absolute
+or start with `~/`; paths containing spaces are supported.
+
+The default config location respects `XDG_CONFIG_HOME`. Set
+`CHIMERA_SYNC_CONFIG` to select another file. Environment overrides take
+precedence: `CHIMERA_ROS_WORKSPACE` and `CHIMERA_REPO_<NAME>` (uppercase with
+hyphens replaced by underscores, e.g. `CHIMERA_REPO_PX4_MSGS` or
+`CHIMERA_REPO_PX4_SIM_STACK`). The UI and shell backend use the same loader.
+
+Repository status, mirror seeding, local updates, host message builds, scene
+sources, and the local PX4Sim restart use these resolved paths. Host message
+build outputs remain in the configured workspace's `build/`, `install/`, and
+`log/` directories. The settings describe this machine's checkouts; a laptop's
+custom paths are not copied into aircraft checkout paths.
+
+PX4Sim retains its existing local `.env`. Its `ROS2_WS_DIR` must resolve to
+the same workspace, relative to the px4-sim-stack checkout. Sync reports a
+mismatch and stops before updating repositories when custom paths are enabled;
+it does not rewrite `.env`. PX4Sim stages flight sources from that workspace,
+so overrides for those sources must point at the same directories (a separate
+`px4_msgs` checkout is supported).
+
+Check the resolved configuration without fetching, building, or restarting:
+
+```bash
+./sync_ui.py sync --status
+```
+
+Then use the existing `./sync_ui.py sync` front door. Uncommitted changes still
+block a real sync. Configuration alone does not move, clone, or update repos.
+
 # Onboard container on the aircraft
 
 The flight code runs on the aircraft in a container, from the px4-sim-stack

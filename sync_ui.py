@@ -20,6 +20,8 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.table import Table
 
+from sync_config import load_config
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CLIENTS = os.environ.get("CLIENTS", "10.200.142.61 10.200.142.62 10.200.142.63 10.200.142.64").split()
 BOXES = ("stage", "ground", *CLIENTS)
@@ -32,6 +34,11 @@ def display_name(host: str) -> str:
 
 
 def main() -> int:
+    try:
+        load_config()
+    except (ValueError, OSError) as exc:
+        print(f"sync configuration: {exc}", file=sys.stderr)
+        return 1
     args = sys.argv[1:]
     if not args or args[0] != "sync":
         args = ["sync", *args]

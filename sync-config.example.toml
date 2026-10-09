@@ -1,0 +1,11 @@
+# Copy to ~/.config/chimera-deploy/config.toml and uncomment only overrides.
+# Omitted settings retain the existing defaults. Paths must be absolute or ~/.
+[ground]
+# ros_workspace = "~/ros2_ws"
+# px4_sim_stack = "~/px4-sim-stack"
+# px4_msgs_repo = "~/ros2_ws/src/px4_msgs"
+
+# Individual checkout overrides, when repositories live outside the workspace.
+[repos]
+# px4_msgs = "~/ros_workspaces/uroc_ws/src/px4_msgs"
+# chimera-deploy = "~/chimera-deploy"

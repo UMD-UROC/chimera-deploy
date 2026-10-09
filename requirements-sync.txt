@@ -1,0 +1,2 @@
+rich>=13
+tomli>=2; python_version < "3.11"
