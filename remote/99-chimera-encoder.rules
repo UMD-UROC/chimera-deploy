@@ -1,0 +1,3 @@
+# Permit the verified D3 CP2102 tap's runtime baud override as the container user.
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="10c4", ATTR{idProduct}=="ea60", ATTR{serial}=="0001", GROUP="dialout", MODE="0660"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", ATTRS{serial}=="0001", GROUP="dialout", MODE="0660", SYMLINK+="gimbal-encoder"

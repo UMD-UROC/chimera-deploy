@@ -49,6 +49,7 @@ say "preflight"
 [ -d "$WS/src/5g_drone" ] || die "$WS/src/5g_drone is missing. Run the host sync command first: cd ~/chimera-deploy && ./sync_ui.py sync"
 
 say "docker group"
+sudo bash "$(dirname -- "${BASH_SOURCE[0]}")/install_encoder_udev.sh"
 if id -nG "$me" | grep -qw docker; then
   echo "  $me is in docker"
 else
