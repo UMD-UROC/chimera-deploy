@@ -14,19 +14,6 @@ PILOT_SOCKET="/tmp/pilot_nv.sock"
 RGB_SOCKET="/tmp/rgb_nv.sock"
 THERMAL_SOCKET="/tmp/thermal_nv.sock"
 
-for stream in "${STREAMS[@]}"; do
-  case "$stream" in
-    pilot) socket="$PILOT_SOCKET" ;;
-    rgb) socket="$RGB_SOCKET" ;;
-    thermal) socket="$THERMAL_SOCKET" ;;
-    *) echo "[ERROR] Unknown stream '$stream' (expected pilot, rgb, or thermal)."; exit 1 ;;
-  esac
-  echo "[INFO] Waiting for NVMM socket at $socket..."
-  while [ ! -S "$socket" ]; do
-    sleep 0.1
-  done
-done
-
 timestamp=$(date +%Y-%m-%d-%H-%M-%S)
 pilot_output_file="video-pilot-${timestamp}_${HEADER}.ts"
 rgb_output_file="video-rgb-${timestamp}_${HEADER}.ts"
@@ -46,7 +33,6 @@ start_recorder() {
     pilot)
       socket="$PILOT_SOCKET"
       output_file="$pilot_output_file"
-      echo "[INFO] pilot -> $output_file"
       gst_cmd=(
         gst-launch-1.0 -e
         nvunixfdsrc "socket-path=$socket" do-timestamp=true !
@@ -61,7 +47,6 @@ start_recorder() {
     rgb)
       socket="$RGB_SOCKET"
       output_file="$rgb_output_file"
-      echo "[INFO] rgb -> $output_file"
       gst_cmd=(
         gst-launch-1.0 -e
         nvunixfdsrc "socket-path=$socket" do-timestamp=true !
@@ -74,7 +59,6 @@ start_recorder() {
     thermal)
       socket="$THERMAL_SOCKET"
       output_file="$thermal_output_file"
-      echo "[INFO] thermal -> $output_file"
       gst_cmd=(
         gst-launch-1.0 -e
         nvunixfdsrc "socket-path=$socket" do-timestamp=true !
@@ -86,6 +70,11 @@ start_recorder() {
       ;;
   esac
 
+  if [ ! -S "$socket" ]; then
+    echo "[INFO] Skipping $stream: no NVMM socket at $socket"
+    return
+  fi
+  echo "[INFO] $stream -> $output_file"
   "${gst_cmd[@]}" &
   PIDS+=("$!")
 }
@@ -110,7 +99,12 @@ for stream in "${STREAMS[@]}"; do
   esac
 done
 
-wait -n "${PIDS[@]}"
+if [ "${#PIDS[@]}" -eq 0 ]; then
+  echo "[ERROR] No camera sockets available for video recording"
+  exit 1
+fi
+
+wait "${PIDS[@]}"
 status=$?
 stop
 exit "$status"

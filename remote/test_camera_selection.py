@@ -9,13 +9,14 @@ from unittest.mock import patch
 
 
 class CameraSelectionTest(unittest.TestCase):
-    def config(self, camera="rgb", model="chimera_v3", base="0",
-               profile="aircraft", missing=False, override=""):
+    def config(self, camera="rgb", model="v3", base="0",
+               profile="aircraft", missing=False, override="",
+               fleet="chimera_v3 chimera_v3 chimera_v2 chimera_v2"):
         with tempfile.TemporaryDirectory() as home:
             stack = Path(home) / "px4-sim-stack"
             stack.mkdir()
             (stack / ".env").write_text(
-                f'UAS_FLEET="{model}"\nUAS_BASE={base}\n'
+                f'UAS_FLEET="{fleet}"\nUAS_MODEL={model}\nUAS_BASE={base}\n'
                 f'COMPOSE_PROFILES={profile}\nONBOARD_CAMERA={camera}\n')
             with patch("pathlib.Path.home", return_value=Path(home)), \
                     patch("v4l2_devices.find_device",
@@ -33,10 +34,18 @@ class CameraSelectionTest(unittest.TestCase):
         self.assertEqual(set(config["PRODUCERS"]), {"pilot-fork", "rgb-fork"})
         self.assertEqual(set(config["FACTORIES"]), {"pilot", "pilotl", "rgb", "rgbl"})
 
+    def test_single_vehicle_fleet_keeps_v3_isolation(self):
+        config = self.config("thermal", fleet="chimera_v3")
+        self.assertEqual(set(config["PRODUCERS"]), {"pilot-fork", "thermal-fork"})
+
+    def test_empty_camera_selection_defaults_to_day(self):
+        config = self.config("")
+        self.assertEqual(set(config["PRODUCERS"]), {"pilot-fork", "rgb-fork"})
+
     def test_v2_both_modes_keep_existing_cameras(self):
         for camera in ("rgb", "thermal"):
             with self.subTest(camera=camera):
-                config = self.config(camera, model="chimera_v2")
+                config = self.config(camera, model="v2")
                 self.assertIsNone(config["SELECTED_CAMERAS"])
                 self.assertEqual(len(config["PRODUCERS"]), 3)
 
