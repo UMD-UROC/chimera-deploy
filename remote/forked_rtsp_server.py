@@ -264,8 +264,9 @@ def main():
         try:
             selection = conf.selected_cameras()
         except (OSError, ValueError, RuntimeError) as error:
-            print(f"Cannot read aircraft camera selection; keeping current cameras: {error}")
-            return GLib.SOURCE_CONTINUE
+            print(f"Invalid aircraft camera selection; stopping cameras: {error}")
+            loop.quit()
+            return GLib.SOURCE_REMOVE
         if selection != conf.SELECTED_CAMERAS:
             print("Aircraft camera selection changed; restarting rcam.")
             loop.quit()

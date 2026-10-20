@@ -5,15 +5,9 @@ set -uo pipefail
 
 STACK=${STACK:-$HOME/px4-sim-stack}
 WS=${WS:-$HOME/ros2_ws}
-UAS_NUM=${UAS_NUM:-$(sed -n 's/^UAS_NUM=//p' /etc/environment 2>/dev/null | tr -d '"' | tail -1)}
-UAS_MODEL=${CHIMERA_MODEL:-$(sed -n 's/^CHIMERA_MODEL=//p' /etc/environment 2>/dev/null | tr -d '"' | tail -1)}
-DECLARED_MODEL=$UAS_MODEL
-# A drone deployed before deploy.sh wrote CHIMERA_MODEL has none. Take the
-# model from the number, as onboard.launch.py's MODEL_FOR_UAS does, so the
-# checks that depend on it still run.
-if [[ -z "$UAS_MODEL" ]]; then
-    case "$UAS_NUM" in 1|2) UAS_MODEL=v3 ;; 3|4) UAS_MODEL=v2 ;; esac
-fi
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+identity=$(python3 "$here/aircraft_config.py" --identity) || exit 1
+eval "$identity"
 
 PASS=0
 WARN=0

@@ -1261,37 +1261,11 @@ sync_selectors_to_client() {
   for role in $roles; do
     case "$role" in search|assess) ;; *) warn "ground .env has invalid UAS_ROLES"; return 1 ;; esac
   done
-  roles="\"$roles\""
 
-  printf -v remote_command 'env_file=%q; scene=%q; scenario=%q; conops=%q; roles=%q; camera=%q; ' \
-    "$rhome/px4-sim-stack/.env" "$scene" "$scenario" "$conops" "$roles" "$camera"
-  # The selector variables expand on the aircraft when this command runs.
-  # shellcheck disable=SC2016
-  remote_command+='[ -f "$env_file" ] || exit 1
-    set_env_key() {
-      local key=$1 value=$2 escaped
-      if grep -q "^$key=" "$env_file"; then
-        escaped=$(printf "%s" "$value" | sed "s|[&\\\\]|\\\\&|g")
-        sed -i "s|^$key=.*|$key=$escaped|" "$env_file"
-      else
-        printf "%s=%s\\n" "$key" "$value" >>"$env_file"
-      fi
-    }
-    sync_key() {
-      local key=$1 desired=$2 current
-      current=$(sed -n "s/^$key=//p" "$env_file" | head -1)
-      if [ "$current" != "$desired" ]; then
-        set_env_key "$key" "$desired"
-        changed=1
-      fi
-    }
-    changed=0
-    sync_key SCENE "$scene"
-    sync_key SCENARIO "$scenario"
-    sync_key CONOPS "$conops"
-    sync_key UAS_ROLES "$roles"
-    sync_key ONBOARD_CAMERA "$camera"
-    printf "%s" "$changed"'
+  printf -v remote_command 'python3 %q --update-env %q --repair-identity SCENE %q SCENARIO %q CONOPS %q UAS_ROLES %q ONBOARD_CAMERA %q' \
+    "$rhome/chimera-deploy/remote/aircraft_config.py" "$rhome/px4-sim-stack/.env" \
+    "$scene" "$scenario" "$conops" "$roles" "$camera"
+
   result="$(ssh -o BatchMode=yes -o ConnectTimeout=5 "$SERVER_USER@$ip" "$remote_command" 2>/dev/null)" || {
     warn "$ip: could not sync selectors"; return 1;
   }

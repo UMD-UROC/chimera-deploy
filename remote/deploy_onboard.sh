@@ -16,33 +16,16 @@ WS=${WS:-$HOME/ros2_ws}
 say() { echo -e "\n\033[1;36m==> $*\033[0m"; }
 die() { echo -e "\033[1;31m[error]\033[0m $*" >&2; exit 1; }
 
-# set_env_key <file> <key> <value>: replace the key's line, or append one
+# Use the same writer and identity resolver as sync and the camera server.
 set_env_key() {
-  if grep -q "^$2=" "$1"; then
-    sed -i "s|^$2=.*|$2=$3|" "$1"
-  else
-    echo "$2=$3" >> "$1"
-  fi
+  python3 "$DEPLOY_ROOT/remote/aircraft_config.py" --update-env "$1" "$2" "$3" >/dev/null
 }
-
-# Add a default without replacing a selection already made by the operator.
 ensure_env_key() {
   grep -q "^$2=" "$1" || set_env_key "$1" "$2" "$3"
 }
-
-UAS_NUM=$(sed -n 's/^UAS_NUM=//p' /etc/environment | tr -d '"' | tail -1)
-[ -n "$UAS_NUM" ] || die "UAS_NUM is not in /etc/environment. Run deploy.sh first."
-case "$UAS_NUM" in [1-9]) ;; *) die "UAS_NUM=$UAS_NUM is not 1 to 9" ;; esac
+identity=$(python3 "$DEPLOY_ROOT/remote/aircraft_config.py" --identity) || exit 1
+eval "$identity"
 ROS_DOMAIN_ID=$((60 + UAS_NUM))
-UAS_MODEL=$(sed -n 's/^CHIMERA_MODEL=//p' /etc/environment | tr -d '"' | tail -1)
-if [ -z "$UAS_MODEL" ]; then
-  case "$UAS_NUM" in
-    1|2) UAS_MODEL=v3 ;;
-    3|4) UAS_MODEL=v2 ;;
-    *) die "UAS_NUM=$UAS_NUM has no declared Chimera airframe model" ;;
-  esac
-fi
-case "$UAS_MODEL" in v2|v3) ;; *) die "CHIMERA_MODEL=$UAS_MODEL is not v2 or v3" ;; esac
 me=$(id -un)
 
 say "preflight"
@@ -82,9 +65,7 @@ if [ ! -f "$STACK/.env" ]; then
   printf '\n# The aircraft. Written by chimera-deploy/remote/deploy_onboard.sh.\n' >> "$STACK/.env"
   set_env_key "$STACK/.env" COMPOSE_PROFILES aircraft
   set_env_key "$STACK/.env" UAS_BASE 0
-  set_env_key "$STACK/.env" UAS_NUM "$UAS_NUM"
-  set_env_key "$STACK/.env" UAS_FLEET '"chimera_v3 chimera_v3 chimera_v2 chimera_v2"'
-  set_env_key "$STACK/.env" UAS_MODEL "$UAS_MODEL"
+  set_env_key "$STACK/.env" UAS_FLEET 'chimera_v3 chimera_v3 chimera_v2 chimera_v2'
   set_env_key "$STACK/.env" SCENE ''
   set_env_key "$STACK/.env" SCENARIO ''
   set_env_key "$STACK/.env" SIMNET_PREFIX 172.28.0
@@ -99,14 +80,13 @@ if [ ! -f "$STACK/.env" ]; then
   fi
   echo "  wrote $STACK/.env for uas$UAS_NUM"
 else
-  set_env_key "$STACK/.env" UAS_NUM "$UAS_NUM"
-  set_env_key "$STACK/.env" UAS_MODEL "$UAS_MODEL"
   sed -i '/^ROS_DOMAIN_ID=/d' "$STACK/.env"
   echo "  $STACK/.env exists; set UAS_NUM=$UAS_NUM UAS_MODEL=$UAS_MODEL"
 fi
+python3 "$DEPLOY_ROOT/remote/aircraft_config.py" --update-env "$STACK/.env" --repair-identity >/dev/null
 # New .env.example files already contain these selectors. Seed older aircraft
 # configurations as well, while preserving choices pushed by the ground UI.
-ensure_env_key "$STACK/.env" UAS_ROLES '"assess assess search search"'
+ensure_env_key "$STACK/.env" UAS_ROLES 'assess assess search search'
 ensure_env_key "$STACK/.env" CONOPS option1
 if [ -n "$lens" ] && ! grep -qxF "ONBOARD_LENS_DEVICE=$lens" "$STACK/.env"; then
   echo "  the SCF4 is $lens and .env says: $(grep '^ONBOARD_LENS_DEVICE=' "$STACK/.env" || echo nothing)"

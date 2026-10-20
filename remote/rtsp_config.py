@@ -1,31 +1,9 @@
 # config.py
 
 import os
-import shlex
-from pathlib import Path
 
+from aircraft_config import selected_cameras
 from v4l2_devices import find_device
-
-
-def selected_cameras():
-    """Use the existing aircraft selector to keep v3 USB captures exclusive."""
-    env_file = Path.home() / "px4-sim-stack" / ".env"
-    if not env_file.exists():
-        return None
-    keys = {"UAS_MODEL", "UAS_BASE", "COMPOSE_PROFILES", "ONBOARD_CAMERA"}
-    values = {}
-    for line in env_file.read_text().splitlines():
-        key, separator, value = line.strip().partition("=")
-        if separator and key in keys:
-            values[key] = " ".join(shlex.split(value, comments=True))
-    if (values.get("UAS_MODEL") != "v3"
-            or values.get("UAS_BASE") != "0"
-            or "aircraft" not in values.get("COMPOSE_PROFILES", "").split(",")):
-        return None
-    camera = values.get("ONBOARD_CAMERA") or "rgb"
-    if camera not in {"rgb", "thermal"}:
-        raise RuntimeError(f"Invalid ONBOARD_CAMERA={camera!r}")
-    return frozenset({"pilot", camera})
 
 
 SELECTED_CAMERAS = selected_cameras()
