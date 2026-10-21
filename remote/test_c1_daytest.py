@@ -18,6 +18,8 @@ class FakeControls:
 
     def __init__(self):
         self.values = dict(brightness=0, backlight_compensation=1,
+                           gamma=100, contrast=32, saturation=64, sharpness=3,
+                           hue=0, power_line_frequency=2,
                            auto_exposure=3, white_balance_automatic=1)
         self.calls = []
 
@@ -53,7 +55,7 @@ class Clock:
 class DayTest(unittest.TestCase):
     def args(self, output, mode='run'):
         return argparse.Namespace(mode=mode, output=str(output), device=FakeControls.device,
-                                  rounds=1, seconds=1, settle=0.1, interval=0.1,
+                                  parameters=list(suite.TOUCHED), seconds=1, settle=0.1, interval=0.1,
                                   image_interval=0.5)
 
     def execute(self, args, controls, factory=FakeCapture, pid=None):
@@ -75,7 +77,10 @@ class DayTest(unittest.TestCase):
             self.assertTrue(all(set(call) == set(suite.TOUCHED) for call in controls.calls))
             with (output / 'samples.csv').open() as stream:
                 rows = list(csv.DictReader(stream))
-            self.assertEqual(len({r['block'] for r in rows}), 7)
+            self.assertEqual(len(rows), 30)
+            self.assertEqual(len({r['block'] for r in rows}), 30)
+            self.assertEqual(sum(r['profile'] == 'baseline' for r in rows), 1)
+            self.assertTrue(all(r['round'] == '1' for r in rows))
             self.assertTrue(all(r['auto_exposure'] == '3' for r in rows))
 
     def test_capture_failure_after_candidate_write_restores_controls(self):
@@ -143,7 +148,7 @@ class DayTest(unittest.TestCase):
         class PartialControls(FakeControls):
             def apply(self, values):
                 super().apply(values)
-                if values['brightness'] == -4:
+                if values['brightness'] == -32:
                     raise RuntimeError('A control write failed after a partial update.')
 
         controls = PartialControls()
@@ -163,6 +168,29 @@ class DayTest(unittest.TestCase):
             with patch.object(suite, 'Controls', return_value=controls):
                 suite.restore(output)
         self.assertEqual(controls.calls, [])
+
+    def test_coarse_sweep_covers_endpoints_and_changes_one_control(self):
+        original = FakeControls().values
+        baseline, sequence = suite.profiles(original)
+        for key, expected in suite.COARSE_VALUES.items():
+            values = {original[key]} | {settings[key] for parameter, _, settings in sequence if parameter == key}
+            self.assertTrue(set(expected) <= values)
+        for parameter, label, settings in sequence:
+            changed = {key for key in baseline if settings[key] != baseline[key]}
+            self.assertTrue(changed <= {parameter}, label)
+        self.assertEqual(sequence[0][2], baseline)
+
+    def test_parameter_subset_skips_other_sweeps(self):
+        original = FakeControls().values
+        _, sequence = suite.profiles(original, ['brightness', 'gamma'])
+        self.assertEqual({key for key, _, _ in sequence}, {'brightness', 'gamma', 'baseline'})
+
+    def test_missing_optional_control_does_not_prevent_other_sweeps(self):
+        original = FakeControls().values
+        del original['gamma']
+        baseline, sequence = suite.profiles(original)
+        self.assertNotIn('gamma', baseline)
+        self.assertNotIn('gamma', {key for key, _, _ in sequence})
 
 
 if __name__ == '__main__':

@@ -2,8 +2,10 @@
 """Start and collect an onboard C1 PRO daytime comparison."""
 import argparse
 from datetime import datetime, timezone
+import math
 from pathlib import Path
 import re
+import runpy
 import shlex
 import subprocess
 import sys
@@ -21,18 +23,23 @@ def ssh(target, argv, check=True, capture=False):
 
 
 def main():
+    source = Path(__file__).resolve().parents[1] / 'remote' / 'c1_daytest.py'
+    runner = runpy.run_path(str(source))
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['preflight', 'smoke', 'start', 'observe',
                                            'status', 'stop', 'fetch'])
     parser.add_argument('-d', '--drone', default='10.200.142.61')
-    parser.add_argument('--seconds', type=int, default=30, help='Seconds per test block.')
-    parser.add_argument('--rounds', type=int, default=2)
+    parser.add_argument('--seconds', type=float, default=0.4, help='Measurement seconds per value, default 0.4.')
+    parser.add_argument('--settle', type=float, default=0.4, help='Settling seconds per value, default 0.4.')
+    parser.add_argument('--parameters', type=runner['parameters'], default=list(runner['TOUCHED']),
+                        help='Comma-separated controls. The default includes all eight image controls.')
     parser.add_argument('--destination', default=str(Path.home() / 'c1-daytest-results'))
     args = parser.parse_args()
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*', args.drone):
         parser.error('Use a host name or IPv4 address.')
-    if not 3 <= args.seconds <= 120 or not 1 <= args.rounds <= 5:
-        parser.error('Seconds must be 3 to 120. Rounds must be 1 to 5.')
+    if any(not math.isfinite(value) or not 0.2 <= value <= 120
+           for value in (args.seconds, args.settle)):
+        parser.error('Measurement and settling seconds must be finite and between 0.2 and 120.')
     target = f'user@{args.drone}'
     if args.action == 'status':
         ssh(target, ['systemctl', '--user', 'status', UNIT, '--no-pager'], check=False)
@@ -54,7 +61,6 @@ def main():
                  check=False, capture=True)
     if active.returncode == 0 and active.stdout.strip() in ('active', 'activating', 'deactivating'):
         raise RuntimeError('A C1 test is active. Use status or stop first.')
-    source = Path(__file__).resolve().parents[1] / 'remote' / 'c1_daytest.py'
     ssh(target, ['mkdir', '-p', str(Path(REMOTE).parent), RESULTS])
     subprocess.run(['scp', str(source), f'{target}:{REMOTE}.pending'], check=True)
     ssh(target, ['mv', f'{REMOTE}.pending', REMOTE])
@@ -63,11 +69,10 @@ def main():
     if args.action == 'preflight':
         ssh(target, ['/usr/bin/python3', REMOTE, 'preflight', '--output', output])
         return
-    seconds, rounds, settle, interval, image_interval = args.seconds, args.rounds, 8, 2, 15
-    if args.action == 'smoke':
-        seconds, rounds, settle, interval, image_interval = 3, 1, 2, 1, 2
+    seconds, settle = args.seconds, args.settle
     mode = 'observe' if args.action == 'observe' else 'run'
-    runtime = int((6 * rounds + 1) * (seconds + settle) + 120)
+    blocks = 1 + sum(len(runner['COARSE_VALUES'][key]) for key in args.parameters)
+    runtime = math.ceil(blocks * (seconds + settle + 2) + 120)
     if mode == 'observe':
         runtime = seconds + 120
     recovery = shlex.join(['/usr/bin/python3', REMOTE, 'restore', '--output', output])
@@ -78,8 +83,9 @@ def main():
                  '--property', f'ExecStopPost={recovery}',
                  '--setenv', 'PYTHONUNBUFFERED=1',
                  '/usr/bin/python3', REMOTE, mode, '--output', output,
-                 '--seconds', str(seconds), '--rounds', str(rounds), '--settle', str(settle),
-                 '--interval', str(interval), '--image-interval', str(image_interval)])
+                 '--seconds', str(seconds), '--settle', str(settle),
+                 '--parameters', ','.join(args.parameters),
+                 '--interval', '0.4', '--image-interval', '0.4'])
     print(f'Results: {target}:{output}')
     print('The test runs onboard after SSH disconnects. Use status, stop, or fetch.')
 

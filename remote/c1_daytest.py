@@ -20,7 +20,17 @@ import time
 
 DEVICE = '/dev/v4l/by-id/usb-Kurokesu_C1_PRO_HA4-L61MC-video-index2'
 LOCK = '/tmp/c1-daytest.lock'
-TOUCHED = ('brightness', 'backlight_compensation')
+COARSE_VALUES = {
+    'brightness': (-64, -32, -16, 0, 32, 64),
+    'gamma': (72, 100, 200, 350, 500),
+    'contrast': (0, 16, 32, 48, 64),
+    'saturation': (0, 32, 64, 96, 128),
+    'sharpness': (0, 2, 3, 4, 6),
+    'hue': (-40, -20, 0, 20, 40),
+    'backlight_compensation': (0, 1, 2),
+    'power_line_frequency': (0, 1, 2),
+}
+TOUCHED = tuple(COARSE_VALUES)
 AUTO = {'auto_exposure': 3, 'white_balance_automatic': 1}
 
 
@@ -53,9 +63,12 @@ class Controls:
 
     def apply(self, values):
         if not values or set(values) - set(TOUCHED):
-            raise RuntimeError('Only brightness and backlight compensation can change.')
-        command(['v4l2-ctl', '-d', self.device, '--set-ctrl',
-                 ','.join(f'{key}={value}' for key, value in values.items())])
+            raise RuntimeError('Only the supported image controls can change.')
+        current, _ = self.read()
+        changed = {key: value for key, value in values.items() if current.get(key) != value}
+        if changed:
+            command(['v4l2-ctl', '-d', self.device, '--set-ctrl',
+                     ','.join(f'{key}={value}' for key, value in changed.items())])
         actual, _ = self.read()
         if any(actual.get(key) != value for key, value in values.items()):
             raise RuntimeError('The camera did not retain the requested controls.')
@@ -74,7 +87,7 @@ def service_pid():
 
 
 class Capture:
-    """Read existing full-resolution NVMM output at one frame per second."""
+    """Read existing full-resolution NVMM output at five frames per second."""
     def __init__(self):
         import gi
         import numpy as np
@@ -87,7 +100,7 @@ class Capture:
             'nvunixfdsrc socket-path=/tmp/rgb_nv.sock do-timestamp=true ! '
             'video/x-raw(memory:NVMM),format=NV12,width=1920,height=1080 ! '
             'queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 ! '
-            'videorate drop-only=true ! video/x-raw(memory:NVMM),framerate=1/1 ! '
+            'videorate drop-only=true ! video/x-raw(memory:NVMM),framerate=5/1 ! '
             'nvvidconv ! video/x-raw,format=BGRx ! '
             'appsink name=frames max-buffers=1 drop=true sync=false wait-on-eos=false')
         self.sink = self.pipeline.get_by_name('frames')
@@ -148,21 +161,26 @@ def metrics(rgb):
     return result
 
 
-def profiles(original):
-    baseline = {key: original[key] for key in TOUCHED}
-    choices = [('auto_backlight_off', {**baseline, 'backlight_compensation': 0}),
-               ('auto_backlight_off_brightness_minus4',
-                {'backlight_compensation': 0, 'brightness': max(-64, baseline['brightness'] - 4)}),
-               ('auto_backlight_off_brightness_minus8',
-                {'backlight_compensation': 0, 'brightness': max(-64, baseline['brightness'] - 8)})]
-    # Duplicate profiles do not supply another comparison.
-    unique, seen = [], {tuple(sorted(baseline.items()))}
-    for label, values in choices:
-        signature = tuple(sorted(values.items()))
-        if signature not in seen:
-            unique.append((label, values))
-            seen.add(signature)
-    return baseline, unique
+def parameters(text):
+    names = list(dict.fromkeys(name.strip() for name in text.split(',')))
+    if not names or any(name not in COARSE_VALUES for name in names):
+        raise argparse.ArgumentTypeError('Choose controls from: ' + ','.join(TOUCHED))
+    return names
+
+
+def profiles(original, selected=None):
+    baseline = {key: original[key] for key in TOUCHED if key in original}
+    sequence = [('baseline', 'baseline', baseline.copy())]
+    for key in selected or TOUCHED:
+        if key not in baseline:
+            continue
+        for value in COARSE_VALUES[key]:
+            if value != original[key]:
+                label = f'{key}_{value}'.replace('-', 'minus')
+                sequence.append((key, label, {**baseline, key: value}))
+    if len(sequence) == 1:
+        raise RuntimeError('The camera exposes none of the selected image controls.')
+    return baseline, sequence
 
 
 def restore(output):
@@ -195,11 +213,15 @@ def run(args, controls=None, capture_factory=Capture):
     check_auto(original)
     if shutil.disk_usage(output).free < 1024 ** 3:
         raise RuntimeError('At least 1 GiB of free storage is required.')
-    baseline, candidates = profiles(original)
+    baseline, sequence = profiles(original, args.parameters)
+    if args.mode == 'observe':
+        sequence = [('observe', 'observe', baseline)]
     pid = service_pid()
     state = dict(started_at=utc(), device=controls.device, original_controls=original,
                  original_touched=baseline, restored=False, rcam_pid=pid,
-                 args=vars(args), candidates=candidates, status='starting')
+                 args=vars(args), profiles=sequence, planned_blocks=len(sequence),
+                 skipped_parameters=[key for key in args.parameters if key not in baseline],
+                 status='starting')
     state['script_sha256'] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     atomic_json(output / 'state.json', state)
     (output / 'controls-before.txt').write_text(raw)
@@ -220,18 +242,10 @@ def run(args, controls=None, capture_factory=Capture):
         reader.frame(timeout=8)  # Check the image path before the first control write.
         state['status'] = 'running'
         atomic_json(output / 'state.json', state)
-        sequence = []
-        for round_index in range(args.rounds):
-            ordered = candidates[round_index % len(candidates):] + candidates[:round_index % len(candidates)] if candidates else []
-            for label, values in ordered:
-                sequence.extend([(round_index + 1, 'baseline', baseline), (round_index + 1, label, values)])
-        sequence.append((args.rounds, 'baseline', baseline))
-        if args.mode == 'observe':
-            sequence = [(1, 'observe', baseline)]
         with (output / 'samples.csv').open('w', newline='', buffering=1) as samples, \
                 (output / 'events.jsonl').open('a', buffering=1) as events:
             writer = None
-            for block, (round_index, label, values) in enumerate(sequence):
+            for block, (parameter, label, values) in enumerate(sequence):
                 if stopped:
                     break
                 if service_pid() != pid:
@@ -241,7 +255,8 @@ def run(args, controls=None, capture_factory=Capture):
                 if args.mode != 'observe':
                     controls.apply(values)
                 event = dict(utc=utc(), elapsed=time.monotonic() - started,
-                             block=block, round=round_index, profile=label, requested=values)
+                             block=block, round=1, parameter=parameter,
+                             profile=label, requested=values)
                 events.write(json.dumps(event) + '\n')
                 print(json.dumps(event), flush=True)
                 settle_end = time.monotonic() + (args.settle if args.mode != 'observe' else 0)
@@ -262,7 +277,8 @@ def run(args, controls=None, capture_factory=Capture):
                     check_auto(current)
                     if any(current[key] != value for key, value in values.items()):
                         raise RuntimeError('Another process changed the test controls.')
-                    row = dict(utc=utc(), elapsed=now - started, block=block, round=round_index,
+                    row = dict(utc=utc(), elapsed=now - started, block=block, round=1,
+                               parameter=parameter, requested_value=values.get(parameter, ''),
                                profile=label, source_pts=pts, brightness=current['brightness'],
                                backlight_compensation=current['backlight_compensation'],
                                auto_exposure=current['auto_exposure'],
@@ -289,6 +305,8 @@ def run(args, controls=None, capture_factory=Capture):
                     writer.writerow(row)
                     count += 1
                     next_sample = now + args.interval
+                    if args.mode != 'observe':
+                        break
                 if not stopped and count == 0:
                     raise RuntimeError('The test block produced no measured frames.')
         state['status'] = 'stopped' if stopped else 'complete'
@@ -317,18 +335,18 @@ def main():
     parser.add_argument('mode', choices=['run', 'observe', 'preflight', 'restore'])
     parser.add_argument('--device', default=DEVICE)
     parser.add_argument('--output', required=True)
-    parser.add_argument('--rounds', type=int, default=2)
-    parser.add_argument('--seconds', type=float, default=30)
-    parser.add_argument('--settle', type=float, default=8)
-    parser.add_argument('--interval', type=float, default=2)
-    parser.add_argument('--image-interval', type=float, default=15)
+    parser.add_argument('--parameters', type=parameters, default=list(TOUCHED))
+    parser.add_argument('--seconds', type=float, default=0.4)
+    parser.add_argument('--settle', type=float, default=0.4)
+    parser.add_argument('--interval', type=float, default=0.4)
+    parser.add_argument('--image-interval', type=float, default=0.4)
     args = parser.parse_args()
     for name in ('seconds', 'interval', 'image_interval'):
         value = getattr(args, name)
-        if not math.isfinite(value) or value < 1:
-            parser.error(f'{name} must be finite and at least 1 second.')
-    if not math.isfinite(args.settle) or args.settle < 1 or not 1 <= args.rounds <= 10:
-        parser.error('Settle must be at least 1 second. Rounds must be 1 to 10.')
+        if not math.isfinite(value) or value < 0.2:
+            parser.error(f'{name} must be finite and at least 0.2 seconds.')
+    if not math.isfinite(args.settle) or args.settle < 0.2:
+        parser.error('Settle must be finite and at least 0.2 seconds.')
     with open(LOCK, 'a') as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)

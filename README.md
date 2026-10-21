@@ -357,7 +357,8 @@ roll the winner out with `sync`.
 # C1 PRO daytime tests
 
 Run `python3 local/c1_daytest.py preflight` before the flight.
-Use `start` to compare daytime profiles with automatic exposure and white balance.
+Use `start` for one baseline and 29 coarse cases across eight image controls.
+The sweep keeps automatic exposure and white balance enabled. Allow about 35 seconds.
 The onboard service saves images and measurements, then restores the original controls.
 See [`remote/C1_DAYTEST.md`](remote/C1_DAYTEST.md) for commands, measurements, and recovery.
 
