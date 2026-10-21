@@ -354,6 +354,13 @@ The IMX477 pilot camera's white balance, saturation and exposure come from
 without editing the repo, measure them with `local/tune_pilot_camera.sh`, and
 roll the winner out with `sync`.
 
+# C1 PRO daytime tests
+
+Run `python3 local/c1_daytest.py preflight` before the flight.
+Use `start` to compare daytime profiles with automatic exposure and white balance.
+The onboard service saves images and measurements, then restores the original controls.
+See [`remote/C1_DAYTEST.md`](remote/C1_DAYTEST.md) for commands, measurements, and recovery.
+
 # Thermal camera setup
 
 The Boson's palette (black hot, which our detectors do much better on), AGC
