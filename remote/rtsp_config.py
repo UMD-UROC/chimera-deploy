@@ -7,6 +7,7 @@ from v4l2_devices import find_device
 
 
 SELECTED_CAMERAS = selected_cameras()
+LOWRES_BITRATE = 400000
 
 # ----------------------------------------
 # PILOT (IMX477 CSI camera -- this was previously "rgb")
@@ -61,7 +62,7 @@ PILOT_CAMERA = os.environ.get(
 
 PILOT_LOWRES_WIDTH = 640
 PILOT_LOWRES_HEIGHT = 360
-PILOT_LOWRES_BITRATE = 1000000
+PILOT_LOWRES_BITRATE = LOWRES_BITRATE
 
 # ----------------------------------------
 # RGB (C1 PRO USB zoom camera)
@@ -102,7 +103,7 @@ RGB_FLIP_METHOD = 0
 
 RGB_LOWRES_WIDTH = 640
 RGB_LOWRES_HEIGHT = 360
-RGB_LOWRES_BITRATE = 1000000
+RGB_LOWRES_BITRATE = LOWRES_BITRATE
 
 # ----------------------------------------
 # THERMAL (Boson 640)
@@ -131,7 +132,7 @@ THERMAL_FRAMERATE = os.environ.get("THERMAL_FRAMERATE", "30/1")
 # THERMAL_LOWRES_HEIGHT = 512
 THERMAL_LOWRES_WIDTH = THERMAL_WIDTH
 THERMAL_LOWRES_HEIGHT = THERMAL_HEIGHT
-THERMAL_LOWRES_BITRATE = 400000
+THERMAL_LOWRES_BITRATE = LOWRES_BITRATE
 
 # ----------------------------------------
 # DEVICE NODES
