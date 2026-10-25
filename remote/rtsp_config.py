@@ -7,7 +7,7 @@ from v4l2_devices import find_device
 
 
 SELECTED_CAMERAS = selected_cameras()
-LOWRES_BITRATE = 400000
+LOWRES_BITRATE = 50000
 
 # ----------------------------------------
 # PILOT (IMX477 CSI camera -- this was previously "rgb")
