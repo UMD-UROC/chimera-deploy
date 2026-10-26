@@ -465,6 +465,11 @@ EOF
 
   [ "$show_status" = 0 ] || { cmd_sync_status; return; }
 
+  # Make every full sync a clean lifecycle boundary on the ground and drones,
+  # including when their deployment fingerprints have not changed. --no-build
+  # keeps its explicit no-restart behavior below.
+  [ "$no_build" = 1 ] || FORCE_RESTART=1
+
   if [ "$local_only" = 1 ]; then
     do_push=0
     upstream=0
@@ -1100,16 +1105,16 @@ cmd_push() {
 }
 
 ###############################################################################
-# What a running px4sim stack was built from, as one hash. Sync restarts a
-# stack only when this differs from the hash stored after that stack's last
-# successful restart (~/.px4sim-sync-deployed on each machine).
+# What a running px4sim stack was built from, as one hash. The sync records
+# this after a successful restart (~/.px4sim-sync-deployed on each machine).
+# A normal sync restarts even when this hash matches, so it also clears stale
+# Fast DDS shared-memory state.
 #
 # >>> EXTEND THIS HASH WHEN YOU ADD ANYTHING A RESTART MUST PICK UP. <<<
 # If a new feature adds an input the running stack depends on and git does not
 # carry in the repos below (a file outside the repos, a gitignored config, a
-# generated artifact, a device setting, a new selector), add it here. If you
-# do not, sync will call the stack current, leave it running, and the drones
-# will silently disagree with the ground until someone passes --force-restart.
+# generated artifact, a device setting, a new selector), add it here so the
+# recorded deployment fingerprint stays accurate.
 #
 # Hashed today:
 #   - every repo's checked-out branch and commit (the arguments)
@@ -1170,16 +1175,8 @@ refresh_local_stack() {
     IFS='|' read -r name _ _ <<< "$entry"
     dirs+=("$(local_source_for "$name")")
   done
-  # A sync can change a Docker build context, configuration, or a bind-mounted
-  # runtime input outside the set of files Git reports as updated, and `start`
-  # deliberately no-ops when running, so a restart is the disruptive front
-  # door. It is skipped only when stack_fingerprint (extend it, see above) says
-  # nothing has moved since the last restart that succeeded here.
-  if [ "${FORCE_RESTART:-0}" != 1 ] \
-      && [ "$(stack_fingerprint "${dirs[@]}")" = "$(cat "$stamp_file" 2>/dev/null)" ]; then
-    say "local stack already runs this deployment; left running"
-    return 0
-  fi
+  # Restart on every full sync. px4sim's stop path releases stale Fast DDS
+  # shared-memory objects even when the deployed source has not changed.
   say "building and restarting the local stack"
   (cd "$stack" && ./px4sim restart) || return 1
   stack_fingerprint "${dirs[@]}" >"$stamp_file"
