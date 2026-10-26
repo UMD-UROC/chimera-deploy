@@ -1,7 +1,9 @@
 #!/bin/bash
-set -e
+set -euo pipefail
+source "$(dirname "$0")/record_processes.sh"
 
 VERBOSE=0
+HEADER=""
 REMOTE_IP="127.0.0.1"
 TAGS=()
 
@@ -37,19 +39,9 @@ if [[ "${#TAGS[@]}" -eq 0 ]]; then
   exit 1
 fi
 
-wait_for_rtsp_stream() {
-  local url="$1"
-  echo "[INFO] Waiting for RTSP stream at $url..."
-  until gst-discoverer-1.0 "$url" > /dev/null 2>&1; do
-    sleep 1
-  done
-}
-
 start_recorder() {
   local tag="$1"
   local url="rtsp://$REMOTE_IP:8554/$tag"
-
-  wait_for_rtsp_stream "$url"
 
   local timestamp
   timestamp=$(date +%Y-%m-%d-%H-%M-%S)
@@ -57,14 +49,11 @@ start_recorder() {
 
   echo "[INFO] Starting recorder for $tag"
 
-  # change recording here
-  local gst_cmd=(gst-launch-1.0 -e rtspsrc location="$url" latency=0 protocols=tcp ! rtph265depay ! h265parse ! mpegtsmux ! filesink location="$output_file.ts") # stream safe container
-
-  if [[ "$VERBOSE" -eq 1 ]]; then
-    "${gst_cmd[@]}" &
-  else
-    "${gst_cmd[@]}" &>/dev/null &
-  fi
+  local gst_cmd=(gst-launch-1.0 -e)
+  [[ "$VERBOSE" -eq 1 ]] || gst_cmd+=(-q)
+  gst_cmd+=(rtspsrc location="$url" latency=0 protocols=tcp ! rtph265depay ! h265parse ! mpegtsmux ! filesink location="$output_file.ts")
+  # Each source connects independently. Keep errors in the session log.
+  "${gst_cmd[@]}" &
 
   local pid=$!
   PIDS+=("$pid")
@@ -75,4 +64,4 @@ for tag in "${TAGS[@]}"; do
   start_recorder "$tag"
 done
 
-wait -n "${PIDS[@]}"
+wait_recorders

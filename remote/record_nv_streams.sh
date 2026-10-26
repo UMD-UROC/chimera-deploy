@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+source "$(dirname "$0")/record_processes.sh"
+
 HEADER="${1:-recording}"
 PILOT_RECORD_BITRATE="${PILOT_RECORD_BITRATE:-200000000}"
 RGB_RECORD_BITRATE="${RGB_RECORD_BITRATE:-25000000}"
@@ -20,9 +23,6 @@ rgb_output_file="video-rgb-${timestamp}_${HEADER}.ts"
 thermal_output_file="video-thermal-${timestamp}_${HEADER}.ts"
 
 echo "[INFO] Starting direct recorders: ${STREAMS[*]}"
-
-PIDS=()
-STOPPING=0
 
 start_recorder() {
   local stream="$1"
@@ -79,19 +79,6 @@ start_recorder() {
   PIDS+=("$!")
 }
 
-stop() {
-  [ "$STOPPING" -eq 1 ] && return
-  STOPPING=1
-  trap - INT TERM EXIT
-  kill -INT "${PIDS[@]}" 2>/dev/null || true
-  for pid in "${PIDS[@]}"; do
-    wait "$pid" 2>/dev/null || true
-  done
-}
-
-trap 'stop; exit 130' INT TERM
-trap stop EXIT
-
 for stream in "${STREAMS[@]}"; do
   case "$stream" in
     pilot|rgb|thermal) start_recorder "$stream" ;;
@@ -104,7 +91,4 @@ if [ "${#PIDS[@]}" -eq 0 ]; then
   exit 1
 fi
 
-wait "${PIDS[@]}"
-status=$?
-stop
-exit "$status"
+wait_recorders
