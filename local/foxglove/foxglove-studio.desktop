@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Foxglove
+Exec=@HOME@/.local/bin/foxglove-studio %U
+Terminal=false
+Type=Application
+Icon=foxglove-studio
+StartupWMClass=foxglove-studio
+Comment=Integrated robotics visualization and debugging.
+MimeType=application/octet-stream;application/octet-stream;application/zip;x-scheme-handler/foxglove;
+Categories=Development;

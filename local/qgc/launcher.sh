@@ -83,6 +83,10 @@ if [[ $DOCKER_RUNTIMES == *nvidia* ]] && command -v nvidia-smi >/dev/null 2>&1; 
     ARGS+=( --gpus all \
         -e NVIDIA_VISIBLE_DEVICES=all \
         -e NVIDIA_DRIVER_CAPABILITIES=graphics,compute,utility,video,display )
+    NVIDIA_EGL_VENDOR=/usr/share/glvnd/egl_vendor.d/10_nvidia.json
+    if [[ -r "$NVIDIA_EGL_VENDOR" ]]; then
+        ARGS+=( --mount "type=bind,src=$NVIDIA_EGL_VENDOR,dst=$NVIDIA_EGL_VENDOR,readonly" )
+    fi
 fi
 
 # Alert tones.
