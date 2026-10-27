@@ -156,11 +156,10 @@ ssh -oHostKeyAlgorithms=+ssh-rsa -ostricthostkeychecking=no root@192.168.153.1 '
 ### set up ssh rsa key
 # host
 ssh-keygen -t rsa -b 4096 # generate key
-ssh-copy-id -i ~/.ssh/id_rsa.pub root@10.223.1.101 # do this for all ips
-ssh-copy-id -i ~/.ssh/id_rsa.pub root@10.200.142.201 # do this for all ips
-ssh-copy-id -i ~/.ssh/id_rsa.pub root@10.200.142.202 # do this for all ips
-ssh-copy-id -i ~/.ssh/id_rsa.pub cdcl@10.200.142.103 # do this for all ips
-ssh-copy-id -i ~/.ssh/id_rsa.pub j1@192.168.1.136 # do this for all ips
+ssh-copy-id -i ~/.ssh/id_rsa.pub user@10.200.142.61 # do this for all ips
+ssh-copy-id -i ~/.ssh/id_rsa.pub user@10.200.142.62 # do this for all ips
+ssh-copy-id -i ~/.ssh/id_rsa.pub user@10.200.142.63 # do this for all ips
+ssh-copy-id -i ~/.ssh/id_rsa.pub user@10.200.142.64 # do this for all ips
 
 ### voxl cpu inspector
 # voxl
