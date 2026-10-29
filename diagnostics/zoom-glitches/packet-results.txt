@@ -1,0 +1,108 @@
+{
+  "file": "/home/user/ros2_ws/rosbag2_2026_10_29-14_18_09-air-d1/video-rgb-2026-10-29-14-18-12_rosbag2_2026_10_29-14_18_09-air-d1.ts",
+  "packets_with_pts": 342,
+  "span_seconds": 29.248855999999705,
+  "nonincreasing_pts": 0,
+  "gaps": [
+    {
+      "offset_seconds": 0.09965599999986807,
+      "gap_seconds": 0.13201100000014776
+    },
+    {
+      "offset_seconds": 1.099666999999954,
+      "gap_seconds": 0.1360220000001391
+    },
+    {
+      "offset_seconds": 2.0997669999997015,
+      "gap_seconds": 0.13597800000025018
+    },
+    {
+      "offset_seconds": 3.0998329999997623,
+      "gap_seconds": 0.13591200000018944
+    },
+    {
+      "offset_seconds": 4.7073999999997795,
+      "gap_seconds": 8.615855999999894
+    },
+    {
+      "offset_seconds": 14.140032999999676,
+      "gap_seconds": 0.10002300000041942
+    },
+    {
+      "offset_seconds": 16.108066999999664,
+      "gap_seconds": 0.13200000000006185
+    },
+    {
+      "offset_seconds": 17.70814500000006,
+      "gap_seconds": 8.627599999999802
+    },
+    {
+      "offset_seconds": 28.112499999999727,
+      "gap_seconds": 0.13202200000023367
+    }
+  ]
+}
+{
+  "file": "/home/user/ros2_ws/rosbag2_2026_10_29-14_18_09-air-d1/video-pilot-2026-10-29-14-18-12_rosbag2_2026_10_29-14_18_09-air-d1.ts",
+  "packets_with_pts": 1061,
+  "span_seconds": 36.468745000000126,
+  "nonincreasing_pts": 0,
+  "gaps": [
+    {
+      "offset_seconds": 0.0,
+      "gap_seconds": 0.1352340000003096
+    }
+  ]
+}
+{
+  "file": "/tmp/zoom-live.mkv",
+  "packets_with_pts": 562,
+  "span_seconds": 19.873,
+  "nonincreasing_pts": 0,
+  "gaps": [
+    {
+      "offset_seconds": 1.868,
+      "gap_seconds": 0.1319999999999999
+    },
+    {
+      "offset_seconds": 2.868,
+      "gap_seconds": 0.13200000000000012
+    },
+    {
+      "offset_seconds": 3.868,
+      "gap_seconds": 0.13200000000000012
+    },
+    {
+      "offset_seconds": 4.868,
+      "gap_seconds": 0.13199999999999967
+    },
+    {
+      "offset_seconds": 8.868,
+      "gap_seconds": 0.13599999999999923
+    },
+    {
+      "offset_seconds": 10.872,
+      "gap_seconds": 0.1330000000000009
+    },
+    {
+      "offset_seconds": 11.872,
+      "gap_seconds": 0.1330000000000009
+    },
+    {
+      "offset_seconds": 14.873,
+      "gap_seconds": 0.13200000000000145
+    },
+    {
+      "offset_seconds": 15.873,
+      "gap_seconds": 0.10000000000000142
+    },
+    {
+      "offset_seconds": 16.873,
+      "gap_seconds": 0.13599999999999923
+    },
+    {
+      "offset_seconds": 18.873,
+      "gap_seconds": 0.13599999999999923
+    }
+  ]
+}
