@@ -1,0 +1,32 @@
+[
+  {
+    "unix_time": 1793300957.8726482,
+    "available_kib": 7049344,
+    "swap_used_kib": 0
+  },
+  {
+    "unix_time": 1793300977.8913307,
+    "available_kib": 7212136,
+    "swap_used_kib": 0
+  },
+  {
+    "unix_time": 1793300997.9126308,
+    "available_kib": 7317612,
+    "swap_used_kib": 0
+  },
+  {
+    "unix_time": 1793301017.932495,
+    "available_kib": 7411504,
+    "swap_used_kib": 0
+  },
+  {
+    "unix_time": 1793301037.951269,
+    "available_kib": 7465432,
+    "swap_used_kib": 0
+  },
+  {
+    "unix_time": 1793301057.971248,
+    "available_kib": 7554892,
+    "swap_used_kib": 0
+  }
+]
