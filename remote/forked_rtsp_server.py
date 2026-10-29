@@ -199,6 +199,10 @@ class RgbStageDiagnostics:
             element = find_by_factory(producer, factory)
             if element:
                 self.watch(element.get_static_pad("src"), label)
+        decoder = find_by_factory(producer, "nvv4l2decoder")
+        if decoder and decoder.find_property("num-extra-surfaces"):
+            print("RGB_DIAG_CONFIG num-extra-surfaces=" +
+                  str(decoder.get_property("num-extra-surfaces")), flush=True)
         self.watch(producer.get_by_name("t").get_static_pad("sink"), "tee")
         iterator = producer.iterate_recurse()
         while True:

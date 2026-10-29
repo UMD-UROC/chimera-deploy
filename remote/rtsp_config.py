@@ -182,13 +182,14 @@ SOCKETS = {
 
 # The default extra surface count (1) stalls with the shared raw branches.
 # On d1, 32 kept decode active under UI recording. Reverting to 1 restored
-# the stall. Keep decoder surfaces available while consumers retain frames.
+# the stall. Use the supported maximum, 55, for more consumer headroom.
+# The 23 surfaces above 32 cost about 68 MiB at 1080p NV12, before padding.
 if RGB_SOURCE == "h264":
     RGB_DECODE = f"""
         video/x-h264,width={RGB_WIDTH},height={RGB_HEIGHT},framerate={RGB_FRAMERATE} !
         h264parse !
         video/x-h264,stream-format=byte-stream,alignment=au !
-        nvv4l2decoder enable-max-performance=1 num-extra-surfaces=32 !
+        nvv4l2decoder enable-max-performance=1 num-extra-surfaces=55 !
         """
 else:
     RGB_DECODE = f"""
