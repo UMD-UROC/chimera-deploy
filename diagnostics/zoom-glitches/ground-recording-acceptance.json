@@ -1,0 +1,20 @@
+{
+  "bag": "/home/user/ros2_ws/rosbag2_2026_10_29-16_29_35-ground",
+  "complete": true,
+  "messages": 133172,
+  "duration_seconds": 45.339240716,
+  "images": {
+    "/uas4/image": 1215,
+    "/uas3/image": 1138,
+    "/uas1/image": 988
+  },
+  "video_files": {
+    "video-pilotl1-2026-10-29-16-29-36_rosbag2_2026_10_29-16_29_35-ground.ts": 510796,
+    "video-thermall4-2026-10-29-16-29-36_rosbag2_2026_10_29-16_29_35-ground.ts": 939812,
+    "video-pilotl3-2026-10-29-16-29-36_rosbag2_2026_10_29-16_29_35-ground.ts": 534108,
+    "video-pilotl4-2026-10-29-16-29-36_rosbag2_2026_10_29-16_29_35-ground.ts": 538996,
+    "video-rgbl1-2026-10-29-16-29-36_rosbag2_2026_10_29-16_29_35-ground.ts": 538244,
+    "video-thermall3-2026-10-29-16-29-36_rosbag2_2026_10_29-16_29_35-ground.ts": 908040
+  },
+  "sync": "sync --local --no-upstream completed with no errors"
+}
