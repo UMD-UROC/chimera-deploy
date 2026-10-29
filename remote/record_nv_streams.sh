@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+
+video_pool_settings="$(python3 "$(dirname "$0")/video_pools.py" --shell)"
+eval "$video_pool_settings"
 source "$(dirname "$0")/record_processes.sh"
 
 HEADER="${1:-recording}"
@@ -38,7 +41,7 @@ start_recorder() {
         nvunixfdsrc "socket-path=$socket" do-timestamp=true !
         'video/x-raw(memory:NVMM),format=NV12,width=3840,height=2160' !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvvidconv interpolation-method=1 !
+        nvvidconv "output-buffers=$VIDEO_CONVERTER_BUFFERS" interpolation-method=1 !
         'video/x-raw(memory:NVMM),format=NV12,width=2560,height=1440' !
         nvv4l2h265enc maxperf-enable=1 control-rate=1 "bitrate=$PILOT_RECORD_BITRATE" iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false !
         h265parse ! mpegtsmux ! filesink "location=$output_file" sync=false async=false

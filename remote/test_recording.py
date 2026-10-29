@@ -35,7 +35,7 @@ def alive(pid):
 def recording(tmp_path):
     checkout = tmp_path / "chimera-deploy"
     for name in ("record_processes.sh", "record_all_common.sh", "remote_record_all.sh",
-                 "record_nv_streams.sh", "record_rtsp_streams.sh"):
+                 "record_nv_streams.sh", "record_rtsp_streams.sh", "video_pools.py"):
         target = checkout / "remote" / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / "remote" / name, target)
@@ -106,7 +106,7 @@ while not (root / 'container-stopped').exists():
 
     def start(world, streams="pilotl1 rgbl1 thermall1", video=True, supervised=False):
         script = "local/local_record_all.sh" if world == "ground" else "remote/remote_record_all.sh"
-        env = dict(os.environ, HOME=str(tmp_path), PATH=f"{binary}:{os.environ['PATH']}",
+        env = dict(os.environ, CHIMERA_VIDEO_POOL_POLICY=str(__import__("video_pools").POLICY_PATH), HOME=str(tmp_path), PATH=f"{binary}:{os.environ['PATH']}",
                    BAG_ROOT=str(workspace), BAG_NAME="session", RECORD_STREAMS=streams,
                    RECORD_VIDEO=str(int(video)), RECORD_TEST_ROOT=str(tmp_path))
         command = [str(checkout / script)]

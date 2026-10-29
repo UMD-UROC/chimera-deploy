@@ -2,6 +2,9 @@
 
 set -e
 
+video_pool_settings="$(python3 "$(dirname "$0")/../remote/video_pools.py" --shell)"
+eval "$video_pool_settings"
+
 REMOTE_USER="j1"
 REMOTE_IP="10.200.91.54"
 VERBOSE=0
@@ -121,21 +124,21 @@ REMOTE_SCRIPT
 common="video/x-raw(memory:NVMM) ! queue max-size-buffers=1 leaky=downstream ! nvv4l2h265enc control-rate=0 bitrate=1000000 peak-bitrate=5000000 iframeinterval=0 insert-sps-pps=true EnableTwopassCBR=false zerolatency=true ! h265parse ! rtph265pay config-interval=1 pt=96 name=pay0 )"
 
 TAGS+=("pilot")
-PIPES+=("( nvarguscamerasrc sensor-id=0 wbmode=1 ! queue max-size-buffers=1 leaky=downstream ! video/x-raw(memory:NVMM),width=1920,height=1080,framerate=30/1 ! nvvidconv flip-method=2 ! $common")
+PIPES+=("( nvarguscamerasrc sensor-id=0 wbmode=1 ! queue max-size-buffers=1 leaky=downstream ! video/x-raw(memory:NVMM),width=1920,height=1080,framerate=30/1 ! nvvidconv output-buffers=$VIDEO_CONVERTER_BUFFERS flip-method=2 ! $common")
 
 # A camera that is unplugged or still enumerating is a warning, not a fatal
 # error: skip its stream and serve whatever else came up.
 # The C1 PRO only emits compressed video, so decode before handing off to $common.
 if RGB_DEV=$(remote_find_v4l2_device "C1 PRO" "H264"); then
   TAGS+=("rgb")
-  PIPES+=("( v4l2src device=$RGB_DEV io-mode=2 ! video/x-h264,width=1920,height=1080 ! h264parse ! video/x-h264,stream-format=byte-stream,alignment=au ! nvv4l2decoder enable-max-performance=1 ! queue max-size-buffers=1 leaky=downstream ! nvvidconv ! $common")
+  PIPES+=("( v4l2src device=$RGB_DEV io-mode=2 ! video/x-h264,width=1920,height=1080 ! h264parse ! video/x-h264,stream-format=byte-stream,alignment=au ! nvv4l2decoder enable-max-performance=1 num-extra-surfaces=$VIDEO_DECODER_EXTRA_SURFACES ! queue max-size-buffers=1 leaky=downstream ! nvvidconv output-buffers=$VIDEO_CONVERTER_BUFFERS ! $common")
 else
   echo "[WARN] No C1 PRO H264 capture device found on $REMOTE_IP; skipping 'rgb' stream."
 fi
 
 if THERMAL_DEV=$(remote_find_v4l2_device "Boson: FLIR Video"); then
   TAGS+=("thermal")
-  PIPES+=("( v4l2src device=$THERMAL_DEV ! queue max-size-buffers=1 leaky=downstream ! video/x-raw,width=640,height=512,format=I420 ! nvvidconv ! $common")
+  PIPES+=("( v4l2src device=$THERMAL_DEV ! queue max-size-buffers=1 leaky=downstream ! video/x-raw,width=640,height=512,format=I420 ! nvvidconv output-buffers=$VIDEO_CONVERTER_BUFFERS ! $common")
 else
   echo "[WARN] No Boson capture device found on $REMOTE_IP; skipping 'thermal' stream."
 fi

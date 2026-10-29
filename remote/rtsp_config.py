@@ -2,6 +2,8 @@
 
 import os
 
+from video_pools import DECODER_EXTRA_SURFACES, CONVERTER_BUFFERS
+
 from aircraft_config import selected_cameras
 from v4l2_devices import find_device
 
@@ -184,7 +186,7 @@ SOCKETS = {
 # On d1, 32 kept decode active under UI recording. Reverting to 1 restored
 # the stall. Use the supported maximum, 55, for more consumer headroom.
 # The 23 surfaces above 32 cost about 68 MiB at 1080p NV12, before padding.
-RGB_DECODER_EXTRA_SURFACES = 55
+RGB_DECODER_EXTRA_SURFACES = DECODER_EXTRA_SURFACES
 if RGB_SOURCE == "h264":
     RGB_PARSE = f"""
         video/x-h264,width={RGB_WIDTH},height={RGB_HEIGHT},framerate={RGB_FRAMERATE} !
@@ -211,30 +213,30 @@ PRODUCERS = {
     "pilot-fork": f"""
         nvarguscamerasrc sensor-id=0 {PILOT_CAMERA} do-timestamp=true !
         video/x-raw(memory:NVMM),width={PILOT_WIDTH},height={PILOT_HEIGHT},framerate={PILOT_FRAMERATE} !
-        nvvidconv flip-method={PILOT_FLIP_METHOD} interpolation-method=1 !
+        nvvidconv output-buffers={CONVERTER_BUFFERS} flip-method={PILOT_FLIP_METHOD} interpolation-method=1 !
         video/x-raw(memory:NVMM),format=NV12 !
         tee name=t
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvvidconv interpolation-method=1 !
+        nvvidconv output-buffers={CONVERTER_BUFFERS} interpolation-method=1 !
         video/x-raw(memory:NVMM),width={PILOT_WIDTH},height={PILOT_HEIGHT},format=NV12 !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvunixfdsink socket-path={SOCKETS[PILOT]} sync=false async=false
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvvidconv interpolation-method=1 !
+        nvvidconv output-buffers={CONVERTER_BUFFERS} interpolation-method=1 !
         video/x-raw(memory:NVMM),width={PILOT_WIDTH},height={PILOT_HEIGHT},format=NV12 !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvunixfdsink socket-path={SOCKETS[PILOT_DEEPSTREAM]} sync=false async=false
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvvidconv interpolation-method=1 !
+        nvvidconv output-buffers={CONVERTER_BUFFERS} interpolation-method=1 !
         video/x-raw(memory:NVMM),width={PILOT_LOWRES_WIDTH},height={PILOT_LOWRES_HEIGHT},format=NV12 !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvunixfdsink socket-path={SOCKETS[PILOT_LOWRES]} sync=false async=false
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvvidconv interpolation-method=1 !
+        nvvidconv output-buffers={CONVERTER_BUFFERS} interpolation-method=1 !
         video/x-raw(memory:NVMM),width={PILOT_LOWRES_WIDTH},height={PILOT_LOWRES_HEIGHT},format=NV12 !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvunixfdsink socket-path={SOCKETS[PILOT_RAW]} sync=false async=false
@@ -242,30 +244,30 @@ PRODUCERS = {
     "rgb-fork": f"""
         v4l2src device={RGB_DEVICE} io-mode=2 do-timestamp=true !
         {RGB_DECODE.strip()}
-        nvvidconv flip-method={RGB_FLIP_METHOD} interpolation-method=1 !
+        nvvidconv output-buffers={CONVERTER_BUFFERS} flip-method={RGB_FLIP_METHOD} interpolation-method=1 !
         video/x-raw(memory:NVMM),format=NV12 !
         tee name=t
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvvidconv interpolation-method=1 !
+        nvvidconv output-buffers={CONVERTER_BUFFERS} interpolation-method=1 !
         video/x-raw(memory:NVMM),width={RGB_WIDTH},height={RGB_HEIGHT},format=NV12 !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvunixfdsink socket-path={SOCKETS[RGB]} sync=false async=false
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvvidconv interpolation-method=1 !
+        nvvidconv output-buffers={CONVERTER_BUFFERS} interpolation-method=1 !
         video/x-raw(memory:NVMM),width={RGB_WIDTH},height={RGB_HEIGHT},format=NV12 !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvunixfdsink socket-path={SOCKETS[RGB_DEEPSTREAM]} sync=false async=false
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvvidconv interpolation-method=1 !
+        nvvidconv output-buffers={CONVERTER_BUFFERS} interpolation-method=1 !
         video/x-raw(memory:NVMM),width={RGB_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT},format=NV12 !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvunixfdsink socket-path={SOCKETS[RGB_LOWRES]} sync=false async=false
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvvidconv interpolation-method=1 !
+        nvvidconv output-buffers={CONVERTER_BUFFERS} interpolation-method=1 !
         video/x-raw(memory:NVMM),width={RGB_LOWRES_WIDTH},height={RGB_LOWRES_HEIGHT},format=NV12 !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvunixfdsink socket-path={SOCKETS[RGB_RAW]} sync=false async=false
@@ -275,30 +277,30 @@ PRODUCERS = {
     "thermal-fork": f"""
         v4l2src device={THERMAL_DEVICE} io-mode=2 do-timestamp=true !
         video/x-raw,width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=I420{THERMAL_CAPS_RATE} !
-        nvvidconv !
+        nvvidconv output-buffers={CONVERTER_BUFFERS} !
         video/x-raw(memory:NVMM),format=NV12 !
         tee name=t
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvvidconv interpolation-method=1 !
+        nvvidconv output-buffers={CONVERTER_BUFFERS} interpolation-method=1 !
         video/x-raw(memory:NVMM),width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=NV12 !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvunixfdsink socket-path={SOCKETS[THERMAL]} sync=false async=false
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvvidconv interpolation-method=1 !
+        nvvidconv output-buffers={CONVERTER_BUFFERS} interpolation-method=1 !
         video/x-raw(memory:NVMM),width={THERMAL_WIDTH},height={THERMAL_HEIGHT},format=NV12 !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvunixfdsink socket-path={SOCKETS[THERMAL_DEEPSTREAM]} sync=false async=false
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvvidconv interpolation-method=1 !
+        nvvidconv output-buffers={CONVERTER_BUFFERS} interpolation-method=1 !
         video/x-raw(memory:NVMM),width={THERMAL_LOWRES_WIDTH},height={THERMAL_LOWRES_HEIGHT},format=NV12 !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvunixfdsink socket-path={SOCKETS[THERMAL_LOWRES]} sync=false async=false
 
         t. ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
-        nvvidconv interpolation-method=1 !
+        nvvidconv output-buffers={CONVERTER_BUFFERS} interpolation-method=1 !
         video/x-raw(memory:NVMM),width={THERMAL_LOWRES_WIDTH},height={THERMAL_LOWRES_HEIGHT},format=NV12 !
         queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 !
         nvunixfdsink socket-path={SOCKETS[THERMAL_RAW]} sync=false async=false

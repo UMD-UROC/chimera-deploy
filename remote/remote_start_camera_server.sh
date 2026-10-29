@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+video_pool_settings="$(python3 "$(dirname "$0")/video_pools.py" --shell)"
+eval "$video_pool_settings"
+
 LOCAL_IP="127.0.0.1"
 VERBOSE=0
 SERVER_PID=""
@@ -82,17 +85,17 @@ find_v4l2_device() {
 common="video/x-raw(memory:NVMM) ! queue max-size-buffers=1 leaky=downstream ! nvv4l2h265enc control-rate=0 bitrate=1000000 peak-bitrate=5000000 iframeinterval=0 insert-sps-pps=true EnableTwopassCBR=false zerolatency=true ! h265parse ! rtph265pay config-interval=1 pt=96 name=pay0 )"
 
 TAGS+=("pilot")
-PIPES+=("( nvarguscamerasrc sensor-id=0 wbmode=1 ! queue max-size-buffers=1 leaky=downstream ! video/x-raw(memory:NVMM),width=1920,height=1080,framerate=30/1 ! nvvidconv flip-method=2 ! $common")
+PIPES+=("( nvarguscamerasrc sensor-id=0 wbmode=1 ! queue max-size-buffers=1 leaky=downstream ! video/x-raw(memory:NVMM),width=1920,height=1080,framerate=30/1 ! nvvidconv output-buffers=$VIDEO_CONVERTER_BUFFERS flip-method=2 ! $common")
 
 #TAGS+=("pilot-hires")
-#PIPES+=("( nvarguscamerasrc sensor-id=0 wbmode=1 ! queue max-size-buffers=1 leaky=downstream ! video/x-raw(memory:NVMM),width=3840,height=2160,framerate=30/1 ! nvvidconv flip-method=2 ! video/x-raw(memory:NVMM) ! queue max-size-buffers=1 leaky=downstream ! nvv4l2h265enc control-rate=0 bitrate=5000000 iframeinterval=0 insert-sps-pps=true EnableTwopassCBR=false zerolatency=true ! h265parse ! rtph265pay config-interval=1 pt=96 name=pay0 )")
+#PIPES+=("( nvarguscamerasrc sensor-id=0 wbmode=1 ! queue max-size-buffers=1 leaky=downstream ! video/x-raw(memory:NVMM),width=3840,height=2160,framerate=30/1 ! nvvidconv output-buffers=$VIDEO_CONVERTER_BUFFERS flip-method=2 ! video/x-raw(memory:NVMM) ! queue max-size-buffers=1 leaky=downstream ! nvv4l2h265enc control-rate=0 bitrate=5000000 iframeinterval=0 insert-sps-pps=true EnableTwopassCBR=false zerolatency=true ! h265parse ! rtph265pay config-interval=1 pt=96 name=pay0 )")
 
 # A camera that is unplugged or still enumerating is a warning, not a fatal
 # error: skip its streams and serve whatever else came up.
 # The C1 PRO only emits compressed video, so decode before handing off to $common.
 if RGB_DEV=$(find_v4l2_device "C1 PRO" "H264"); then
   TAGS+=("rgb")
-  PIPES+=("( v4l2src device=$RGB_DEV io-mode=2 ! video/x-h264,width=1920,height=1080 ! h264parse ! video/x-h264,stream-format=byte-stream,alignment=au ! nvv4l2decoder enable-max-performance=1 ! queue max-size-buffers=1 leaky=downstream ! nvvidconv ! $common")
+  PIPES+=("( v4l2src device=$RGB_DEV io-mode=2 ! video/x-h264,width=1920,height=1080 ! h264parse ! video/x-h264,stream-format=byte-stream,alignment=au ! nvv4l2decoder enable-max-performance=1 num-extra-surfaces=$VIDEO_DECODER_EXTRA_SURFACES ! queue max-size-buffers=1 leaky=downstream ! nvvidconv output-buffers=$VIDEO_CONVERTER_BUFFERS ! $common")
 else
   echo "[WARN] No C1 PRO H264 capture device found; skipping 'rgb' stream."
 fi
@@ -100,10 +103,10 @@ fi
 # The annotated feed is rendered from the Boson frames, so it goes with it.
 if THERMAL_DEV=$(find_v4l2_device "Boson: FLIR Video"); then
   TAGS+=("thermal")
-  PIPES+=("( v4l2src device=$THERMAL_DEV ! queue max-size-buffers=1 leaky=downstream ! video/x-raw,width=640,height=512,format=I420 ! nvvidconv ! $common")
+  PIPES+=("( v4l2src device=$THERMAL_DEV ! queue max-size-buffers=1 leaky=downstream ! video/x-raw,width=640,height=512,format=I420 ! nvvidconv output-buffers=$VIDEO_CONVERTER_BUFFERS ! $common")
 
   TAGS+=("thermal/annotated")
-  PIPES+=("appsrc name=thermal_annotated is-live=true format=3 ! nvvidconv ! $common")
+  PIPES+=("appsrc name=thermal_annotated is-live=true format=3 ! nvvidconv output-buffers=$VIDEO_CONVERTER_BUFFERS ! $common")
 else
   echo "[WARN] No Boson capture device found; skipping 'thermal' and 'thermal/annotated' streams."
 fi

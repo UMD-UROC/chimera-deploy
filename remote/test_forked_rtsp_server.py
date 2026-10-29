@@ -3,6 +3,9 @@
 import contextlib
 import io
 import unittest
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
 import forked_rtsp_server as server
 
@@ -83,6 +86,19 @@ class ProducerFrameWatchdogTest(unittest.TestCase):
     def test_missing_monitor_tee_is_rejected(self):
         with self.assertRaisesRegex(RuntimeError, "has no tee"):
             self.watchdog.watch("invalid", FakeProducer(None))
+
+
+class CameraSourceStampTest(unittest.TestCase):
+    def test_pool_policy_change_requires_reload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            policy = Path(directory) / "policy.py"
+            policy.write_text("one")
+            with patch.object(server.video_pools, "POLICY_PATH", policy):
+                initial = server.camera_source_stamp()
+                policy.write_text("new policy")
+                self.assertNotEqual(initial, server.camera_source_stamp())
+                policy.unlink()
+                self.assertIsNone(server.camera_source_stamp())
 
 
 if __name__ == "__main__":

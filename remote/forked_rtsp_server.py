@@ -3,6 +3,8 @@
 import os
 import json
 import threading
+from pathlib import Path
+import video_pools
 import time
 import gi
 import rtsp_config as conf
@@ -67,6 +69,13 @@ def find_rtpbin(media_element):
     return find_by_factory(media_element, "rtpbin")
 
 
+def configure_native_decoder(bin_element):
+    decoder = find_by_factory(bin_element, "nvv4l2decoder")
+    if decoder is not None:
+        video_pools.set_pool_property(decoder, "num-extra-surfaces",
+                                      video_pools.DECODER_EXTRA_SURFACES)
+
+
 def log_camera_settings(name, producer):
     """Say what the CSI camera was really started with.
 
@@ -95,6 +104,8 @@ def log_camera_settings(name, producer):
 
 def configure_media(_factory, media):
     media_element = media.get_element()
+    if media_element is not None:
+        configure_native_decoder(media_element)
     rtpbin = find_rtpbin(media_element)
     if rtpbin is None:
         print("RTSP media configured without visible rtpbin; NTP timing was not adjusted.")
@@ -328,12 +339,27 @@ def watch_producer(name, producer, mounts, retired):
     bus.connect("message", on_producer_message, (name, producer, mounts, retired))
 
 
+def camera_source_stamp():
+    paths = (Path(__file__), Path(conf.__file__), Path(video_pools.__file__),
+             video_pools.POLICY_PATH)
+    try:
+        return tuple((str(path), path.stat().st_mtime_ns, path.stat().st_size)
+                     for path in paths)
+    except FileNotFoundError:
+        return None
+
+
 def main():
     cleanup_sockets()
     loop = GLib.MainLoop()
     producer_watchdog = ProducerFrameWatchdog(loop)
+    loaded_source_stamp = camera_source_stamp()
 
     def check_camera_selection():
+        if camera_source_stamp() != loaded_source_stamp:
+            print("Camera source or pool policy changed; restarting rcam.", flush=True)
+            loop.quit()
+            return GLib.SOURCE_REMOVE
         # sync and px4sim camera update .env; systemd restarts this native
         # server after its producers stop, including existing RGB sessions.
         try:
@@ -378,6 +404,7 @@ def main():
     for name, pipe in conf.PRODUCERS.items():
         print(f"{name} producer starting...")
         producer = Gst.parse_launch(pipe)
+        configure_native_decoder(producer)
         log_camera_settings(name, producer)
         watch_producer(name, producer, mounts, retired)
         producer_watchdog.watch(name, producer)

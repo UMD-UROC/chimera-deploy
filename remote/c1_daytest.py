@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Compare daytime C1 PRO image controls and save the original controls."""
+from video_pools import CONVERTER_BUFFERS
+
 import argparse
 import csv
 from datetime import datetime, timezone
@@ -101,7 +103,7 @@ class Capture:
             'video/x-raw(memory:NVMM),format=NV12,width=1920,height=1080 ! '
             'queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 ! '
             'videorate drop-only=true ! video/x-raw(memory:NVMM),framerate=5/1 ! '
-            'nvvidconv ! video/x-raw,format=BGRx ! '
+            f'nvvidconv output-buffers={CONVERTER_BUFFERS} ! video/x-raw,format=BGRx ! '
             'appsink name=frames max-buffers=1 drop=true sync=false wait-on-eos=false')
         self.sink = self.pipeline.get_by_name('frames')
         self.last_pts = None

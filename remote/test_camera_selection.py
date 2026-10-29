@@ -42,6 +42,18 @@ class CameraSelectionTest(unittest.TestCase):
                 if mode == "h264":
                     self.assertIn("stream-format=byte-stream,alignment=au", pipeline)
 
+    def test_every_model_and_camera_uses_shared_converter_pool(self):
+        import re
+        from video_pools import CONVERTER_BUFFERS
+        for model in ("v2", "v3"):
+            for camera in ("rgb", "thermal"):
+                with self.subTest(model=model, camera=camera):
+                    cfg = self.config(camera=camera, model=model)
+                    for pipeline in (*cfg["PRODUCERS"].values(), *cfg["FACTORIES"].values()):
+                        converters = re.findall(r"nvvidconv([^!]*)", pipeline)
+                        for options in converters:
+                            self.assertIn(f"output-buffers={CONVERTER_BUFFERS}", options)
+
     def test_v3_night_has_no_rgb_producer_or_mounts(self):
         config = self.config("thermal", override="pilot,rgb,thermal")
         self.assertEqual(set(config["PRODUCERS"]), {"pilot-fork", "thermal-fork"})
