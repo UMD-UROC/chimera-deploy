@@ -1,0 +1,8 @@
+{
+  "file": "/home/user/ros2_ws/rosbag2_2026_10_29-15_16_20-air-d1/video-pilot-2026-10-29-15-16-23_rosbag2_2026_10_29-15_16_20-air-d1.ts",
+  "access_units_with_pts": 3765,
+  "span_seconds": 133.362011111,
+  "max_gap_seconds": 0.265433333,
+  "nonincreasing_pts": 0,
+  "gaps_over_half_second": []
+}

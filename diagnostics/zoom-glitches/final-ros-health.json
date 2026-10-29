@@ -1,0 +1,15 @@
+{
+  "images": 2959,
+  "image_span_seconds": 116.22117257118225,
+  "max_image_gap_seconds": 0.2172996997833252,
+  "image_gaps_over_half_second": [],
+  "heartbeat_count": 116,
+  "minimum_heartbeat_rate": 0.0,
+  "zero_rate_heartbeats": [
+    1793301400.2872148,
+    1793301400.4524696
+  ],
+  "status_count": 116,
+  "decoded_samples": 20,
+  "sampled_jpeg_decode_failures": 0
+}
