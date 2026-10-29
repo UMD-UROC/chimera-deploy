@@ -1,0 +1,3292 @@
+{
+  "unix_time": 1793299627.0451438,
+  "duration": 10.58065502799991,
+  "processes": [
+    {
+      "command": "/usr/bin/python3 /opt/ros/humble/bin/ros2 bag record -s mcap -a -o rosbag2_2026_10_29-14_46_42-air-d1 ",
+      "cpu_percent": 62.95
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/chimera-deploy/remote/forked_rtsp_server.py ",
+      "cpu_percent": 42.06
+    },
+    {
+      "command": "gst-launch-1.0 -e nvunixfdsrc socket-path=/tmp/pilot_nv.sock do-timestamp=true ! video/x-raw(memory:NVMM),format=NV12,width=3840,height=2160 ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 ! nvvidconv interpolation-method=1 ! video/x-raw(memory:NVMM),format=NV12,width=2560,height=1440 ! nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate=200000000 iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false ! h265parse ! mpegtsmux ! filesink location=video-pilot-2026-10-29-14-46-44_rosbag2_2026_10_29-14_46_42-air-d1.ts sync=false async=false ",
+      "cpu_percent": 28.45
+    },
+    {
+      "command": "",
+      "cpu_percent": 24.76
+    },
+    {
+      "command": "/opt/mavros/install/mavros/lib/mavros/mavros_node --ros-args --log-level fatal --log-level uas1.sys:=fatal --ros-args -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/px4_pluginlists.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/px4_config.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/px4_config_uas1.yaml --params-file /tmp/tmpxjvbex2o_uas1_mavros_node_params.yaml --params-file /tmp/tmpzlrp80r4_uas1_global_position_params.yaml --params-file /tmp/tmpo6_nqelz_uas1_imu_params.yaml --params-file /tmp/tmp8qioaepi_uas1_local_position_params.yaml -r /uas1/mavlink_sink:=/uas1/mavlink_sink -r /uas1/mavlink_source:=/uas1/mavlink_source ",
+      "cpu_percent": 21.74
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/mavinsight/lib/mavinsight/gimbal --ros-args -r __node:=d1_gimbal -r __ns:=/viz --params-file /home/user/ros2_ws/install/mavinsight/share/mavinsight/package_resources/global_node_config.yaml --params-file /tmp/launch_params_anh6i2w5 --params-file /tmp/launch_params_wpfngrhr ",
+      "cpu_percent": 21.74
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/status --ros-args -r __node:=status -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml --params-file /tmp/launch_params_c891xt31 ",
+      "cpu_percent": 20.6
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/mavinsight/lib/mavinsight/location_viz --ros-args -r __node:=uas1_location_viz -r __ns:=/viz --params-file /home/user/ros2_ws/install/mavinsight/share/mavinsight/package_resources/global_node_config.yaml --params-file /tmp/launch_params_pe8kl85k --params-file /tmp/launch_params_itymr2z1 ",
+      "cpu_percent": 16.92
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/chimera_mission --ros-args -r __node:=chimera_mission -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml --params-file /tmp/launch_params_dsp_nxyd --params-file /tmp/launch_params_xq0ub0sv --params-file /tmp/launch_params_oxjpt58b ",
+      "cpu_percent": 15.69
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/mosaic --ros-args -r __node:=mosaic -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml --params-file /tmp/launch_params_udv475yh --params-file /tmp/launch_params_fea06zw2 --params-file /tmp/launch_params_2lefbuy4 --params-file /tmp/launch_params_if2ft6qr ",
+      "cpu_percent": 15.5
+    },
+    {
+      "command": "/usr/sbin/nvargus-daemon ",
+      "cpu_percent": 15.31
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/mavinsight/lib/mavinsight/vehicle --ros-args -r __node:=d1_chimera -r __ns:=/viz --params-file /home/user/ros2_ws/install/mavinsight/share/mavinsight/package_resources/global_node_config.yaml --params-file /tmp/launch_params_nmtqr1r3 --params-file /tmp/launch_params_24vvlsrr ",
+      "cpu_percent": 15.22
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/target_box_viz --ros-args -r __node:=target_box_viz -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml --params-file /tmp/launch_params_lctna8ch ",
+      "cpu_percent": 14.93
+    },
+    {
+      "command": "/opt/ros/humble/lib/domain_bridge/domain_bridge /tmp/tmpetwcpvji_onboard_domain_bridge.yaml --ros-args -r __node:=uas1_domain_bridge -r __ns:=/uas1 ",
+      "cpu_percent": 14.84
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/gimbal --ros-args -r __node:=gimbal -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/onboard_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/onboard_container_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml --params-file /tmp/launch_params_oolijrs3 --params-file /tmp/launch_params_volg5c82 --params-file /tmp/launch_params_qn4ymqs1 --params-file /tmp/launch_params_e25bjbln ",
+      "cpu_percent": 14.74
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/tf_loc --ros-args -r __node:=tf_loc -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml --params-file /tmp/launch_params_h_ezmn6u --params-file /tmp/launch_params_nm17tyna --params-file /tmp/launch_params_ruemvur9 --params-file /tmp/launch_params_4s4mgc35 --params-file /tmp/launch_params_z_m1b6ew ",
+      "cpu_percent": 14.18
+    },
+    {
+      "command": "/opt/ros/humble/lib/domain_bridge/domain_bridge /tmp/tmphol5cxq__onboard_image_domain_bridge.yaml --ros-args -r __node:=uas1_image_domain_bridge -r __ns:=/uas1 ",
+      "cpu_percent": 14.18
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/mavinsight/lib/mavinsight/scoring_viz --ros-args -r __node:=uas1_scoring_viz -r __ns:=/viz --params-file /home/user/ros2_ws/install/mavinsight/share/mavinsight/package_resources/global_node_config.yaml --params-file /tmp/launch_params_bb4f4n7h --params-file /tmp/launch_params_kyvtru9p ",
+      "cpu_percent": 13.61
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/scoring --ros-args -r __node:=scoring -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml --params-file /tmp/launch_params_94g_ajqc --params-file /tmp/launch_params_ze1q3til --params-file /tmp/launch_params_fnxthmpx ",
+      "cpu_percent": 13.52
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/tracking_test/lib/tracking_test/target_preprocessing_node --ros-args --log-level INFO --ros-args -r __node:=target_preprocessing_node -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/tracking_test/share/tracking_test/config/dtc_single_uav_params_v2.yaml --params-file /tmp/launch_params_5ra5_hua ",
+      "cpu_percent": 13.04
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/gimbal_encoder --ros-args -r __node:=gimbal_encoder -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml --params-file /tmp/launch_params_cl3mffaa --params-file /tmp/launch_params_a5ffghw1 ",
+      "cpu_percent": 12.85
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/mavinsight/lib/mavinsight/buildings_viz --ros-args -r __node:=buildings_viz -r __ns:=/viz --params-file /home/user/ros2_ws/install/mavinsight/share/mavinsight/package_resources/global_node_config.yaml --params-file /tmp/launch_params_7dnyc447 --params-file /tmp/launch_params_bfbgd2hf ",
+      "cpu_percent": 12.85
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/mavinsight/lib/mavinsight/terrain_viz --ros-args -r __node:=terrain_viz -r __ns:=/viz --params-file /home/user/ros2_ws/install/mavinsight/share/mavinsight/package_resources/global_node_config.yaml --params-file /tmp/launch_params_gppnwoas --params-file /tmp/launch_params_meu1ossp --params-file /tmp/launch_params_8uufszmk --params-file /tmp/launch_params_hxzb3jiz ",
+      "cpu_percent": 12.85
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/mavinsight/lib/mavinsight/footprint_viz --ros-args -r __node:=uas1_footprint_viz -r __ns:=/viz --params-file /home/user/ros2_ws/install/mavinsight/share/mavinsight/package_resources/global_node_config.yaml --params-file /tmp/launch_params_w1nkzvy8 --params-file /tmp/launch_params_r9t_qykp ",
+      "cpu_percent": 12.0
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/ground_projection --ros-args -r __node:=ground_projection -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml --params-file /tmp/launch_params_28n1047e --params-file /tmp/launch_params_46zw3c5d --params-file /tmp/launch_params_z2y2ftqi ",
+      "cpu_percent": 11.34
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/zoom --ros-args -r __node:=zoom -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/onboard_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/onboard_container_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml --params-file /tmp/launch_params_xz9ld050 ",
+      "cpu_percent": 10.59
+    },
+    {
+      "command": "tcpdump -i any -n -q -l host 10.200.142.61 ",
+      "cpu_percent": 9.36
+    },
+    {
+      "command": "/opt/ros/humble/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/foxglove_console.yaml ",
+      "cpu_percent": 9.36
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/sim_ground_truth --ros-args -r __node:=sim_ground_truth -r __ns:=/ --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /tmp/launch_params__40v70i9 --params-file /tmp/launch_params_0gsd8099 ",
+      "cpu_percent": 9.07
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/survey --ros-args -r __node:=survey_action -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml --params-file /tmp/launch_params_btmia9mc --params-file /tmp/launch_params_ttqarp0w --params-file /tmp/launch_params_kwx8eww3 ",
+      "cpu_percent": 8.7
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/mavinsight/lib/mavinsight/rangefinder --ros-args -r __node:=d1_gimbal_rangefinder -r __ns:=/viz --params-file /home/user/ros2_ws/install/mavinsight/share/mavinsight/package_resources/global_node_config.yaml --params-file /tmp/launch_params_jhwyn458 --params-file /tmp/launch_params_mmshrqbi ",
+      "cpu_percent": 8.6
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/tracking_test/lib/tracking_test/target_tracking_node --ros-args --log-level INFO --ros-args -r __node:=target_tracking_node -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/tracking_test/share/tracking_test/config/dtc_single_uav_params_v2.yaml --params-file /tmp/launch_params_l0td7fq_ ",
+      "cpu_percent": 8.51
+    },
+    {
+      "command": "gst-launch-1.0 -e nvunixfdsrc socket-path=/tmp/rgb_nv.sock do-timestamp=true ! video/x-raw(memory:NVMM),format=NV12,width=1920,height=1080 ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 ! nvv4l2h265enc maxperf-enable=1 control-rate=1 bitrate=25000000 iframeinterval=30 idrinterval=30 insert-sps-pps=true insert-vui=true EnableTwopassCBR=false ! h265parse ! mpegtsmux ! filesink location=video-rgb-2026-10-29-14-46-44_rosbag2_2026_10_29-14_46_42-air-d1.ts sync=false async=false ",
+      "cpu_percent": 8.41
+    },
+    {
+      "command": "/usr/libexec/polkitd --no-debug ",
+      "cpu_percent": 8.03
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/img_processing --ros-args -r __node:=img_processing -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/onboard_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/onboard_container_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml ",
+      "cpu_percent": 7.75
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/tracking_test/lib/tracking_test/static_roi_filter_node --ros-args --log-level INFO --ros-args -r __node:=static_roi_filter_node -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/tracking_test/share/tracking_test/config/dtc_single_uav_params_v2.yaml --params-file /tmp/launch_params_etpkolyv ",
+      "cpu_percent": 7.56
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/casualty_image_transport --ros-args -r __node:=casualty_image_air_encoder -r __ns:=/uas1 --params-file /tmp/launch_params_90usglrp --params-file /tmp/launch_params_bn_nxjav ",
+      "cpu_percent": 6.99
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/foxglove_control --ros-args -r __node:=foxglove_control -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml --params-file /tmp/launch_params_6xg_xj1m --params-file /tmp/launch_params_ll_wo2il ",
+      "cpu_percent": 6.9
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/mavinsight/lib/mavinsight/camera --ros-args -r __node:=d1_down_camera -r __ns:=/viz --params-file /home/user/ros2_ws/install/mavinsight/share/mavinsight/package_resources/global_node_config.yaml --params-file /tmp/launch_params_zpoo3qv0 --params-file /tmp/launch_params_p5r0mmk2 ",
+      "cpu_percent": 6.71
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/footprint --ros-args -r __node:=footprint -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml --params-file /tmp/launch_params_2nkoq9p6 --params-file /tmp/launch_params_m7dugdzq --params-file /tmp/launch_params_fbbhupiw ",
+      "cpu_percent": 6.71
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/mavinsight/lib/mavinsight/camera --ros-args -r __node:=d1_gimbal_rgb_camera -r __ns:=/viz --params-file /home/user/ros2_ws/install/mavinsight/share/mavinsight/package_resources/global_node_config.yaml --params-file /tmp/launch_params_ytp3rhdv --params-file /tmp/launch_params_xzlmk373 ",
+      "cpu_percent": 6.43
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/image_strip --ros-args -r __node:=image_strip -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml --params-file /tmp/launch_params_hfxboubw ",
+      "cpu_percent": 6.24
+    },
+    {
+      "command": "python3 scripts/state.py --watch 2.0 ",
+      "cpu_percent": 4.63
+    },
+    {
+      "command": "/usr/bin/containerd ",
+      "cpu_percent": 2.93
+    },
+    {
+      "command": "/usr/bin/mavlink-routerd ",
+      "cpu_percent": 2.93
+    },
+    {
+      "command": "/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock ",
+      "cpu_percent": 2.55
+    },
+    {
+      "command": "python3 - ",
+      "cpu_percent": 2.17
+    },
+    {
+      "command": "/usr/bin/python3 /home/user/ros2_ws/install/umd_uas/lib/umd_uas/ds_node --ros-args -r __node:=ds_pipeline -r __ns:=/uas1 --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/chimera_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/uas1_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/onboard_common_params.yaml --params-file /home/user/ros2_ws/install/umd_uas/share/umd_uas/config/onboard_container_params.yaml --params-file /camera/site.yaml --params-file /models/local/params.yaml --params-file /tmp/launch_params_rbn60adv --params-file /tmp/launch_params_982jwwyn ",
+      "cpu_percent": 1.89
+    },
+    {
+      "command": "/usr/bin/python3 /usr/bin/update-manager --no-update --no-focus-on-map ",
+      "cpu_percent": 1.8
+    },
+    {
+      "command": "@dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only ",
+      "cpu_percent": 1.61
+    },
+    {
+      "command": "/usr/sbin/NetworkManager --no-daemon ",
+      "cpu_percent": 1.23
+    },
+    {
+      "command": "/usr/bin/python3 /opt/ros/humble/bin/ros2 launch umd_uas onboard.launch.py uas:=1 model:=v3 sim:=false truth:=true bench:=false container:=true gimbal_encoder:=true gimbal_pose_source:=encoder camera:=rgb params:=/camera/site.yaml,/models/local/params.yaml ",
+      "cpu_percent": 1.23
+    },
+    {
+      "command": "/sbin/init 2 ",
+      "cpu_percent": 1.13
+    },
+    {
+      "command": "python3 scripts/tui.py ",
+      "cpu_percent": 1.04
+    },
+    {
+      "command": "/usr/bin/gnome-shell ",
+      "cpu_percent": 0.66
+    },
+    {
+      "command": "/lib/systemd/systemd-udevd ",
+      "cpu_percent": 0.38
+    },
+    {
+      "command": "/lib/systemd/systemd-journald ",
+      "cpu_percent": 0.19
+    },
+    {
+      "command": "/usr/bin/pipewire-media-session ",
+      "cpu_percent": 0.19
+    },
+    {
+      "command": "/usr/libexec/gnome-session-binary --systemd-service --session=ubuntu ",
+      "cpu_percent": 0.19
+    },
+    {
+      "command": "/usr/sbin/rsyslogd -n -iNONE ",
+      "cpu_percent": 0.09
+    },
+    {
+      "command": "/lib/systemd/systemd-logind ",
+      "cpu_percent": 0.09
+    },
+    {
+      "command": "/bin/bash /usr/local/echopilot/temperature.sh ",
+      "cpu_percent": 0.09
+    },
+    {
+      "command": "sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups ",
+      "cpu_percent": 0.09
+    },
+    {
+      "command": "/usr/libexec/gnome-initial-setup --existing-user ",
+      "cpu_percent": 0.09
+    },
+    {
+      "command": "sshd: user@pts/1     ",
+      "cpu_percent": 0.09
+    },
+    {
+      "command": "/usr/bin/containerd-shim-runc-v2 -namespace moby -id ef5468a375853fc14ba06fa29eb7d819126dbacbebb89e8e679c41a657ee1a75 -address /run/containerd/containerd.sock ",
+      "cpu_percent": 0.09
+    },
+    {
+      "command": "docker logs -f --timestamps ef5468a37585 ",
+      "cpu_percent": 0.09
+    },
+    {
+      "command": "/bin/bash /etc/systemd/nv-tee-supplicant.sh ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/sbin/tee-supplicant ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/sbin/haveged --Foreground --verbose=1 ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/sbin/rpcbind -f -w ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/lib/systemd/systemd-resolved ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "avahi-daemon: running [d1.local] ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/bin/python3 /usr/local/bin/jtop --force ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/bin/python3 /usr/bin/networkd-dispatcher --run-startup-triggers ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "python3 /opt/nvidia/pva-allow-2/bin/nvidiaPvaAllowd.py ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/power-profiles-daemon ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "seatd -g video ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/lib/snapd/snapd ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/accounts-daemon ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/switcheroo-control ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/udisks2/udisksd ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/sbin/wpa_supplicant -u -s -O /run/wpa_supplicant ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "avahi-daemon: chroot helper ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/sbin/ModemManager ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/sbin/nvfancontrol & ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/sbin/nvs-service ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/sbin/chronyd -F 1 ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/sbin/cron -f -P ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/sbin/gdm3 ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/sbin/agetty -o -p -- \\u --keep-baud 115200,57600,38400,9600 ttyGS0 vt220 ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/bin/login -f      ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/sbin/kerneloops --test ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/sbin/kerneloops ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "gdm-session-worker [pam/gdm-autologin] ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/sbin/nvphsd ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/lib/systemd/systemd --user ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "(sd-pam) ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/bin/pipewire ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/bin/pulseaudio --daemonize=no --log-target=journal ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/bin/gnome-keyring-daemon --daemonize --login ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/rtkit-daemon ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gdm-x-session --run-script env GNOME_SHELL_SESSION_MODE=ubuntu /usr/bin/gnome-session --session=ubuntu ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/lib/xorg/Xorg vt2 -displayfd 3 -auth /run/user/1000/gdm/Xauthority -nolisten tcp -background none -noreset -keeptty -novtswitch -verbose 3 ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gnome-session-binary --session=ubuntu ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/at-spi-bus-launcher ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/bin/dbus-daemon --config-file=/usr/share/defaults/at-spi2/accessibility.conf --nofork --print-address 11 --address=unix:path=/run/user/1000/at-spi/bus_0 ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gnome-session-ctl --monitor ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gvfsd ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gvfsd-fuse /run/user/1000/gvfs -f ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "-bash ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/xdg-permission-store ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gnome-shell-calendar-server ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/evolution-source-registry ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/upowerd ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/goa-daemon ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/evolution-calendar-factory ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/dconf-service ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/goa-identity-service ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gvfs-udisks2-volume-monitor ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gvfs-mtp-volume-monitor ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/evolution-addressbook-factory ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gvfs-gphoto2-volume-monitor ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gvfs-afc-volume-monitor ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gvfs-goa-volume-monitor ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/packagekitd ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gvfsd-trash --spawner :1.19 /org/gtk/gvfs/exec_spaw/0 ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/bin/gjs /usr/share/gnome-shell/org.gnome.Shell.Notifications ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/at-spi2-registryd --use-gnome-session ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "sh -c /usr/bin/ibus-daemon --panel disable $([ \"$XDG_SESSION_TYPE\" = \"x11\" ] && echo \"--xim\") ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-a11y-settings ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-color ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-datetime ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-housekeeping ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-keyboard ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-media-keys ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/bin/ibus-daemon --panel disable --xim ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-power ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-print-notifications ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-rfkill ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-screensaver-proxy ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-sharing ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-smartcard ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-sound ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-wacom ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-xsettings ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/xdg-desktop-portal ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "python3 /usr/share/nvpmodel_indicator/nvpmodel_indicator.py ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/evolution-data-server/evolution-alarm-notify ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/ibus-memconf ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-disk-utility-notify ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/bin/gnome-software --gapplication-service ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/xdg-document-portal ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/ibus-extension-gtk3 ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/ibus-x11 --kill-daemon ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/ibus-portal ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gsd-printer ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/colord ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "fusermount3 -o rw,nosuid,nodev,fsname=portal,auto_unmount,subtype=portal -- /run/user/1000/doc ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/xdg-desktop-portal-gnome ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/fwupd/fwupd ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/ibus-engine-simple ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/bin/gjs /usr/share/gnome-shell/org.gnome.ScreenSaver ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/tracker-miner-fs-3 ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/xdg-desktop-portal-gtk ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/ubuntu-advantage-desktop-daemon ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "/usr/libexec/gvfsd-metadata ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "update-notifier ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "sshd: user [priv]    ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "sshd: user@pts/0     ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "bash /home/user/px4-sim-stack/px4sim state --watch 2.0 ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "sudo tcpdump -i any -n -q -l host 10.200.142.61 ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "bash -c \n\t\tset -u\n\t\tlog_dir=$1\n\t\twhile read -r id name; do\n\t\t\t[ -n \"$id\" ] || continue\n\t\t\tdocker logs -f --timestamps \"$id\" >\"$log_dir/$name.log\" 2>&1 &\n\t\tdone < <(docker ps --format \"{{.ID}} {{.Names}}\")\n\t\twait\n\t bash logs/containers ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "python3 scripts/record-session.py ef5468a37585 /home/user/chimera-deploy/remote/remote_record_all.sh ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "docker wait ef5468a37585 ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "bash /home/user/chimera-deploy/remote/remote_record_all.sh ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "bash /home/user/chimera-deploy/remote/record_nv_streams.sh rosbag2_2026_10_29-14_46_42-air-d1 ",
+      "cpu_percent": 0.0
+    },
+    {
+      "command": "sshd: user@notty     ",
+      "cpu_percent": 0.0
+    }
+  ],
+  "threads": [
+    {
+      "pid": "53419",
+      "tid": "53606",
+      "name": "ros2",
+      "cpu_percent": 20.13
+    },
+    {
+      "pid": "53419",
+      "tid": "53605",
+      "name": "ros2",
+      "cpu_percent": 18.62
+    },
+    {
+      "pid": "53603",
+      "tid": "53620",
+      "name": "mpegtsmux0:src",
+      "cpu_percent": 17.86
+    },
+    {
+      "pid": "310",
+      "tid": "310",
+      "name": "irq/187-host1x_",
+      "cpu_percent": 17.01
+    },
+    {
+      "pid": "52689",
+      "tid": "52689",
+      "name": "mosaic",
+      "cpu_percent": 15.5
+    },
+    {
+      "pid": "52984",
+      "tid": "52984",
+      "name": "status",
+      "cpu_percent": 12.0
+    },
+    {
+      "pid": "52828",
+      "tid": "53126",
+      "name": "argus_thread",
+      "cpu_percent": 10.3
+    },
+    {
+      "pid": "53419",
+      "tid": "53589",
+      "name": "ros2",
+      "cpu_percent": 8.79
+    },
+    {
+      "pid": "52823",
+      "tid": "52823",
+      "name": "footprint",
+      "cpu_percent": 6.71
+    },
+    {
+      "pid": "590",
+      "tid": "590",
+      "name": "polkitd",
+      "cpu_percent": 6.52
+    },
+    {
+      "pid": "52737",
+      "tid": "52737",
+      "name": "gimbal",
+      "cpu_percent": 6.43
+    },
+    {
+      "pid": "52789",
+      "tid": "52789",
+      "name": "gimbal_encoder",
+      "cpu_percent": 6.24
+    },
+    {
+      "pid": "52862",
+      "tid": "52862",
+      "name": "location_viz",
+      "cpu_percent": 6.24
+    },
+    {
+      "pid": "52665",
+      "tid": "52665",
+      "name": "target_box_viz",
+      "cpu_percent": 6.05
+    },
+    {
+      "pid": "52724",
+      "tid": "52724",
+      "name": "vehicle",
+      "cpu_percent": 5.48
+    },
+    {
+      "pid": "52655",
+      "tid": "52677",
+      "name": "mavros_node",
+      "cpu_percent": 5.39
+    },
+    {
+      "pid": "52663",
+      "tid": "52663",
+      "name": "tf_loc",
+      "cpu_percent": 5.29
+    },
+    {
+      "pid": "52682",
+      "tid": "52682",
+      "name": "chimera_mission",
+      "cpu_percent": 5.29
+    },
+    {
+      "pid": "53419",
+      "tid": "53587",
+      "name": "ros2",
+      "cpu_percent": 5.2
+    },
+    {
+      "pid": "52876",
+      "tid": "52876",
+      "name": "target_preproce",
+      "cpu_percent": 5.1
+    },
+    {
+      "pid": "34999",
+      "tid": "34999",
+      "name": "tcpdump",
+      "cpu_percent": 4.82
+    },
+    {
+      "pid": "53604",
+      "tid": "53626",
+      "name": "mpegtsmux0:src",
+      "cpu_percent": 4.82
+    },
+    {
+      "pid": "52869",
+      "tid": "54310",
+      "name": "terrain_viz",
+      "cpu_percent": 4.63
+    },
+    {
+      "pid": "53419",
+      "tid": "53584",
+      "name": "ros2",
+      "cpu_percent": 4.63
+    },
+    {
+      "pid": "39916",
+      "tid": "39916",
+      "name": "tcpdump",
+      "cpu_percent": 4.54
+    },
+    {
+      "pid": "52865",
+      "tid": "53825",
+      "name": "buildings_viz",
+      "cpu_percent": 4.44
+    },
+    {
+      "pid": "52833",
+      "tid": "54284",
+      "name": "scoring",
+      "cpu_percent": 4.35
+    },
+    {
+      "pid": "52844",
+      "tid": "54177",
+      "name": "footprint_viz",
+      "cpu_percent": 4.25
+    },
+    {
+      "pid": "53419",
+      "tid": "53586",
+      "name": "ros2",
+      "cpu_percent": 4.25
+    },
+    {
+      "pid": "52860",
+      "tid": "54180",
+      "name": "scoring_viz",
+      "cpu_percent": 4.16
+    },
+    {
+      "pid": "52659",
+      "tid": "54353",
+      "name": "gimbal",
+      "cpu_percent": 4.06
+    },
+    {
+      "pid": "52737",
+      "tid": "53967",
+      "name": "gimbal",
+      "cpu_percent": 3.97
+    },
+    {
+      "pid": "52831",
+      "tid": "54297",
+      "name": "ground_projecti",
+      "cpu_percent": 3.78
+    },
+    {
+      "pid": "53603",
+      "tid": "53785",
+      "name": "nvv4l2h265enc0:",
+      "cpu_percent": 3.78
+    },
+    {
+      "pid": "52737",
+      "tid": "53957",
+      "name": "gimbal",
+      "cpu_percent": 3.69
+    },
+    {
+      "pid": "52659",
+      "tid": "54304",
+      "name": "gimbal",
+      "cpu_percent": 3.21
+    },
+    {
+      "pid": "52663",
+      "tid": "54372",
+      "name": "tf_loc",
+      "cpu_percent": 3.21
+    },
+    {
+      "pid": "52828",
+      "tid": "53447",
+      "name": "nvv4l2h265enc4:",
+      "cpu_percent": 3.12
+    },
+    {
+      "pid": "52718",
+      "tid": "52778",
+      "name": "domain_bridge",
+      "cpu_percent": 3.02
+    },
+    {
+      "pid": "1571",
+      "tid": "1571",
+      "name": "mavlink-routerd",
+      "cpu_percent": 2.93
+    },
+    {
+      "pid": "52665",
+      "tid": "54348",
+      "name": "target_box_viz",
+      "cpu_percent": 2.93
+    },
+    {
+      "pid": "52716",
+      "tid": "54010",
+      "name": "casualty_image_",
+      "cpu_percent": 2.93
+    },
+    {
+      "pid": "52876",
+      "tid": "54161",
+      "name": "target_preproce",
+      "cpu_percent": 2.84
+    },
+    {
+      "pid": "52718",
+      "tid": "52811",
+      "name": "domain_bridge",
+      "cpu_percent": 2.74
+    },
+    {
+      "pid": "52751",
+      "tid": "54138",
+      "name": "camera",
+      "cpu_percent": 2.74
+    },
+    {
+      "pid": "52655",
+      "tid": "52655",
+      "name": "mavros_node",
+      "cpu_percent": 2.65
+    },
+    {
+      "pid": "52655",
+      "tid": "52787",
+      "name": "mavros_node",
+      "cpu_percent": 2.65
+    },
+    {
+      "pid": "52661",
+      "tid": "54085",
+      "name": "img_processing",
+      "cpu_percent": 2.65
+    },
+    {
+      "pid": "52661",
+      "tid": "54087",
+      "name": "img_processing",
+      "cpu_percent": 2.65
+    },
+    {
+      "pid": "52663",
+      "tid": "54368",
+      "name": "tf_loc",
+      "cpu_percent": 2.65
+    },
+    {
+      "pid": "52665",
+      "tid": "54346",
+      "name": "target_box_viz",
+      "cpu_percent": 2.65
+    },
+    {
+      "pid": "52679",
+      "tid": "53513",
+      "name": "survey",
+      "cpu_percent": 2.65
+    },
+    {
+      "pid": "52737",
+      "tid": "53675",
+      "name": "gimbal",
+      "cpu_percent": 2.65
+    },
+    {
+      "pid": "52833",
+      "tid": "54262",
+      "name": "scoring",
+      "cpu_percent": 2.65
+    },
+    {
+      "pid": "52667",
+      "tid": "53363",
+      "name": "image_strip",
+      "cpu_percent": 2.55
+    },
+    {
+      "pid": "52724",
+      "tid": "53928",
+      "name": "vehicle",
+      "cpu_percent": 2.55
+    },
+    {
+      "pid": "52828",
+      "tid": "53002",
+      "name": "nvarguscamerasr",
+      "cpu_percent": 2.55
+    },
+    {
+      "pid": "52833",
+      "tid": "54264",
+      "name": "scoring",
+      "cpu_percent": 2.55
+    },
+    {
+      "pid": "52860",
+      "tid": "53919",
+      "name": "scoring_viz",
+      "cpu_percent": 2.55
+    },
+    {
+      "pid": "52876",
+      "tid": "54163",
+      "name": "target_preproce",
+      "cpu_percent": 2.55
+    },
+    {
+      "pid": "52927",
+      "tid": "54478",
+      "name": "sim_ground_trut",
+      "cpu_percent": 2.55
+    },
+    {
+      "pid": "52984",
+      "tid": "53550",
+      "name": "status",
+      "cpu_percent": 2.55
+    },
+    {
+      "pid": "52665",
+      "tid": "54351",
+      "name": "target_box_viz",
+      "cpu_percent": 2.46
+    },
+    {
+      "pid": "52682",
+      "tid": "53468",
+      "name": "chimera_mission",
+      "cpu_percent": 2.46
+    },
+    {
+      "pid": "52682",
+      "tid": "53474",
+      "name": "chimera_mission",
+      "cpu_percent": 2.46
+    },
+    {
+      "pid": "52716",
+      "tid": "54012",
+      "name": "casualty_image_",
+      "cpu_percent": 2.46
+    },
+    {
+      "pid": "52718",
+      "tid": "52780",
+      "name": "domain_bridge",
+      "cpu_percent": 2.46
+    },
+    {
+      "pid": "52751",
+      "tid": "54140",
+      "name": "camera",
+      "cpu_percent": 2.46
+    },
+    {
+      "pid": "52782",
+      "tid": "53954",
+      "name": "camera",
+      "cpu_percent": 2.46
+    },
+    {
+      "pid": "52789",
+      "tid": "53798",
+      "name": "gimbal_encoder",
+      "cpu_percent": 2.46
+    },
+    {
+      "pid": "52801",
+      "tid": "54128",
+      "name": "zoom",
+      "cpu_percent": 2.46
+    },
+    {
+      "pid": "52831",
+      "tid": "54219",
+      "name": "ground_projecti",
+      "cpu_percent": 2.46
+    },
+    {
+      "pid": "52844",
+      "tid": "54051",
+      "name": "footprint_viz",
+      "cpu_percent": 2.46
+    },
+    {
+      "pid": "52862",
+      "tid": "54042",
+      "name": "location_viz",
+      "cpu_percent": 2.46
+    },
+    {
+      "pid": "52865",
+      "tid": "53685",
+      "name": "buildings_viz",
+      "cpu_percent": 2.46
+    },
+    {
+      "pid": "53603",
+      "tid": "53619",
+      "name": "queue0:src",
+      "cpu_percent": 2.46
+    },
+    {
+      "pid": "53603",
+      "tid": "53786",
+      "name": "V4L2_EncThread",
+      "cpu_percent": 2.46
+    },
+    {
+      "pid": "1188",
+      "tid": "52910",
+      "name": "CaptureSchedule",
+      "cpu_percent": 2.36
+    },
+    {
+      "pid": "52659",
+      "tid": "54301",
+      "name": "gimbal",
+      "cpu_percent": 2.36
+    },
+    {
+      "pid": "52679",
+      "tid": "53515",
+      "name": "survey",
+      "cpu_percent": 2.36
+    },
+    {
+      "pid": "52682",
+      "tid": "53470",
+      "name": "chimera_mission",
+      "cpu_percent": 2.36
+    },
+    {
+      "pid": "52693",
+      "tid": "52764",
+      "name": "domain_bridge",
+      "cpu_percent": 2.36
+    },
+    {
+      "pid": "52718",
+      "tid": "52813",
+      "name": "domain_bridge",
+      "cpu_percent": 2.36
+    },
+    {
+      "pid": "52737",
+      "tid": "53677",
+      "name": "gimbal",
+      "cpu_percent": 2.36
+    },
+    {
+      "pid": "52801",
+      "tid": "53782",
+      "name": "zoom",
+      "cpu_percent": 2.36
+    },
+    {
+      "pid": "52801",
+      "tid": "53784",
+      "name": "zoom",
+      "cpu_percent": 2.36
+    },
+    {
+      "pid": "52801",
+      "tid": "53794",
+      "name": "zoom",
+      "cpu_percent": 2.36
+    },
+    {
+      "pid": "52831",
+      "tid": "54221",
+      "name": "ground_projecti",
+      "cpu_percent": 2.36
+    },
+    {
+      "pid": "52860",
+      "tid": "53921",
+      "name": "scoring_viz",
+      "cpu_percent": 2.36
+    },
+    {
+      "pid": "52862",
+      "tid": "54044",
+      "name": "location_viz",
+      "cpu_percent": 2.36
+    },
+    {
+      "pid": "52907",
+      "tid": "54278",
+      "name": "target_tracking",
+      "cpu_percent": 2.36
+    },
+    {
+      "pid": "52927",
+      "tid": "52927",
+      "name": "sim_ground_trut",
+      "cpu_percent": 2.36
+    },
+    {
+      "pid": "52984",
+      "tid": "53552",
+      "name": "status",
+      "cpu_percent": 2.36
+    },
+    {
+      "pid": "34874",
+      "tid": "34993",
+      "name": "python3",
+      "cpu_percent": 2.27
+    },
+    {
+      "pid": "52655",
+      "tid": "52788",
+      "name": "mudp0",
+      "cpu_percent": 2.27
+    },
+    {
+      "pid": "52724",
+      "tid": "53930",
+      "name": "vehicle",
+      "cpu_percent": 2.27
+    },
+    {
+      "pid": "52771",
+      "tid": "53815",
+      "name": "rangefinder",
+      "cpu_percent": 2.27
+    },
+    {
+      "pid": "52833",
+      "tid": "54268",
+      "name": "scoring",
+      "cpu_percent": 2.27
+    },
+    {
+      "pid": "52835",
+      "tid": "54013",
+      "name": "foxglove_contro",
+      "cpu_percent": 2.27
+    },
+    {
+      "pid": "52844",
+      "tid": "54053",
+      "name": "footprint_viz",
+      "cpu_percent": 2.27
+    },
+    {
+      "pid": "52865",
+      "tid": "53687",
+      "name": "buildings_viz",
+      "cpu_percent": 2.27
+    },
+    {
+      "pid": "52869",
+      "tid": "54009",
+      "name": "terrain_viz",
+      "cpu_percent": 2.27
+    },
+    {
+      "pid": "52907",
+      "tid": "54272",
+      "name": "target_tracking",
+      "cpu_percent": 2.27
+    },
+    {
+      "pid": "52925",
+      "tid": "54031",
+      "name": "static_roi_filt",
+      "cpu_percent": 2.27
+    },
+    {
+      "pid": "52925",
+      "tid": "54033",
+      "name": "static_roi_filt",
+      "cpu_percent": 2.27
+    },
+    {
+      "pid": "52927",
+      "tid": "54476",
+      "name": "sim_ground_trut",
+      "cpu_percent": 2.27
+    },
+    {
+      "pid": "52984",
+      "tid": "53555",
+      "name": "status",
+      "cpu_percent": 2.27
+    },
+    {
+      "pid": "52659",
+      "tid": "54299",
+      "name": "gimbal",
+      "cpu_percent": 2.17
+    },
+    {
+      "pid": "52782",
+      "tid": "53956",
+      "name": "camera",
+      "cpu_percent": 2.17
+    },
+    {
+      "pid": "52789",
+      "tid": "53800",
+      "name": "gimbal_encoder",
+      "cpu_percent": 2.17
+    },
+    {
+      "pid": "52835",
+      "tid": "54001",
+      "name": "foxglove_contro",
+      "cpu_percent": 2.17
+    },
+    {
+      "pid": "54470",
+      "tid": "54470",
+      "name": "python3",
+      "cpu_percent": 2.17
+    },
+    {
+      "pid": "52655",
+      "tid": "52674",
+      "name": "mavros_node",
+      "cpu_percent": 2.08
+    },
+    {
+      "pid": "52663",
+      "tid": "54366",
+      "name": "tf_loc",
+      "cpu_percent": 2.08
+    },
+    {
+      "pid": "52667",
+      "tid": "53367",
+      "name": "image_strip",
+      "cpu_percent": 2.08
+    },
+    {
+      "pid": "52693",
+      "tid": "52732",
+      "name": "domain_bridge",
+      "cpu_percent": 2.08
+    },
+    {
+      "pid": "52693",
+      "tid": "52766",
+      "name": "domain_bridge",
+      "cpu_percent": 2.08
+    },
+    {
+      "pid": "52828",
+      "tid": "53067",
+      "name": "v4l2src0:src",
+      "cpu_percent": 2.08
+    },
+    {
+      "pid": "52942",
+      "tid": "53155",
+      "name": "foxglove_bridge",
+      "cpu_percent": 2.08
+    },
+    {
+      "pid": "52679",
+      "tid": "53518",
+      "name": "survey",
+      "cpu_percent": 1.98
+    },
+    {
+      "pid": "52693",
+      "tid": "52734",
+      "name": "domain_bridge",
+      "cpu_percent": 1.98
+    },
+    {
+      "pid": "52693",
+      "tid": "52740",
+      "name": "domain_bridge",
+      "cpu_percent": 1.98
+    },
+    {
+      "pid": "52771",
+      "tid": "52771",
+      "name": "rangefinder",
+      "cpu_percent": 1.98
+    },
+    {
+      "pid": "52828",
+      "tid": "53004",
+      "name": "queue10:src",
+      "cpu_percent": 1.98
+    },
+    {
+      "pid": "52828",
+      "tid": "53007",
+      "name": "queue8:src",
+      "cpu_percent": 1.98
+    },
+    {
+      "pid": "52828",
+      "tid": "53055",
+      "name": "consumer_thread",
+      "cpu_percent": 1.98
+    },
+    {
+      "pid": "52862",
+      "tid": "54291",
+      "name": "location_viz",
+      "cpu_percent": 1.98
+    },
+    {
+      "pid": "52942",
+      "tid": "53157",
+      "name": "foxglove_bridge",
+      "cpu_percent": 1.98
+    },
+    {
+      "pid": "52942",
+      "tid": "53160",
+      "name": "foxglove_bridge",
+      "cpu_percent": 1.98
+    },
+    {
+      "pid": "39789",
+      "tid": "39909",
+      "name": "python3",
+      "cpu_percent": 1.89
+    },
+    {
+      "pid": "52657",
+      "tid": "52657",
+      "name": "ds_node",
+      "cpu_percent": 1.89
+    },
+    {
+      "pid": "52860",
+      "tid": "52860",
+      "name": "scoring_viz",
+      "cpu_percent": 1.89
+    },
+    {
+      "pid": "52869",
+      "tid": "54015",
+      "name": "terrain_viz",
+      "cpu_percent": 1.89
+    },
+    {
+      "pid": "52907",
+      "tid": "52907",
+      "name": "target_tracking",
+      "cpu_percent": 1.89
+    },
+    {
+      "pid": "1188",
+      "tid": "52878",
+      "name": "nvargus-daemon",
+      "cpu_percent": 1.8
+    },
+    {
+      "pid": "51088",
+      "tid": "51088",
+      "name": "update-manager",
+      "cpu_percent": 1.8
+    },
+    {
+      "pid": "52771",
+      "tid": "53817",
+      "name": "rangefinder",
+      "cpu_percent": 1.8
+    },
+    {
+      "pid": "52659",
+      "tid": "52659",
+      "name": "gimbal",
+      "cpu_percent": 1.7
+    },
+    {
+      "pid": "52661",
+      "tid": "54090",
+      "name": "img_processing",
+      "cpu_percent": 1.7
+    },
+    {
+      "pid": "52828",
+      "tid": "53062",
+      "name": "queue18:src",
+      "cpu_percent": 1.7
+    },
+    {
+      "pid": "309",
+      "tid": "309",
+      "name": "nvmap-bz",
+      "cpu_percent": 1.61
+    },
+    {
+      "pid": "568",
+      "tid": "568",
+      "name": "dbus-daemon",
+      "cpu_percent": 1.61
+    },
+    {
+      "pid": "52693",
+      "tid": "52760",
+      "name": "domain_bridge",
+      "cpu_percent": 1.61
+    },
+    {
+      "pid": "52737",
+      "tid": "53680",
+      "name": "gimbal",
+      "cpu_percent": 1.61
+    },
+    {
+      "pid": "52789",
+      "tid": "53803",
+      "name": "gimbal_encoder",
+      "cpu_percent": 1.61
+    },
+    {
+      "pid": "52828",
+      "tid": "53065",
+      "name": "queue16:src",
+      "cpu_percent": 1.61
+    },
+    {
+      "pid": "52862",
+      "tid": "54293",
+      "name": "location_viz",
+      "cpu_percent": 1.61
+    },
+    {
+      "pid": "590",
+      "tid": "628",
+      "name": "gdbus",
+      "cpu_percent": 1.51
+    },
+    {
+      "pid": "52655",
+      "tid": "52675",
+      "name": "mavros_node",
+      "cpu_percent": 1.51
+    },
+    {
+      "pid": "52724",
+      "tid": "53934",
+      "name": "vehicle",
+      "cpu_percent": 1.51
+    },
+    {
+      "pid": "52724",
+      "tid": "54182",
+      "name": "vehicle",
+      "cpu_percent": 1.51
+    },
+    {
+      "pid": "52831",
+      "tid": "54224",
+      "name": "ground_projecti",
+      "cpu_percent": 1.51
+    },
+    {
+      "pid": "52844",
+      "tid": "54056",
+      "name": "footprint_viz",
+      "cpu_percent": 1.51
+    },
+    {
+      "pid": "52869",
+      "tid": "54439",
+      "name": "terrain_viz",
+      "cpu_percent": 1.51
+    },
+    {
+      "pid": "52876",
+      "tid": "54166",
+      "name": "target_preproce",
+      "cpu_percent": 1.51
+    },
+    {
+      "pid": "52942",
+      "tid": "53171",
+      "name": "foxglove_bridge",
+      "cpu_percent": 1.51
+    },
+    {
+      "pid": "52835",
+      "tid": "54022",
+      "name": "foxglove_contro",
+      "cpu_percent": 1.42
+    },
+    {
+      "pid": "52860",
+      "tid": "53926",
+      "name": "scoring_viz",
+      "cpu_percent": 1.42
+    },
+    {
+      "pid": "52907",
+      "tid": "54287",
+      "name": "target_tracking",
+      "cpu_percent": 1.42
+    },
+    {
+      "pid": "52655",
+      "tid": "52672",
+      "name": "mavros_node",
+      "cpu_percent": 1.32
+    },
+    {
+      "pid": "52828",
+      "tid": "52879",
+      "name": "python3",
+      "cpu_percent": 1.32
+    },
+    {
+      "pid": "52862",
+      "tid": "54047",
+      "name": "location_viz",
+      "cpu_percent": 1.32
+    },
+    {
+      "pid": "52925",
+      "tid": "52925",
+      "name": "static_roi_filt",
+      "cpu_percent": 1.32
+    },
+    {
+      "pid": "52312",
+      "tid": "52312",
+      "name": "ros2",
+      "cpu_percent": 1.23
+    },
+    {
+      "pid": "52771",
+      "tid": "53835",
+      "name": "rangefinder",
+      "cpu_percent": 1.23
+    },
+    {
+      "pid": "52828",
+      "tid": "53115",
+      "name": "EglStrmComm*321",
+      "cpu_percent": 1.23
+    },
+    {
+      "pid": "52865",
+      "tid": "53690",
+      "name": "buildings_viz",
+      "cpu_percent": 1.23
+    },
+    {
+      "pid": "52927",
+      "tid": "54481",
+      "name": "sim_ground_trut",
+      "cpu_percent": 1.23
+    },
+    {
+      "pid": "53604",
+      "tid": "53751",
+      "name": "nvv4l2h265enc0:",
+      "cpu_percent": 1.23
+    },
+    {
+      "pid": "1",
+      "tid": "1",
+      "name": "systemd",
+      "cpu_percent": 1.13
+    },
+    {
+      "pid": "52828",
+      "tid": "53069",
+      "name": "v4l2src0:src",
+      "cpu_percent": 1.13
+    },
+    {
+      "pid": "52869",
+      "tid": "54025",
+      "name": "terrain_viz",
+      "cpu_percent": 1.13
+    },
+    {
+      "pid": "52925",
+      "tid": "54036",
+      "name": "static_roi_filt",
+      "cpu_percent": 1.13
+    },
+    {
+      "pid": "52984",
+      "tid": "53553",
+      "name": "status",
+      "cpu_percent": 1.13
+    },
+    {
+      "pid": "19712",
+      "tid": "19712",
+      "name": "kworker/0:2-events",
+      "cpu_percent": 1.04
+    },
+    {
+      "pid": "52659",
+      "tid": "54302",
+      "name": "gimbal",
+      "cpu_percent": 1.04
+    },
+    {
+      "pid": "52667",
+      "tid": "53374",
+      "name": "image_strip",
+      "cpu_percent": 1.04
+    },
+    {
+      "pid": "52679",
+      "tid": "52679",
+      "name": "survey",
+      "cpu_percent": 1.04
+    },
+    {
+      "pid": "52682",
+      "tid": "54169",
+      "name": "chimera_mission",
+      "cpu_percent": 1.04
+    },
+    {
+      "pid": "53419",
+      "tid": "53591",
+      "name": "ros2",
+      "cpu_percent": 1.04
+    },
+    {
+      "pid": "52682",
+      "tid": "54179",
+      "name": "chimera_mission",
+      "cpu_percent": 0.95
+    },
+    {
+      "pid": "52716",
+      "tid": "54018",
+      "name": "casualty_image_",
+      "cpu_percent": 0.95
+    },
+    {
+      "pid": "52718",
+      "tid": "52825",
+      "name": "domain_bridge",
+      "cpu_percent": 0.95
+    },
+    {
+      "pid": "52724",
+      "tid": "54215",
+      "name": "vehicle",
+      "cpu_percent": 0.95
+    },
+    {
+      "pid": "52782",
+      "tid": "53981",
+      "name": "camera",
+      "cpu_percent": 0.95
+    },
+    {
+      "pid": "39217",
+      "tid": "39217",
+      "name": "kworker/0:1-events",
+      "cpu_percent": 0.85
+    },
+    {
+      "pid": "52663",
+      "tid": "54369",
+      "name": "tf_loc",
+      "cpu_percent": 0.85
+    },
+    {
+      "pid": "52682",
+      "tid": "53472",
+      "name": "chimera_mission",
+      "cpu_percent": 0.85
+    },
+    {
+      "pid": "52737",
+      "tid": "53678",
+      "name": "gimbal",
+      "cpu_percent": 0.85
+    },
+    {
+      "pid": "52828",
+      "tid": "53879",
+      "name": "nvv4l2h265enc5:",
+      "cpu_percent": 0.85
+    },
+    {
+      "pid": "52833",
+      "tid": "52833",
+      "name": "scoring",
+      "cpu_percent": 0.85
+    },
+    {
+      "pid": "1188",
+      "tid": "52886",
+      "name": "SCF Execution",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "1188",
+      "tid": "52887",
+      "name": "SCF Execution",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "1188",
+      "tid": "52891",
+      "name": "SCF Execution",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "52693",
+      "tid": "52693",
+      "name": "domain_bridge",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "52693",
+      "tid": "52772",
+      "name": "domain_bridge",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "52718",
+      "tid": "52809",
+      "name": "domain_bridge",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "52724",
+      "tid": "53932",
+      "name": "vehicle",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "52751",
+      "tid": "54156",
+      "name": "camera",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "52828",
+      "tid": "53299",
+      "name": "nvv4l2decoder0:",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "52828",
+      "tid": "53448",
+      "name": "V4L2_EncThread",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "52828",
+      "tid": "53881",
+      "name": "V4L2_EncThread",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "52831",
+      "tid": "54222",
+      "name": "ground_projecti",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "52862",
+      "tid": "54045",
+      "name": "location_viz",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "52876",
+      "tid": "54164",
+      "name": "target_preproce",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "52942",
+      "tid": "53158",
+      "name": "foxglove_bridge",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "53603",
+      "tid": "53792",
+      "name": "V4L2_EncThread",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "53604",
+      "tid": "53752",
+      "name": "V4L2_EncThread",
+      "cpu_percent": 0.76
+    },
+    {
+      "pid": "14",
+      "tid": "14",
+      "name": "ksoftirqd/0",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "569",
+      "tid": "662",
+      "name": "gdbus",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "1188",
+      "tid": "52881",
+      "name": "SCF Execution",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "1188",
+      "tid": "52884",
+      "name": "SCF Execution",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "1188",
+      "tid": "52885",
+      "name": "SCF Execution",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "1188",
+      "tid": "52892",
+      "name": "SCF Execution",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "1188",
+      "tid": "52898",
+      "name": "SCF Execution",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "1188",
+      "tid": "52905",
+      "name": "SCF Execution",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "1188",
+      "tid": "53058",
+      "name": "ViCsiHw frameSt",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "1569",
+      "tid": "52602",
+      "name": "dockerd",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "52665",
+      "tid": "54349",
+      "name": "target_box_viz",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "52828",
+      "tid": "53066",
+      "name": "queue17:src",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "52833",
+      "tid": "54265",
+      "name": "scoring",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "52844",
+      "tid": "54054",
+      "name": "footprint_viz",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "52860",
+      "tid": "53922",
+      "name": "scoring_viz",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "52865",
+      "tid": "52865",
+      "name": "buildings_viz",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "52865",
+      "tid": "53688",
+      "name": "buildings_viz",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "52865",
+      "tid": "53906",
+      "name": "buildings_viz",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "52869",
+      "tid": "54023",
+      "name": "terrain_viz",
+      "cpu_percent": 0.66
+    },
+    {
+      "pid": "569",
+      "tid": "569",
+      "name": "NetworkManager",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "1188",
+      "tid": "52880",
+      "name": "SCF Execution",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "1188",
+      "tid": "52882",
+      "name": "SCF Execution",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "1188",
+      "tid": "52906",
+      "name": "SCF Execution",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "1188",
+      "tid": "52908",
+      "name": "IspHw frameComp",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "1236",
+      "tid": "1472",
+      "name": "containerd",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "1236",
+      "tid": "2871",
+      "name": "containerd",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "1569",
+      "tid": "1594",
+      "name": "dockerd",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "39555",
+      "tid": "39555",
+      "name": "python3",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "44316",
+      "tid": "44316",
+      "name": "kworker/u17:1-uvcvideo",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "52655",
+      "tid": "52792",
+      "name": "uas-exec/1.191",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "52655",
+      "tid": "52847",
+      "name": "uas-exec/1.191",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "52693",
+      "tid": "52735",
+      "name": "domain_bridge",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "52828",
+      "tid": "53059",
+      "name": "queue19:src",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "52828",
+      "tid": "53449",
+      "name": "V4L2_EncThread",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "52844",
+      "tid": "52844",
+      "name": "footprint_viz",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "52869",
+      "tid": "52869",
+      "name": "terrain_viz",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "53603",
+      "tid": "53622",
+      "name": "nvunixfdsrc0:sr",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "53603",
+      "tid": "53793",
+      "name": "V4L2_EncThread",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "53604",
+      "tid": "53756",
+      "name": "V4L2_EncThread",
+      "cpu_percent": 0.57
+    },
+    {
+      "pid": "1188",
+      "tid": "53113",
+      "name": "nvargus-daemon",
+      "cpu_percent": 0.47
+    },
+    {
+      "pid": "1188",
+      "tid": "53128",
+      "name": "nvargus-daemon",
+      "cpu_percent": 0.47
+    },
+    {
+      "pid": "1236",
+      "tid": "1471",
+      "name": "containerd",
+      "cpu_percent": 0.47
+    },
+    {
+      "pid": "1569",
+      "tid": "43780",
+      "name": "dockerd",
+      "cpu_percent": 0.47
+    },
+    {
+      "pid": "52655",
+      "tid": "52845",
+      "name": "uas-exec/1.191",
+      "cpu_percent": 0.47
+    },
+    {
+      "pid": "52655",
+      "tid": "52848",
+      "name": "uas-exec/1.191",
+      "cpu_percent": 0.47
+    },
+    {
+      "pid": "52655",
+      "tid": "52851",
+      "name": "uas-exec/1.191",
+      "cpu_percent": 0.47
+    },
+    {
+      "pid": "52679",
+      "tid": "53516",
+      "name": "survey",
+      "cpu_percent": 0.47
+    },
+    {
+      "pid": "52718",
+      "tid": "52814",
+      "name": "domain_bridge",
+      "cpu_percent": 0.47
+    },
+    {
+      "pid": "52771",
+      "tid": "54059",
+      "name": "rangefinder",
+      "cpu_percent": 0.47
+    },
+    {
+      "pid": "52801",
+      "tid": "52801",
+      "name": "zoom",
+      "cpu_percent": 0.47
+    },
+    {
+      "pid": "52801",
+      "tid": "53789",
+      "name": "zoom",
+      "cpu_percent": 0.47
+    },
+    {
+      "pid": "52828",
+      "tid": "53022",
+      "name": "unixfdsink",
+      "cpu_percent": 0.47
+    },
+    {
+      "pid": "52828",
+      "tid": "53061",
+      "name": "queue13:src",
+      "cpu_percent": 0.47
+    },
+    {
+      "pid": "52828",
+      "tid": "53450",
+      "name": "V4L2_EncThread",
+      "cpu_percent": 0.47
+    },
+    {
+      "pid": "1188",
+      "tid": "53057",
+      "name": "ViCsiHw frameCo",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "1236",
+      "tid": "1351",
+      "name": "containerd",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "1236",
+      "tid": "2941",
+      "name": "containerd",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "1569",
+      "tid": "38892",
+      "name": "dockerd",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "2306",
+      "tid": "2306",
+      "name": "gnome-shell",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "34545",
+      "tid": "34545",
+      "name": "python3",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52655",
+      "tid": "52781",
+      "name": "mavros_node",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52655",
+      "tid": "52846",
+      "name": "uas-exec/1.191",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52655",
+      "tid": "52849",
+      "name": "uas-exec/1.191",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52661",
+      "tid": "54088",
+      "name": "img_processing",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52667",
+      "tid": "53368",
+      "name": "image_strip",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52693",
+      "tid": "52767",
+      "name": "domain_bridge",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52716",
+      "tid": "54016",
+      "name": "casualty_image_",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52718",
+      "tid": "52718",
+      "name": "domain_bridge",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52718",
+      "tid": "52783",
+      "name": "domain_bridge",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52751",
+      "tid": "54154",
+      "name": "camera",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52771",
+      "tid": "53826",
+      "name": "rangefinder",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52782",
+      "tid": "53978",
+      "name": "camera",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52828",
+      "tid": "53005",
+      "name": "queue5:src",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52828",
+      "tid": "53060",
+      "name": "queue15:src",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52828",
+      "tid": "53249",
+      "name": "nvunixfdsrc4:sr",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52828",
+      "tid": "53808",
+      "name": "nvunixfdsrc5:sr",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52828",
+      "tid": "53882",
+      "name": "V4L2_EncThread",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52835",
+      "tid": "52835",
+      "name": "foxglove_contro",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52835",
+      "tid": "54020",
+      "name": "foxglove_contro",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52865",
+      "tid": "54362",
+      "name": "buildings_viz",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52907",
+      "tid": "54285",
+      "name": "target_tracking",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52925",
+      "tid": "54034",
+      "name": "static_roi_filt",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "52927",
+      "tid": "54479",
+      "name": "sim_ground_trut",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "53604",
+      "tid": "53629",
+      "name": "nvunixfdsrc0:sr",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "53604",
+      "tid": "53761",
+      "name": "V4L2_EncThread",
+      "cpu_percent": 0.38
+    },
+    {
+      "pid": "228",
+      "tid": "228",
+      "name": "kworker/u16:6-events_unbound",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "345",
+      "tid": "345",
+      "name": "systemd-udevd",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "1188",
+      "tid": "52909",
+      "name": "CaptureSchedule",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "1236",
+      "tid": "1273",
+      "name": "containerd",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "1236",
+      "tid": "1473",
+      "name": "containerd",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "1569",
+      "tid": "43626",
+      "name": "dockerd",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "7153",
+      "tid": "7153",
+      "name": "kworker/u16:12-events_freezable_power_",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "52718",
+      "tid": "52785",
+      "name": "domain_bridge",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "52771",
+      "tid": "54437",
+      "name": "rangefinder",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "52789",
+      "tid": "53801",
+      "name": "gimbal_encoder",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "52828",
+      "tid": "52999",
+      "name": "unixfdsink",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "52828",
+      "tid": "53073",
+      "name": "v4l2src0:src",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "52828",
+      "tid": "53247",
+      "name": "queue20:src",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "52828",
+      "tid": "53806",
+      "name": "queue21:src",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "52831",
+      "tid": "52831",
+      "name": "ground_projecti",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "52927",
+      "tid": "54477",
+      "name": "sim_ground_trut",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "52984",
+      "tid": "53551",
+      "name": "status",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "53604",
+      "tid": "53627",
+      "name": "queue0:src",
+      "cpu_percent": 0.28
+    },
+    {
+      "pid": "35",
+      "tid": "35",
+      "name": "ksoftirqd/4",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "141",
+      "tid": "141",
+      "name": "kworker/u16:3-events_unbound",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "211",
+      "tid": "211",
+      "name": "kworker/u16:4-ext4-rsv-conversion",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "282",
+      "tid": "282",
+      "name": "systemd-journal",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "387",
+      "tid": "387",
+      "name": "capture",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "1188",
+      "tid": "53114",
+      "name": "EglStrmComm*AB1",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "1569",
+      "tid": "1593",
+      "name": "dockerd",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "1635",
+      "tid": "1635",
+      "name": "pipewire-media-",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "2251",
+      "tid": "2251",
+      "name": "kworker/u16:9-events_unbound",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "2306",
+      "tid": "2310",
+      "name": "gdbus",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "3033",
+      "tid": "3033",
+      "name": "kworker/u16:11-events_freezable_power_",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "21314",
+      "tid": "21314",
+      "name": "kworker/u16:2-events_unbound",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "34874",
+      "tid": "34874",
+      "name": "python3",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "39472",
+      "tid": "39472",
+      "name": "kworker/u16:0-events_unbound",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52655",
+      "tid": "52673",
+      "name": "mavros_node",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52659",
+      "tid": "54300",
+      "name": "gimbal",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52661",
+      "tid": "52661",
+      "name": "img_processing",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52665",
+      "tid": "54347",
+      "name": "target_box_viz",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52682",
+      "tid": "53469",
+      "name": "chimera_mission",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52716",
+      "tid": "54011",
+      "name": "casualty_image_",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52718",
+      "tid": "52779",
+      "name": "domain_bridge",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52724",
+      "tid": "53929",
+      "name": "vehicle",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52751",
+      "tid": "54139",
+      "name": "camera",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52771",
+      "tid": "53816",
+      "name": "rangefinder",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52782",
+      "tid": "52782",
+      "name": "camera",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52782",
+      "tid": "53955",
+      "name": "camera",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52828",
+      "tid": "53000",
+      "name": "queue9:src",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52828",
+      "tid": "53001",
+      "name": "queue11:src",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52828",
+      "tid": "53003",
+      "name": "queue7:src",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52828",
+      "tid": "53020",
+      "name": "unixfdsink",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52828",
+      "tid": "53064",
+      "name": "queue14:src",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52828",
+      "tid": "53205",
+      "name": "V4L2_DecThread",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52828",
+      "tid": "53880",
+      "name": "V4L2_EncThread",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52831",
+      "tid": "54220",
+      "name": "ground_projecti",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52833",
+      "tid": "54263",
+      "name": "scoring",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52835",
+      "tid": "54002",
+      "name": "foxglove_contro",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52860",
+      "tid": "53920",
+      "name": "scoring_viz",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52860",
+      "tid": "54308",
+      "name": "scoring_viz",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52869",
+      "tid": "54014",
+      "name": "terrain_viz",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52876",
+      "tid": "54162",
+      "name": "target_preproce",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52907",
+      "tid": "54273",
+      "name": "target_tracking",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52942",
+      "tid": "53156",
+      "name": "foxglove_bridge",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "52942",
+      "tid": "53166",
+      "name": "tokio-rt-worker",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "53419",
+      "tid": "53585",
+      "name": "ros2",
+      "cpu_percent": 0.19
+    },
+    {
+      "pid": "20",
+      "tid": "20",
+      "name": "ksoftirqd/1",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "25",
+      "tid": "25",
+      "name": "ksoftirqd/2",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "30",
+      "tid": "30",
+      "name": "ksoftirqd/3",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "40",
+      "tid": "40",
+      "name": "ksoftirqd/5",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "45",
+      "tid": "45",
+      "name": "ksoftirqd/6",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "50",
+      "tid": "50",
+      "name": "ksoftirqd/7",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "106",
+      "tid": "106",
+      "name": "kworker/u16:1-devfreq_wq",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "339",
+      "tid": "339",
+      "name": "systemd-udevd",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "599",
+      "tid": "698",
+      "name": "rs:main Q:Reg",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "636",
+      "tid": "636",
+      "name": "systemd-logind",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "638",
+      "tid": "638",
+      "name": "temperature.sh",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "994",
+      "tid": "994",
+      "name": "nvgpu_channel_p",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "1109",
+      "tid": "1109",
+      "name": "nvgpu_clk_arb_p",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "1188",
+      "tid": "52952",
+      "name": "PS handleReques",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "1188",
+      "tid": "53111",
+      "name": "CaptureDispatch",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "1306",
+      "tid": "1306",
+      "name": "sshd",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "2277",
+      "tid": "2277",
+      "name": "gnome-session-b",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "2277",
+      "tid": "2285",
+      "name": "gdbus",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "2306",
+      "tid": "2364",
+      "name": "JS Helper",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "2757",
+      "tid": "2807",
+      "name": "PressureMonitor",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "34540",
+      "tid": "34540",
+      "name": "sshd",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "34874",
+      "tid": "34989",
+      "name": "python3",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "39356",
+      "tid": "39356",
+      "name": "kworker/6:1-events",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "39555",
+      "tid": "39656",
+      "name": "python3",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "39789",
+      "tid": "39789",
+      "name": "python3",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "39789",
+      "tid": "39906",
+      "name": "python3",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52277",
+      "tid": "52282",
+      "name": "containerd-shim",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52388",
+      "tid": "52399",
+      "name": "docker",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52661",
+      "tid": "54086",
+      "name": "img_processing",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52661",
+      "tid": "54091",
+      "name": "img_processing",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52663",
+      "tid": "54367",
+      "name": "tf_loc",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52667",
+      "tid": "52667",
+      "name": "image_strip",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52667",
+      "tid": "53365",
+      "name": "image_strip",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52679",
+      "tid": "53514",
+      "name": "survey",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52679",
+      "tid": "53519",
+      "name": "survey",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52682",
+      "tid": "53492",
+      "name": "chimera_mission",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52693",
+      "tid": "52733",
+      "name": "domain_bridge",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52693",
+      "tid": "52761",
+      "name": "domain_bridge",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52693",
+      "tid": "52765",
+      "name": "domain_bridge",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52716",
+      "tid": "52716",
+      "name": "casualty_image_",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52718",
+      "tid": "52812",
+      "name": "domain_bridge",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52718",
+      "tid": "52824",
+      "name": "domain_bridge",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52737",
+      "tid": "53676",
+      "name": "gimbal",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52737",
+      "tid": "53681",
+      "name": "gimbal",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52751",
+      "tid": "52751",
+      "name": "camera",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52751",
+      "tid": "54157",
+      "name": "camera",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52782",
+      "tid": "53986",
+      "name": "camera",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52789",
+      "tid": "53799",
+      "name": "gimbal_encoder",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52801",
+      "tid": "53783",
+      "name": "zoom",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52828",
+      "tid": "52828",
+      "name": "python3",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52828",
+      "tid": "53063",
+      "name": "queue12:src",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52828",
+      "tid": "53074",
+      "name": "v4l2src0:src",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52828",
+      "tid": "53454",
+      "name": "pool-python3",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52835",
+      "tid": "54026",
+      "name": "foxglove_contro",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52844",
+      "tid": "54052",
+      "name": "footprint_viz",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52844",
+      "tid": "54058",
+      "name": "footprint_viz",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52844",
+      "tid": "54229",
+      "name": "footprint_viz",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52860",
+      "tid": "53931",
+      "name": "scoring_viz",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52860",
+      "tid": "54309",
+      "name": "scoring_viz",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52862",
+      "tid": "54043",
+      "name": "location_viz",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52862",
+      "tid": "54057",
+      "name": "location_viz",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52865",
+      "tid": "53686",
+      "name": "buildings_viz",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52876",
+      "tid": "54167",
+      "name": "target_preproce",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52925",
+      "tid": "54032",
+      "name": "static_roi_filt",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52925",
+      "tid": "54038",
+      "name": "static_roi_filt",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52942",
+      "tid": "52942",
+      "name": "foxglove_bridge",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52942",
+      "tid": "53161",
+      "name": "foxglove_bridge",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52942",
+      "tid": "53172",
+      "name": "foxglove_bridge",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52942",
+      "tid": "53173",
+      "name": "foxglove_bridge",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52942",
+      "tid": "53174",
+      "name": "foxglove_bridge",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52942",
+      "tid": "53178",
+      "name": "foxglove_bridge",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "52942",
+      "tid": "53179",
+      "name": "foxglove_bridge",
+      "cpu_percent": 0.09
+    },
+    {
+      "pid": "53419",
+      "tid": "53590",
+      "name": "ros2",
+      "cpu_percent": 0.09
+    }
+  ]
+}
