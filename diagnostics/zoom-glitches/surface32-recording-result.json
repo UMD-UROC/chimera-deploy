@@ -1,0 +1,7 @@
+{
+  "file": "/tmp/zoom-repro/video-rgb-2026-10-29-14-46-44_rosbag2_2026_10_29-14_46_42-air-d1.ts",
+  "packets_with_pts": 2279,
+  "span_seconds": 81.97002199999997,
+  "nonincreasing_pts": 0,
+  "gaps": []
+}
