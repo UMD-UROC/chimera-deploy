@@ -180,12 +180,15 @@ SOCKETS = {
     THERMAL_RAW: SOCKET(THERMAL_RAW),
 }
 
+# The default extra surface count (1) stalls with the shared raw branches.
+# On d1, 32 kept decode active under UI recording. Reverting to 1 restored
+# the stall. Keep decoder surfaces available while consumers retain frames.
 if RGB_SOURCE == "h264":
     RGB_DECODE = f"""
         video/x-h264,width={RGB_WIDTH},height={RGB_HEIGHT},framerate={RGB_FRAMERATE} !
         h264parse !
         video/x-h264,stream-format=byte-stream,alignment=au !
-        nvv4l2decoder enable-max-performance=1 num-extra-surfaces=1 !
+        nvv4l2decoder enable-max-performance=1 num-extra-surfaces=32 !
         """
 else:
     RGB_DECODE = f"""
