@@ -6,6 +6,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/record_processes.sh"
 BAG_ROOT=${BAG_ROOT:-$HOME/ros2_ws}
 BAG_NAME=${BAG_NAME:-rosbag2_$(date +%Y_%m_%d-%H_%M_%S)}
 BAG_DIR="$BAG_ROOT/$BAG_NAME"
+RECORDER_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 
 cd "$BAG_ROOT"
 (
@@ -13,7 +14,7 @@ cd "$BAG_ROOT"
   source /opt/ros/humble/setup.bash
   source install/setup.bash
   set -u
-  exec ros2 bag record -s mcap -a -o "$BAG_NAME"
+  exec "$RECORDER_DIR/safe_rosbag_record.sh" -s mcap -a -o "$BAG_NAME"
 ) &
 PIDS+=("$!")
 

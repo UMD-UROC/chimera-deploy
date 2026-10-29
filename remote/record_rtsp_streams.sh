@@ -49,11 +49,9 @@ start_recorder() {
 
   echo "[INFO] Starting recorder for $tag"
 
-  local gst_cmd=(gst-launch-1.0 -e)
-  [[ "$VERBOSE" -eq 1 ]] || gst_cmd+=(-q)
-  gst_cmd+=(rtspsrc location="$url" latency=0 protocols=tcp ! rtph265depay ! h265parse ! mpegtsmux ! filesink location="$output_file.ts")
-  # Each source connects independently. Keep errors in the session log.
-  "${gst_cmd[@]}" &
+  local gst_cmd=(/usr/bin/python3 "$(dirname "$(readlink -f "$0")")/run_gst_recording.py")
+  gst_cmd+=(rtspsrc location="$url" latency=200 protocols=tcp ! rtph265depay ! h265parse name=record_parser config-interval=-1 ! video/x-h265,stream-format=byte-stream,alignment=au ! mpegtsmux ! filesink location="$output_file.ts" sync=false async=false buffer-mode=unbuffered)
+  python3 "$(dirname "$(readlink -f "$0")")/record_video_worker.py" "$output_file.ts" -- "${gst_cmd[@]}" &
 
   local pid=$!
   PIDS+=("$pid")

@@ -35,7 +35,8 @@ def alive(pid):
 def recording(tmp_path):
     checkout = tmp_path / "chimera-deploy"
     for name in ("record_processes.sh", "record_all_common.sh", "remote_record_all.sh",
-                 "record_nv_streams.sh", "record_rtsp_streams.sh", "video_pools.py"):
+                 "record_nv_streams.sh", "record_rtsp_streams.sh", "video_pools.py",
+                 "record_video_worker.py"):
         target = checkout / "remote" / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / "remote" / name, target)
@@ -48,6 +49,13 @@ def recording(tmp_path):
     workspace = tmp_path / "workspace"
     (workspace / "install").mkdir(parents=True)
     (workspace / "install/setup.bash").touch()
+    # The transport library has separate native integration tests. These
+    # process tests use the ros2 stub below.
+    safe = checkout / "remote/safe_rosbag_record.sh"
+    safe.write_text('#!/bin/bash\nexec ros2 bag record "$@"\n')
+    safe.chmod(0o755)
+    runner = checkout / "remote/run_gst_recording.py"
+    runner.write_text("import os, sys\nos.execvp('gst-launch-1.0', ['gst-launch-1.0', *sys.argv[1:]])\n")
 
     # Test the actual shell scripts without ROS, cameras, or an RTSP server.
     binary = tmp_path / "bin"
@@ -59,11 +67,15 @@ root = pathlib.Path(os.environ['RECORD_TEST_ROOT'])
 args = sys.argv[1:]
 if pathlib.Path(sys.argv[0]).name == 'ros2':
     name = 'bag'
+    bag_dir = pathlib.Path(args[args.index('-o') + 1])
     if not (root / 'bag.startup-fail').exists():
-        pathlib.Path(args[args.index('-o') + 1]).mkdir()
+        bag_dir.mkdir()
+        (bag_dir / 'test.mcap').write_bytes(b'partial')
 else:
     source = next(a for a in args if a.startswith(('location=rtsp:', 'socket-path=')))
     name = source.rsplit('/', 1)[-1].replace('_nv.sock', '')
+    output = pathlib.Path(next(a.split('=', 1)[1] for a in args if a.startswith('location=') and a.endswith('.ts')))
+    output.write_bytes(b'x' * 188)
 (root / (name + '.args')).write_text(json.dumps(args))
 (root / (name + '.pid')).write_text(str(os.getpid()))
 stopping = False
@@ -78,6 +90,9 @@ while not stopping:
         sys.exit(23)
     time.sleep(.02)
 (root / (name + '.stopped')).touch()
+if name == 'bag':
+    (bag_dir / 'test.mcap').write_bytes(bytes.fromhex('894d434150300d0a') * 2)
+    (bag_dir / 'metadata.yaml').write_text('rosbag2_bagfile_information: {}')
 ''')
     stub.chmod(0o755)
     shutil.copy2(stub, binary / "gst-launch-1.0")
@@ -109,6 +124,7 @@ while not (root / 'container-stopped').exists():
         env = dict(os.environ, CHIMERA_VIDEO_POOL_POLICY=str(__import__("video_pools").POLICY_PATH), HOME=str(tmp_path), PATH=f"{binary}:{os.environ['PATH']}",
                    BAG_ROOT=str(workspace), BAG_NAME="session", RECORD_STREAMS=streams,
                    RECORD_VIDEO=str(int(video)), RECORD_TEST_ROOT=str(tmp_path))
+        env["PX4SIM_RECORD_STOP_GRACE"] = "2"
         command = [str(checkout / script)]
         if supervised:
             command = [sys.executable, str(PX4SIM_ROOT / "scripts/record-session.py"),
@@ -231,7 +247,7 @@ def test_session_stop_reaches_every_remaining_recorder(recording, world, failure
 
     if trigger == "container-stopped":
         (directory / trigger).touch()
-        assert process.wait(timeout=15) == 0
+        assert process.wait(timeout=15) == (1 if failure == "bag" else 0)
     else:
         # Run the same stop function that `px4sim record stop` calls.
         source = (PX4SIM_ROOT / "px4sim").read_text()
@@ -240,6 +256,7 @@ def test_session_stop_reaches_every_remaining_recorder(recording, world, failure
             offset = source.index(f"{name}() {{")
             functions.append(source[offset:source.index("\n}", offset) + 2])
         (directory / "record.pid").write_text(f"{process.pid}\n")
+        (directory / "record.bag").write_text(str(directory / "workspace/session") + "\n")
         script = '''
 set -euo pipefail
 RECORD_PID_FILE=$1/record.pid
@@ -252,9 +269,9 @@ say() { :; }
         with subprocess.Popen(["bash", "-c", script, "_", str(directory)],
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as stopper:
             # Reap the supervisor so recording_status can observe its exit.
-            assert process.wait(timeout=15) == 0
+            assert process.wait(timeout=15) == (1 if failure == "bag" else 0)
             _, error = stopper.communicate(timeout=20)
-            assert stopper.returncode == 0, error
+            assert stopper.returncode == (1 if failure == "bag" else 0), error
         assert not (directory / "record.pid").exists()
 
     for name in names:

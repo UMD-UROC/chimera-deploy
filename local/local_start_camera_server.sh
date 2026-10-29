@@ -61,7 +61,7 @@ PIPES=()
 # DEFINE TAGS AND PIPELINES HERE (appending)
 # ----------------------------------------
 
-common="protocols=udp latency=0 drop-on-late=true ! rtph265depay ! queue2 leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0 ! h265parse ! video/x-h265,stream-format=byte-stream,alignment=au ! rtph265pay pt=96 config-interval=1 name=pay0 )"
+common="protocols=tcp latency=200 ! rtph265depay ! h265parse ! video/x-h265,stream-format=byte-stream,alignment=au ! rtph265pay pt=96 config-interval=1 name=pay0 )"
 
 TAGS+=("pilotl1")
 PIPES+=("( rtspsrc location=rtsp://10.200.142.61:8554/pilotl $common")

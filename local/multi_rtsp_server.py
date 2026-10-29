@@ -21,8 +21,8 @@ def clean_expired_sessions(session_pool):
 def make_media_factory(pipeline):
     factory = GstRtspServer.RTSPMediaFactory()
     factory.set_launch(pipeline)
-    factory.set_shared(False)
-    factory.set_stop_on_disconnect(True)
+    factory.set_shared(True)
+    factory.set_stop_on_disconnect(False)
     return factory
 
 
