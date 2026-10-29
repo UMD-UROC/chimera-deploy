@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import os
+import json
+import threading
 import time
 import gi
 import rtsp_config as conf
@@ -183,6 +185,75 @@ class ProducerFrameWatchdog:
         return GLib.SOURCE_REMOVE
 
 
+class RgbStageDiagnostics:
+    """Measure capture, decode, and delivery without changing buffer flow."""
+
+    def __init__(self, producer):
+        self.lock = threading.Lock()
+        self.stages = {}
+        self.overruns = {}
+        self.started = time.monotonic()
+        for factory, label in (("v4l2src", "capture"),
+                               ("h264parse", "parsed"),
+                               ("nvv4l2decoder", "decoded")):
+            element = find_by_factory(producer, factory)
+            if element:
+                self.watch(element.get_static_pad("src"), label)
+        self.watch(producer.get_by_name("t").get_static_pad("sink"), "tee")
+        iterator = producer.iterate_recurse()
+        while True:
+            result, element = iterator.next()
+            if result == Gst.IteratorResult.RESYNC:
+                iterator.resync()
+                continue
+            if result != Gst.IteratorResult.OK:
+                break
+            factory = element.get_factory()
+            if factory and factory.get_name() == "nvunixfdsink":
+                self.watch(element.get_static_pad("sink"), element.get_property("socket-path"))
+            if factory and factory.get_name() == "queue":
+                element.connect("overrun", self.overrun)
+        GLib.timeout_add_seconds(2, self.report)
+
+    def watch(self, pad, label):
+        self.stages[label] = dict(count=0, last=None, max_gap=0.0,
+                                  corrupt=0, discont=0, offset=None)
+        pad.add_probe(Gst.PadProbeType.BUFFER, self.note, label)
+
+    def overrun(self, element):
+        with self.lock:
+            name = element.get_name()
+            self.overruns[name] = self.overruns.get(name, 0) + 1
+
+    def note(self, _pad, info, label):
+        now = time.monotonic()
+        buffer = info.get_buffer()
+        with self.lock:
+            stage = self.stages[label]
+            if stage["last"] is not None:
+                stage["max_gap"] = max(stage["max_gap"], now - stage["last"])
+            stage["last"] = now
+            stage["count"] += 1
+            stage["corrupt"] += int(buffer.has_flags(Gst.BufferFlags.CORRUPTED))
+            stage["discont"] += int(buffer.has_flags(Gst.BufferFlags.DISCONT))
+            stage["offset"] = buffer.offset
+        return Gst.PadProbeReturn.OK
+
+    def report(self):
+        now = time.monotonic()
+        with self.lock:
+            stages = {label: dict(stage, age=None if stage["last"] is None
+                                   else round(now - stage["last"], 3))
+                      for label, stage in self.stages.items()}
+            for stage in stages.values():
+                stage.pop("last")
+                stage["max_gap"] = round(stage["max_gap"], 3)
+            record = dict(elapsed=round(now - self.started, 3),
+                          stages=stages, overruns=dict(self.overruns))
+        print("RGB_DIAG " + json.dumps(record), flush=True)
+        return GLib.SOURCE_CONTINUE
+
+
 def cleanup_sockets():
     for name, path in conf.SOCKETS.items():
         try:
@@ -306,6 +377,8 @@ def main():
         log_camera_settings(name, producer)
         watch_producer(name, producer, mounts, retired)
         producer_watchdog.watch(name, producer)
+        if name == "rgb-fork":
+            RgbStageDiagnostics(producer)
         result = producer.set_state(Gst.State.PLAYING)
         if result == Gst.StateChangeReturn.FAILURE:
             raise RuntimeError(f"{name} producer failed to start")
