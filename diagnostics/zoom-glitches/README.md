@@ -1,5 +1,8 @@
 # RGB zoom diagnosis, 2026-10-29
 
+Read [the controlled reproduction](REPRODUCTION.md) for the latest findings and decoder surface comparison.
+The notes below describe the initial inspection before runtime tests.
+
 ## Findings
 
 The supplied bag confirms long RGB outages in two independent consumers.
