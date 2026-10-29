@@ -86,3 +86,8 @@ The onboard common value is now 55. The generic code default is 40, and simulati
 The inference batch converter sets its own calculated `output-buffers` count.
 The native pilot and thermal converters use the installed `nvvidconv` default of four output buffers.
 Those converter pools are separate from decoder extra surfaces and were not changed.
+
+Both consolidated RGB pipelines also passed native GStreamer parse checks on d1.
+Each decoder reported `num-extra-surfaces=55` and maximum-performance mode.
+The MJPEG mode retained its MJPEG decoder option. No live MJPEG capture was started.
+Ten camera configuration tests and four watchdog tests passed after consolidation.
