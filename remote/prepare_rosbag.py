@@ -7,10 +7,11 @@ import os
 from pathlib import Path
 import platform
 import subprocess
+import sys
 import xml.etree.ElementTree as ET
 
 
-def prepare():
+def prepare(build=True):
     source = Path(__file__).resolve().parent / "vendor/rosbag2_transport"
     installed = Path("/opt/ros/humble/share/rosbag2_transport/package.xml")
     version = ET.parse(installed).findtext("version")
@@ -27,6 +28,8 @@ def prepare():
     with (root / "build.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if not (root / "complete").exists():
+            if not build:
+                raise RuntimeError("Native recording is not prepared. Restart through px4sim first.")
             with (root / "build.log").open("w") as log:
                 commands = [
                     ["/usr/bin/cmake", "-S", str(source), "-B", str(root),
@@ -45,4 +48,4 @@ def prepare():
 
 
 if __name__ == "__main__":
-    print(prepare())
+    print(prepare(build="--cached" not in sys.argv))
