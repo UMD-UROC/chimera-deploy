@@ -184,19 +184,26 @@ SOCKETS = {
 # On d1, 32 kept decode active under UI recording. Reverting to 1 restored
 # the stall. Use the supported maximum, 55, for more consumer headroom.
 # The 23 surfaces above 32 cost about 68 MiB at 1080p NV12, before padding.
+RGB_DECODER_EXTRA_SURFACES = 55
 if RGB_SOURCE == "h264":
-    RGB_DECODE = f"""
+    RGB_PARSE = f"""
         video/x-h264,width={RGB_WIDTH},height={RGB_HEIGHT},framerate={RGB_FRAMERATE} !
         h264parse !
         video/x-h264,stream-format=byte-stream,alignment=au !
-        nvv4l2decoder enable-max-performance=1 num-extra-surfaces=55 !
         """
+    RGB_DECODER_MODE = ""
 else:
-    RGB_DECODE = f"""
+    RGB_PARSE = f"""
         image/jpeg,width={RGB_WIDTH},height={RGB_HEIGHT},framerate={RGB_FRAMERATE} !
         jpegparse !
-        nvv4l2decoder mjpeg=1 enable-max-performance=1 !
         """
+    RGB_DECODER_MODE = "mjpeg=1"
+
+RGB_DECODE = f"""
+    {RGB_PARSE.strip()}
+    nvv4l2decoder {RGB_DECODER_MODE} enable-max-performance=1
+        num-extra-surfaces={RGB_DECODER_EXTRA_SURFACES} !
+    """
 
 THERMAL_CAPS_RATE = f",framerate={THERMAL_FRAMERATE}" if THERMAL_FRAMERATE else ""
 

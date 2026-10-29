@@ -1,0 +1,8 @@
+{
+  "file": "/home/user/ros2_ws/rosbag2_2026_10_29-14_54_16-air-d1/video-rgb-2026-10-29-14-54-18_rosbag2_2026_10_29-14_54_16-air-d1.ts",
+  "access_units_with_pts": 3500,
+  "span_seconds": 125.591555555,
+  "max_gap_seconds": 0.14076666700000828,
+  "nonincreasing_pts": 0,
+  "gaps_over_half_second": []
+}

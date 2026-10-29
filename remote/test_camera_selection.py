@@ -30,6 +30,18 @@ class CameraSelectionTest(unittest.TestCase):
                     patch.dict(os.environ, {"RCAM_CAMERAS": override}):
                 return runpy.run_path(str(Path(__file__).with_name("rtsp_config.py")))
 
+    def test_rgb_modes_keep_decoder_headroom_and_codec_options(self):
+        for mode, parser in (("h264", "h264parse"), ("mjpeg", "jpegparse")):
+            with self.subTest(mode=mode), patch.dict(os.environ, {"RGB_SOURCE": mode}):
+                pipeline = self.config()["PRODUCERS"]["rgb-fork"]
+                self.assertEqual(pipeline.count("nvv4l2decoder"), 1)
+                self.assertIn("num-extra-surfaces=55", pipeline)
+                self.assertIn("enable-max-performance=1", pipeline)
+                self.assertIn(parser, pipeline)
+                self.assertEqual("mjpeg=1" in pipeline, mode == "mjpeg")
+                if mode == "h264":
+                    self.assertIn("stream-format=byte-stream,alignment=au", pipeline)
+
     def test_v3_night_has_no_rgb_producer_or_mounts(self):
         config = self.config("thermal", override="pilot,rgb,thermal")
         self.assertEqual(set(config["PRODUCERS"]), {"pilot-fork", "thermal-fork"})
