@@ -185,7 +185,7 @@ if RGB_SOURCE == "h264":
         video/x-h264,width={RGB_WIDTH},height={RGB_HEIGHT},framerate={RGB_FRAMERATE} !
         h264parse !
         video/x-h264,stream-format=byte-stream,alignment=au !
-        nvv4l2decoder enable-max-performance=1 !
+        nvv4l2decoder enable-max-performance=1 num-extra-surfaces=32 !
         """
 else:
     RGB_DECODE = f"""
