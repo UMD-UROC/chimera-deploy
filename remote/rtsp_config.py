@@ -209,6 +209,20 @@ RGB_DECODE = f"""
 
 THERMAL_CAPS_RATE = f",framerate={THERMAL_FRAMERATE}" if THERMAL_FRAMERATE else ""
 
+# The RGB v4l2src runs with do-timestamp=false, unlike the others. v4l2src
+# stamps pts with the kernel's capture time either way; do-timestamp only adds
+# a dts of the moment the frame was read out. h264parse and jpegparse then
+# replace the pts with that dts. GStreamer 1.20.3, frames 150 ms old fed
+# through parse and decode (2026-10-30, laptop):
+#
+#   do-timestamp   h264parse ! avdec_h264    jpegparse ! jpegdec
+#   true           pts moved +147..+153 ms   pts moved +132..+152 ms
+#   false          pts kept exactly          pts within -14..+4 ms
+#
+# The readout moment can include time the frame waited in the kernel queue
+# behind a stalled decoder; ds_node needs the capture time. The raw producers
+# have no parser: converters, tee and queues keep the pts as it is.
+
 PRODUCERS = {
     "pilot-fork": f"""
         nvarguscamerasrc sensor-id=0 {PILOT_CAMERA} do-timestamp=true !
@@ -242,7 +256,7 @@ PRODUCERS = {
         nvunixfdsink socket-path={SOCKETS[PILOT_RAW]} sync=false async=false
         """,
     "rgb-fork": f"""
-        v4l2src device={RGB_DEVICE} io-mode=2 do-timestamp=true !
+        v4l2src device={RGB_DEVICE} io-mode=2 do-timestamp=false !
         {RGB_DECODE.strip()}
         nvvidconv output-buffers={CONVERTER_BUFFERS} flip-method={RGB_FLIP_METHOD} interpolation-method=1 !
         video/x-raw(memory:NVMM),format=NV12 !

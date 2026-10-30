@@ -197,10 +197,17 @@ class ProducerFrameWatchdog:
 
 
 class RgbStageDiagnostics:
-    """Measure capture, decode, and delivery without changing buffer flow."""
+    """Measure capture, decode, and delivery without changing buffer flow.
+
+    capture_age is how old the last frame at a stage was, from its pts, which
+    is v4l2's capture time. It should grow from stage to stage. If it drops
+    to about 0 after a stage, that stage replaced the capture time.
+    capture_age_max is the largest since the previous report.
+    """
 
     def __init__(self, producer):
         self.lock = threading.Lock()
+        self.producer = producer
         self.stages = {}
         self.overruns = {}
         self.started = time.monotonic()
@@ -232,8 +239,15 @@ class RgbStageDiagnostics:
 
     def watch(self, pad, label):
         self.stages[label] = dict(count=0, last=None, max_gap=0.0,
-                                  corrupt=0, discont=0, offset=None)
+                                  corrupt=0, discont=0, offset=None,
+                                  capture_age=None, capture_age_max=None)
         pad.add_probe(Gst.PadProbeType.BUFFER, self.note, label)
+
+    def capture_age(self, pts):
+        clock = self.producer.get_clock()
+        if clock is None or pts == Gst.CLOCK_TIME_NONE:
+            return None
+        return (clock.get_time() - self.producer.get_base_time() - pts) / Gst.SECOND
 
     def overrun(self, element):
         with self.lock:
@@ -243,6 +257,7 @@ class RgbStageDiagnostics:
     def note(self, _pad, info, label):
         now = time.monotonic()
         buffer = info.get_buffer()
+        age = self.capture_age(buffer.pts)
         with self.lock:
             stage = self.stages[label]
             if stage["last"] is not None:
@@ -252,6 +267,9 @@ class RgbStageDiagnostics:
             stage["corrupt"] += int(buffer.has_flags(Gst.BufferFlags.CORRUPTED))
             stage["discont"] += int(buffer.has_flags(Gst.BufferFlags.DISCONT))
             stage["offset"] = buffer.offset
+            if age is not None:
+                stage["capture_age"] = age
+                stage["capture_age_max"] = max(age, stage["capture_age_max"] or age)
         return Gst.PadProbeReturn.OK
 
     def report(self):
@@ -263,6 +281,11 @@ class RgbStageDiagnostics:
             for stage in stages.values():
                 stage.pop("last")
                 stage["max_gap"] = round(stage["max_gap"], 3)
+                for key in ("capture_age", "capture_age_max"):
+                    if stage[key] is not None:
+                        stage[key] = round(stage[key], 3)
+            for stage in self.stages.values():
+                stage["capture_age_max"] = None
             record = dict(elapsed=round(now - self.started, 3),
                           stages=stages, overruns=dict(self.overruns))
         print("RGB_DIAG " + json.dumps(record), flush=True)
