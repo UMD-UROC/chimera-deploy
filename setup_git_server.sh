@@ -760,28 +760,55 @@ sync_local_worktrees_parallel() {
   done
 }
 
+# Retry temporary transport failures. Keep the final error and exit status.
+fetch_mirror() {
+  local d="$1" attempt output rc
+  for attempt in 1 2 3; do
+    if output="$(git -C "$d" fetch --quiet origin "+refs/heads/*:refs/heads/*" \
+        "+refs/tags/*:refs/tags/*" 2>&1)"; then
+      [ -z "$output" ] || printf '%s\n' "$output"
+      return 0
+    else
+      rc=$?
+    fi
+    if [ "$attempt" = 3 ] || ! grep -qiE \
+        'connection reset|connection closed|connection timed out|operation timed out|remote end hung up unexpectedly|early EOF|TLS connection was non-properly terminated|requested URL returned error: (429|50[0234])' <<< "$output"; then
+      printf '%s\n' "$output"
+      return "$rc"
+    fi
+    warn "$(basename "$d"): temporary connection failure; retry $attempt/2 in $attempt second(s)"
+    sleep "$attempt"
+  done
+}
+
 sync_mirrors_parallel() {
-  local d name log rc
+  local d name log index rc result=0 next=0
   local -a pids=() names=() logs=()
-  say "refreshing mirrors in $SERVE_ROOT (parallel)"
+  say "refreshing mirrors in $SERVE_ROOT (up to 3 at a time)"
   for d in "$SERVE_ROOT"/*.git; do
     [ -d "$d" ] || continue
     [ -L "$d" ] && continue
     name="$(basename "$d")"
     log="$(mktemp -t "chimera-sync-mirror-$name.XXXXXX")"
-    (git -C "$d" fetch --quiet origin "+refs/heads/*:refs/heads/*" \
-       "+refs/tags/*:refs/tags/*") >"$log" 2>&1 &
+    fetch_mirror "$d" >"$log" 2>&1 &
     pids+=("$!"); names+=("$name"); logs+=("$log")
-  done
-  for d in "${!pids[@]}"; do
-    rc=0; wait "${pids[$d]}" || rc=$?
-    if [ "$rc" != 0 ]; then
-      echo "mirror ${names[$d]}: FAILED"
-      cat "${logs[$d]}"
-      return "$rc"
+    # Wait for the oldest job before another job can exceed the limit.
+    if [ "$((${#pids[@]} - next))" -ge 3 ]; then
+      wait "${pids[$next]}" || true
+      next=$((next + 1))
     fi
-    rm -f "${logs[$d]}"
   done
+  # Collect every result, even after a failure, and remove every job log.
+  for index in "${!pids[@]}"; do
+    rc=0; wait "${pids[$index]}" || rc=$?
+    if [ "$rc" != 0 ]; then
+      echo "mirror ${names[$index]}: FAILED"
+      result="$rc"
+    fi
+    cat "${logs[$index]}"
+    rm -f "${logs[$index]}"
+  done
+  [ "$result" = 0 ] || return "$result"
   echo "  all mirrors refreshed"
 }
 
